@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-[#F4F6F4] text-[#1B231F];
+}
+
+.badge {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+}
+
+.input {
+  @apply rounded-lg border border-black/15 px-3 py-2 text-sm outline-none focus:border-brand;
+}

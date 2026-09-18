@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  SENIOR
+  MEMBER
+}
+
+enum LeaveType {
+  SICK
+  PERSONAL
+  VACATION
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AttendanceStatus {
+  PENDING
+  ON_TIME
+  LATE
+  ABSENT
+  LEAVE
+}
+
+enum AttestType {
+  FORGOT_CHECKIN
+  FORGOT_CHECKOUT
+  FORGOT_BOTH
+}
+
+model Department {
+  id    String @id @default(cuid())
+  name  String @unique
+  users User[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(MEMBER)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime @default(now())
+
+  schedules       Schedule[]
+  attendances     Attendance[]
+  leaveRequests   LeaveRequest[]    @relation("LeaveRequester")
+  decidedLeaves   LeaveRequest[]    @relation("LeaveApprover")
+  attestRequests  TimeAttestation[] @relation("AttestRequester")
+  decidedAttests  TimeAttestation[] @relation("AttestApprover")
+}
+
+model Course {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  name      String
+  schedules Schedule[]
+}
+
+model Room {
+  id        String     @id @default(cuid())
+  name      String
+  building  String
+  schedules Schedule[]
+}
+
+model Semester {
+  id        String     @id @default(cuid())
+  name      String // e.g. "1/2569"
+  startDate DateTime
+  endDate   DateTime
+  schedules Schedule[]
+}
+
+// FR-17: configurable check-in/out geofence locations (not hardcoded)
+model CampusLocation {
+  id           String @id @default(cuid())
+  name         String
+  latitude     Float
+  longitude    Float
+  radiusMeters Int    @default(150)
+}
+
+model Schedule {
+  id         String   @id @default(cuid())
+  teacherId  String
+  teacher    User     @relation(fields: [teacherId], references: [id])
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id])
+  roomId     String
+  room       Room     @relation(fields: [roomId], references: [id])
+  semesterId String
+  semester   Semester @relation(fields: [semesterId], references: [id])
+  dayOfWeek  Int // 0=Mon .. 4=Fri
+  periodIndex Int // index into the standard period table
+  startTime  String // "08:30"
+  endTime    String // "10:20"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([teacherId])
+  @@index([semesterId])
+}
+
+// FR-4: check-in / check-out by location
+model Attendance {
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id])
+  date   DateTime // stored at local midnight — one row per user per day
+
+  checkinAt  DateTime?
+  checkinLat Float?
+  checkinLng Float?
+
+  checkoutAt  DateTime?
+  checkoutLat Float?
+  checkoutLng Float?
+
+  status AttendanceStatus @default(PENDING)
+
+  // FR-13: attested (manually confirmed) time is recorded distinctly from a real GPS check
+  attestedCheckin  Boolean @default(false)
+  attestedCheckout Boolean @default(false)
+
+  @@unique([userId, date])
+  @@index([date])
+}
+
+// FR-5 / FR-8: leave request + approval workflow
+model LeaveRequest {
+  id          String        @id @default(cuid())
+  requesterId String
+  requester   User          @relation("LeaveRequester", fields: [requesterId], references: [id])
+  type        LeaveType
+  startDate   DateTime
+  endDate     DateTime
+  reason      String
+  status      RequestStatus @default(PENDING)
+  approverId  String?
+  approver    User?         @relation("LeaveApprover", fields: [approverId], references: [id])
+  decidedAt   DateTime?
+  createdAt   DateTime      @default(now())
+}
+
+// FR-13: time attestation request + approval workflow
+model TimeAttestation {
+  id            String        @id @default(cuid())
+  requesterId   String
+  requester     User          @relation("AttestRequester", fields: [requesterId], references: [id])
+  date          DateTime
+  type          AttestType
+  requestedTime String // "08:25"
+  reason        String
+  status        RequestStatus @default(PENDING)
+  approverId    String?
+  approver      User?         @relation("AttestApprover", fields: [approverId], references: [id])
+  decidedAt     DateTime?
+  createdAt     DateTime      @default(now())
+}
