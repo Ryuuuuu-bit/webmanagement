@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "prisma db push --accept-data-loss --skip-generate && npx tsx prisma/seed.ts && next start",
+    "start": "prisma db push --accept-data-loss --skip-generate && next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
