@@ -24,13 +24,10 @@ npm run prisma:seed                  # ใส่ข้อมูลตัวอ�
 npm run dev
 ```
 
-เปิด http://localhost:3000 แล้วเข้าสู่ระบบด้วย:
+เปิด http://localhost:3000 แล้วเข้าสู่ระบบด้วยบัญชีทดสอบ
 
-| บทบาท | อีเมล | รหัสผ่าน |
-|---|---|---|
-| Admin | admin@university.ac.th | password123 |
-| Senior | kamonwan@university.ac.th | password123 |
-| Member | somchai@university.ac.th | password123 |
+> บัญชี/รหัสผ่านสำหรับทดสอบดูได้ใน `prisma/seed.ts` (ไม่ commit ไว้ใน README เพราะ repo นี้อาจเป็น public)
+> ก่อน deploy จริงหรือแชร์ repo นี้กับคนอื่น ให้เปลี่ยนรหัสผ่านที่ seed ไว้ และอีเมลตัวอย่างในนั้นด้วย
 
 ## ตั้งค่า Postgres แบบเร็วด้วย Docker
 
