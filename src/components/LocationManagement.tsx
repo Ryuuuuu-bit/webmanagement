@@ -11,6 +11,10 @@ const LocationsMap = dynamic(() => import("@/components/LocationsMap"), {
   ssr: false,
   loading: () => <div className="h-[420px] w-full animate-pulse rounded-xl border border-line bg-bg" />,
 });
+const LocationPickerMap = dynamic(() => import("@/components/LocationPickerMap"), {
+  ssr: false,
+  loading: () => <div className="h-[260px] w-full animate-pulse rounded-xl border border-line bg-bg" />,
+});
 
 type Loc = { id: string; name: string; latitude: number; longitude: number; radiusMeters: number };
 type ActionResult = { ok: boolean; message: string };
@@ -126,8 +130,8 @@ function LocationEditRow({
   errorMessage?: string;
 }) {
   const nameRef = useRef<HTMLInputElement>(null);
-  const latRef = useRef<HTMLInputElement>(null);
-  const lngRef = useRef<HTMLInputElement>(null);
+  const [lat, setLat] = useState<number>(loc.latitude);
+  const [lng, setLng] = useState<number>(loc.longitude);
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3 rounded-lg border border-line p-3">
@@ -135,14 +139,23 @@ function LocationEditRow({
         searchAction={searchLocationCandidates}
         dict={dict}
         onSelect={(r) => {
-          if (latRef.current) latRef.current.value = String(r.lat);
-          if (lngRef.current) lngRef.current.value = String(r.lng);
+          setLat(r.lat);
+          setLng(r.lng);
         }}
+      />
+      <LocationPickerMap
+        latitude={lat}
+        longitude={lng}
+        onChange={(la, ln) => {
+          setLat(la);
+          setLng(ln);
+        }}
+        hint={dict.locations.pickerHint}
       />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-5">
         <input ref={nameRef} name="name" required defaultValue={loc.name} className="input" />
-        <input ref={latRef} name="latitude" required type="number" step="any" defaultValue={loc.latitude} className="input" />
-        <input ref={lngRef} name="longitude" required type="number" step="any" defaultValue={loc.longitude} className="input" />
+        <input name="latitude" required type="number" step="any" value={lat} onChange={(e) => setLat(Number(e.target.value))} className="input" />
+        <input name="longitude" required type="number" step="any" value={lng} onChange={(e) => setLng(Number(e.target.value))} className="input" />
         <input name="radiusMeters" required type="number" defaultValue={loc.radiusMeters} min={10} max={20000} className="input" />
         <div className="flex items-center gap-2">
           <button type="submit" disabled={pending} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">{dict.common.save}</button>
@@ -170,8 +183,8 @@ export default function LocationManagement({
   const { dict } = useLanguage();
   const formRef = useRef<HTMLFormElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
-  const latRef = useRef<HTMLInputElement>(null);
-  const lngRef = useRef<HTMLInputElement>(null);
+  const [addLat, setAddLat] = useState<number | null>(null);
+  const [addLng, setAddLng] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -184,7 +197,12 @@ export default function LocationManagement({
     startTransition(async () => {
       const res = await createLocation(null, formData);
       setCreateResult(res);
-      if (res.ok) formRef.current?.reset();
+      if (res.ok) {
+        formRef.current?.reset();
+        // Resetting the native form doesn't reset React-controlled state.
+        setAddLat(null);
+        setAddLng(null);
+      }
     });
   }
 
@@ -215,18 +233,45 @@ export default function LocationManagement({
             searchAction={searchLocationCandidates}
             dict={dict}
             onSelect={(r) => {
-              if (latRef.current) latRef.current.value = String(r.lat);
-              if (lngRef.current) lngRef.current.value = String(r.lng);
+              setAddLat(r.lat);
+              setAddLng(r.lng);
               // r.label is OSM's full display_name (name + full address) — only the
               // first segment is the actual place name, so use just that as the
               // suggested location name rather than the whole address string.
               if (nameRef.current && !nameRef.current.value.trim()) nameRef.current.value = r.label.split(",")[0].trim();
             }}
           />
+          <LocationPickerMap
+            latitude={addLat}
+            longitude={addLng}
+            onChange={(la, ln) => {
+              setAddLat(la);
+              setAddLng(ln);
+            }}
+            hint={dict.locations.pickerHint}
+          />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
             <input ref={nameRef} name="name" required placeholder={dict.locations.namePlaceholder} className="input" />
-            <input ref={latRef} name="latitude" required type="number" step="any" placeholder={dict.locations.latitudePlaceholder} className="input" />
-            <input ref={lngRef} name="longitude" required type="number" step="any" placeholder={dict.locations.longitudePlaceholder} className="input" />
+            <input
+              name="latitude"
+              required
+              type="number"
+              step="any"
+              value={addLat ?? ""}
+              onChange={(e) => setAddLat(e.target.value === "" ? null : Number(e.target.value))}
+              placeholder={dict.locations.latitudePlaceholder}
+              className="input"
+            />
+            <input
+              name="longitude"
+              required
+              type="number"
+              step="any"
+              value={addLng ?? ""}
+              onChange={(e) => setAddLng(e.target.value === "" ? null : Number(e.target.value))}
+              placeholder={dict.locations.longitudePlaceholder}
+              className="input"
+            />
             <input name="radiusMeters" required type="number" defaultValue={150} min={10} max={20000} placeholder={dict.locations.radiusPlaceholder} className="input" />
           </div>
           <div className="flex items-center gap-3">
