@@ -33,8 +33,16 @@ function recordSuccess(email: string) {
   loginAttempts.delete(email);
 }
 
+// 90 days — long enough that someone who installs this as a home-screen app
+// (see manifest.ts) essentially never has to log in again on that device.
+// The lockout/tokenVersion checks above and in the jwt callback still apply
+// on every request, so a longer-lived session doesn't weaken password or
+// role-change enforcement, it only avoids re-prompting for credentials.
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 90;
+
 export const authOptions: AuthOptions = {
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
+  jwt: { maxAge: SESSION_MAX_AGE_SECONDS },
   pages: { signIn: "/login" },
   providers: [
     CredentialsProvider({
