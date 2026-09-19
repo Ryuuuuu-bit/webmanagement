@@ -319,12 +319,12 @@ const th = {
     metersShort: "ม.",
     deleteConfirm: (name: string) => `ลบจุดเช็คอิน "${name}" ใช่ไหม?`,
     search: {
-      placeholder: "พิมพ์ชื่อสถานที่ เช่น มหาวิทยาลัยเกษตรศาสตร์ บางเขน",
+      placeholder: "พิมพ์ชื่อสถานที่สั้นๆ เช่น มหาวิทยาลัยเกษตรศาสตร์",
       button: "ค้นหา",
       tooShort: "พิมพ์อย่างน้อย 3 ตัวอักษร",
-      noResults: "ไม่พบสถานที่ที่ค้นหา ลองพิมพ์คำอื่น หรือกรอกพิกัดเองด้านล่าง",
+      noResults: "ไม่พบสถานที่ที่ค้นหา ลองพิมพ์ชื่อให้สั้นลง (เช่น ตัดคำว่า \"วิทยาเขต\"/\"สาขา\" ออก) หรือกรอกพิกัดเองด้านล่าง",
       error: "ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง หรือกรอกพิกัดเอง",
-      attribution: "ค้นหาโดย OpenStreetMap (ฟรี ไม่มีค่าใช้จ่าย) — เลือกผลลัพธ์เพื่อกรอกพิกัดให้อัตโนมัติ",
+      attribution: "ค้นหาโดย OpenStreetMap (ฟรี ไม่มีค่าใช้จ่าย) — เลือกผลลัพธ์เพื่อกรอกพิกัดให้อัตโนมัติ ถ้าค้นหาชื่อเต็มไม่เจอ ลองพิมพ์ชื่อให้สั้นลง",
     },
   },
   status: {
@@ -767,12 +767,12 @@ const en: typeof th = {
     metersShort: "m",
     deleteConfirm: (name: string) => `Delete check-in location "${name}"?`,
     search: {
-      placeholder: "Type a place name, e.g. Kasetsart University Bang Khen",
+      placeholder: "Type a short place name, e.g. Kasetsart University",
       button: "Search",
       tooShort: "Type at least 3 characters",
-      noResults: "No places found — try a different search, or enter coordinates manually below",
+      noResults: "No places found — try shortening the name (e.g. drop \"Campus\"/\"Branch\"), or enter coordinates manually below",
       error: "Search failed — try again, or enter coordinates manually",
-      attribution: "Search powered by OpenStreetMap (free, no cost) — pick a result to fill in the coordinates automatically",
+      attribution: "Search powered by OpenStreetMap (free, no cost) — pick a result to fill in the coordinates automatically. If the full name finds nothing, try a shorter name",
     },
   },
   status: {
