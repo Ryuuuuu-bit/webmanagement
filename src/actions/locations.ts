@@ -76,13 +76,15 @@ export async function deleteLocation(id: string) {
 
 /**
  * Place-name search backing the "search instead of copy-pasting lat/lng from
- * Google Maps" flow in LocationManagement. Uses Geoapify's free Geocoding API
- * (see src/lib/geocode.ts) rather than Google Places, since this admin-only,
- * low-volume lookup doesn't need a paid Google Cloud billing account. (We
- * previously used OpenStreetMap's unauthenticated Nominatim endpoint directly,
- * but its shared public instance has no uptime guarantee and intermittently
- * rejected requests; Geoapify still serves OSM-derived data, with a real quota
- * tied to an API key instead.)
+ * Google Maps" flow in LocationManagement. Uses Google's Places API (New)
+ * (see src/lib/geocode.ts). We tried two free OpenStreetMap-based providers
+ * first (Nominatim, then Geoapify) — Geoapify fixed Nominatim's reliability
+ * problem, but both draw from the same OSM dataset, whose coverage of Thai
+ * place names/businesses is noticeably thinner than Google's, so searches
+ * kept coming back empty or inaccurate. Google's own data doesn't have that
+ * gap; at this admin-only, low-volume usage it should stay within Google's
+ * free monthly quota, though (unlike the OSM-based options) it does require
+ * a Google Cloud billing account with a card on file.
  */
 export async function searchLocationCandidates(
   query: string

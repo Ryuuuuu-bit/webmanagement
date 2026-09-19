@@ -1,56 +1,66 @@
-type GeoapifyResult = {
-  formatted: string;
-  lat: number;
-  lon: number;
+type GooglePlace = {
+  displayName?: { text?: string };
+  formattedAddress?: string;
+  location?: { latitude?: number; longitude?: number };
 };
 
-type GeoapifyResponse = {
-  results?: GeoapifyResult[];
+type GoogleTextSearchResponse = {
+  places?: GooglePlace[];
 };
 
-const GEOAPIFY_URL = "https://api.geoapify.com/v1/geocode/search";
+const GOOGLE_PLACES_URL = "https://places.googleapis.com/v1/places:searchText";
 
 export type PlaceCandidate = { label: string; lat: number; lng: number };
 
 /**
- * Looks up a place by name via Geoapify's Geocoding API — free (3,000
- * lookups/day on the free plan, no credit card required), and far more
- * reliable than the public OpenStreetMap Nominatim instance we used before:
- * Nominatim is a volunteer-run server with no uptime guarantee and can
- * intermittently reject requests even when a caller follows its usage
- * policy. Geoapify still serves OpenStreetMap-derived data, but as a
- * commercial API with an actual quota tied to an API key instead of a
- * shared, unauthenticated public endpoint.
+ * Looks up a place by name via Google's Places API (New) — Text Search.
  *
- * Requires the GEOAPIFY_API_KEY environment variable (free key from
- * https://www.geoapify.com/). Deliberately NOT wired to fire on every
- * keystroke — callers should only invoke this on an explicit user action
- * (a search button / Enter key), to stay well within the free daily quota.
+ * We tried two OpenStreetMap-based providers before this (Nominatim, then
+ * Geoapify): Geoapify fixed the *reliability* problem (Nominatim's shared
+ * public server randomly rejecting requests), but both still draw from the
+ * same underlying OpenStreetMap dataset, which has much sparser coverage of
+ * Thai place names, businesses and informal names than Google's — that's a
+ * data-coverage problem no OSM-based provider can fix. Google's own dataset
+ * doesn't have that gap.
+ *
+ * Requires the GOOGLE_PLACES_API_KEY environment variable, from a Google
+ * Cloud project with billing enabled and "Places API (New)" turned on. At
+ * this admin-only, low-volume usage (searching only when adding a new
+ * check-in location), usage should comfortably stay within Google's free
+ * monthly quota for Text Search — but unlike the previous providers, this
+ * one does require a billing account/card on file with Google.
  */
 export async function searchPlace(query: string): Promise<PlaceCandidate[]> {
-  const apiKey = process.env.GEOAPIFY_API_KEY;
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) {
-    throw new Error("GEOAPIFY_API_KEY is not configured");
+    throw new Error("GOOGLE_PLACES_API_KEY is not configured");
   }
 
-  const url = new URL(GEOAPIFY_URL);
-  url.searchParams.set("text", query);
-  url.searchParams.set("apiKey", apiKey);
-  url.searchParams.set("filter", "countrycode:th");
-  url.searchParams.set("lang", "th");
-  url.searchParams.set("limit", "5");
-  url.searchParams.set("format", "json");
-
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(GOOGLE_PLACES_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.location",
+    },
+    body: JSON.stringify({
+      textQuery: query,
+      languageCode: "th",
+      regionCode: "TH",
+    }),
+    cache: "no-store",
+  });
 
   if (!res.ok) {
-    throw new Error(`Geoapify request failed: ${res.status} ${await res.text().catch(() => "")}`);
+    throw new Error(`Google Places request failed: ${res.status} ${await res.text().catch(() => "")}`);
   }
 
-  const data = (await res.json()) as GeoapifyResponse;
-  return (data.results ?? []).map((r) => ({
-    label: r.formatted,
-    lat: r.lat,
-    lng: r.lon,
-  }));
+  const data = (await res.json()) as GoogleTextSearchResponse;
+  return (data.places ?? [])
+    .filter((p) => p.location?.latitude != null && p.location?.longitude != null)
+    .map((p) => ({
+      label: p.displayName?.text || p.formattedAddress || query,
+      lat: p.location!.latitude!,
+      lng: p.location!.longitude!,
+    }));
 }

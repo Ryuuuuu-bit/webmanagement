@@ -110,24 +110,15 @@ function PlaceSearchBox({
       <p className="mt-2 text-[10px] text-faint">
         {dict.locations.search.attributionPrefix}{" "}
         <a
-          href="https://www.geoapify.com/"
+          href="https://developers.google.com/maps/documentation/places/web-service"
           target="_blank"
           rel="noopener noreferrer"
           className="underline"
         >
-          Geoapify
+          Google
         </a>
         {" "}
-        (
-        <a
-          href="https://www.openstreetmap.org/copyright"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline"
-        >
-          © OpenStreetMap contributors
-        </a>
-        ) {dict.locations.search.attributionSuffix}
+        {dict.locations.search.attributionSuffix}
       </p>
     </div>
   );
