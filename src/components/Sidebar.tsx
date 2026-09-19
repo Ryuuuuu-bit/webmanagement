@@ -27,7 +27,7 @@ const ICON: Record<string, string> = {
     '<rect x="1.5" y="2" width="5.5" height="5.5" rx="1"/><rect x="9" y="2" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="8.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="8.5" width="5.5" height="5.5" rx="1"/>',
 };
 
-export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
+export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userName: string }) {
   const pathname = usePathname();
 
   const items = isAdmin
@@ -86,6 +86,15 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
       </nav>
 
       <div className="mt-auto flex flex-col gap-1.5">
+        <div className="flex items-center gap-2 rounded-lg bg-black/5 px-3 py-2">
+          <div className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
+            {userName.trim().charAt(0).toUpperCase() || "?"}
+          </div>
+          <div className="min-w-0 leading-tight">
+            <div className="truncate text-sm font-semibold text-black/80" title={userName}>{userName}</div>
+            <div className="text-[11px] text-black/45">{isAdmin ? "ผู้ดูแลระบบ" : "อาจารย์ผู้สอน"}</div>
+          </div>
+        </div>
         <Link
           href="/change-password"
           className="rounded-lg border border-black/10 px-3 py-2 text-sm font-medium text-black/60 hover:bg-black/5"

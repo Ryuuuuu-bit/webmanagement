@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // before letting the user reach any page in the app.
   const current = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { mustChangePassword: true },
+    select: { mustChangePassword: true, name: true },
   });
   if (current?.mustChangePassword) redirect("/change-password");
 
@@ -22,7 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar isAdmin={isAdmin} />
+      <Sidebar isAdmin={isAdmin} userName={current?.name ?? session.user.name ?? session.user.email ?? "-"} />
       <div className="mx-auto w-full max-w-6xl flex-1 p-6">{children}</div>
     </div>
   );
