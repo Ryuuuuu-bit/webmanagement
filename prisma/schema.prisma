@@ -99,6 +99,14 @@ model Room {
   id        String     @id @default(cuid())
   name      String
   building  String
+  // Which registered check-in geofence this room's classes happen at.
+  // Nullable so existing rooms keep working after this column is added —
+  // Admin assigns a site per room in Master Data. A room with no site set
+  // blocks check-in/out for any teacher whose schedule points at it (see
+  // getExpectedSite in src/lib/geo.ts), with a message telling them to
+  // contact the admin, rather than silently allowing check-in from anywhere.
+  campusLocationId String?
+  campusLocation   CampusLocation? @relation(fields: [campusLocationId], references: [id])
   schedules Schedule[]
 }
 
@@ -117,6 +125,7 @@ model CampusLocation {
   latitude     Float
   longitude    Float
   radiusMeters Int    @default(150)
+  rooms        Room[]
 }
 
 model Schedule {

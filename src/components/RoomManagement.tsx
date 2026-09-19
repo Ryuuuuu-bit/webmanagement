@@ -3,16 +3,19 @@
 import { useRef, useState, useTransition } from "react";
 import { useLanguage } from "./LanguageProvider";
 
-type RoomRow = { id: string; name: string; building: string };
+type RoomRow = { id: string; name: string; building: string; campusLocationId: string | null; campusLocationName: string | null };
+type LocationOption = { id: string; name: string };
 type ActionResult = { ok: boolean; message: string };
 
 export default function RoomManagement({
   rooms,
+  locations,
   createRoom,
   updateRoom,
   deleteRoom,
 }: {
   rooms: RoomRow[];
+  locations: LocationOption[];
   createRoom: (_prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   updateRoom: (id: string, _prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   deleteRoom: (id: string) => Promise<ActionResult>;
@@ -59,6 +62,12 @@ export default function RoomManagement({
       <form ref={formRef} onSubmit={onCreate} className="mt-3 flex flex-wrap items-center gap-3">
         <input name="name" required placeholder={dict.masterData.rooms.namePlaceholder} className="input" />
         <input name="building" required placeholder={dict.masterData.rooms.buildingPlaceholder} className="input" />
+        <select name="campusLocationId" defaultValue="" className="input">
+          <option value="">{dict.masterData.rooms.locationUnset}</option>
+          {locations.map((l) => (
+            <option key={l.id} value={l.id}>{l.name}</option>
+          ))}
+        </select>
         <button type="submit" disabled={pending} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
           {pending ? dict.common.saving : dict.common.add}
         </button>
@@ -71,12 +80,25 @@ export default function RoomManagement({
             <form key={r.id} onSubmit={(e) => onEditSubmit(r.id, e)} className="flex flex-wrap items-center gap-2 rounded-lg border border-line p-2">
               <input name="name" required defaultValue={r.name} className="input" />
               <input name="building" required defaultValue={r.building} className="input" />
+              <select name="campusLocationId" defaultValue={r.campusLocationId ?? ""} className="input">
+                <option value="">{dict.masterData.rooms.locationUnset}</option>
+                {locations.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
               <button type="submit" disabled={pending} className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60">{dict.common.save}</button>
               <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-muted">{dict.common.cancel}</button>
             </form>
           ) : (
             <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-2 text-sm first:border-t-0 first:pt-0">
-              <span><span className="font-medium">{r.name}</span> <span className="ml-1 text-faint">({r.building})</span></span>
+              <span>
+                <span className="font-medium">{r.name}</span> <span className="ml-1 text-faint">({r.building})</span>{" "}
+                {r.campusLocationName ? (
+                  <span className="ml-1 text-xs text-muted">📍 {r.campusLocationName}</span>
+                ) : (
+                  <span className="ml-1 text-xs font-medium text-warn">⚠ {dict.masterData.rooms.locationMissing}</span>
+                )}
+              </span>
               <div className="flex items-center gap-3">
                 <button onClick={() => setEditingId(r.id)} className="text-xs font-semibold text-brand-ink underline">{dict.common.edit}</button>
                 <button disabled={pending} onClick={() => onDelete(r.id, r.name)} className="text-xs font-semibold text-danger disabled:opacity-40">{dict.common.delete}</button>

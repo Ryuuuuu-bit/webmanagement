@@ -20,11 +20,12 @@ export default async function MasterDataPage() {
   const locale = getLocale();
   const dict = getDictionary(locale);
 
-  const [departments, courses, rooms, semesters] = await Promise.all([
+  const [departments, courses, rooms, semesters, locations] = await Promise.all([
     prisma.department.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { users: true } } } }),
     prisma.course.findMany({ orderBy: { code: "asc" } }),
-    prisma.room.findMany({ orderBy: { name: "asc" } }),
+    prisma.room.findMany({ orderBy: { name: "asc" }, include: { campusLocation: true } }),
     prisma.semester.findMany({ orderBy: { startDate: "desc" } }),
+    prisma.campusLocation.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -49,7 +50,14 @@ export default async function MasterDataPage() {
       />
 
       <RoomManagement
-        rooms={rooms}
+        rooms={rooms.map((r) => ({
+          id: r.id,
+          name: r.name,
+          building: r.building,
+          campusLocationId: r.campusLocationId,
+          campusLocationName: r.campusLocation?.name ?? null,
+        }))}
+        locations={locations.map((l) => ({ id: l.id, name: l.name }))}
         createRoom={createRoom}
         updateRoom={updateRoom}
         deleteRoom={deleteRoom}

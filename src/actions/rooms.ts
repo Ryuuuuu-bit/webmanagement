@@ -14,9 +14,14 @@ async function requireAdmin() {
 }
 
 function parseRoomInput(formData: FormData) {
+  // Empty selection ("" — the "not set yet" option) means no site assigned,
+  // which is a valid, if incomplete, state: check-in/out for this room's
+  // schedules will just block with a "contact admin" message until it's set.
+  const campusLocationId = (formData.get("campusLocationId") as string || "").trim();
   return {
     name: (formData.get("name") as string || "").trim(),
     building: (formData.get("building") as string || "").trim(),
+    campusLocationId: campusLocationId || null,
   };
 }
 
@@ -28,10 +33,10 @@ export async function createRoom(
   await requireAdmin();
   const dict = getDictionary(getLocale());
 
-  const { name, building } = parseRoomInput(formData);
+  const { name, building, campusLocationId } = parseRoomInput(formData);
   if (!name || !building) return { ok: false, message: dict.actions.rooms.fillRequired };
 
-  await prisma.room.create({ data: { name, building } });
+  await prisma.room.create({ data: { name, building, campusLocationId } });
   revalidatePath("/admin/master-data");
   return { ok: true, message: dict.actions.rooms.created(name, building) };
 }
@@ -44,10 +49,10 @@ export async function updateRoom(
   await requireAdmin();
   const dict = getDictionary(getLocale());
 
-  const { name, building } = parseRoomInput(formData);
+  const { name, building, campusLocationId } = parseRoomInput(formData);
   if (!name || !building) return { ok: false, message: dict.actions.rooms.fillRequired };
 
-  await prisma.room.update({ where: { id }, data: { name, building } });
+  await prisma.room.update({ where: { id }, data: { name, building, campusLocationId } });
   revalidatePath("/admin/master-data");
   return { ok: true, message: dict.actions.rooms.updated(name) };
 }

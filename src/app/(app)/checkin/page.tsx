@@ -4,8 +4,28 @@ import { prisma } from "@/lib/prisma";
 import { AttendanceBadge } from "@/components/StatusBadge";
 import CheckinClient from "@/components/CheckinClient";
 import { formatTime, todayAtMidnight } from "@/lib/date";
+import { getExpectedSite, type ExpectedSiteResult } from "@/lib/geo";
 import { getLocale } from "@/lib/i18n/locale";
-import { getDictionary } from "@/lib/i18n/dictionaries";
+import { getDictionary, type Dictionary } from "@/lib/i18n/dictionaries";
+
+/** Renders one row of "your site today" — same three outcomes the check-in/out server actions themselves branch on (see getExpectedSite), so what a teacher sees here always matches what actually happens when they tap the button. */
+function SiteRow({ label, result, dict }: { label: string; result: ExpectedSiteResult; dict: Dictionary }) {
+  if (result.kind === "no_schedule") {
+    return <p className="text-sm text-danger">{dict.actions.checkin.noScheduleToday}</p>;
+  }
+  if (result.kind === "no_location") {
+    return <p className="text-sm text-danger">{dict.actions.checkin.roomNoLocation(result.room.name)}</p>;
+  }
+  return (
+    <p className="text-sm">
+      <span className="font-medium">{label}:</span>{" "}
+      📍 {result.site.campusLocation.name}
+      <span className="ml-1 text-faint">
+        ({result.site.room.name}, {result.site.course.code})
+      </span>
+    </p>
+  );
+}
 
 export default async function CheckinPage() {
   const session = await getServerSession(authOptions);
@@ -15,10 +35,13 @@ export default async function CheckinPage() {
   const dict = getDictionary(locale);
 
   if (!isAdmin) {
-    const attendance = await prisma.attendance.findUnique({
-      where: { userId_date: { userId: session!.user.id, date } },
-    });
-    const locations = await prisma.campusLocation.findMany();
+    const [attendance, checkinSite, checkoutSite] = await Promise.all([
+      prisma.attendance.findUnique({
+        where: { userId_date: { userId: session!.user.id, date } },
+      }),
+      getExpectedSite(session!.user.id, "checkin"),
+      getExpectedSite(session!.user.id, "checkout"),
+    ]);
 
     return (
       <div className="flex flex-col gap-6">
@@ -44,24 +67,12 @@ export default async function CheckinPage() {
         </div>
 
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-          <h2 className="text-base font-bold">{dict.checkin.allowedLocationsTitle}</h2>
-          <p className="mb-3 text-sm text-muted">{dict.checkin.allowedLocationsHint}</p>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase text-faint">
-                <th className="pb-2">{dict.checkin.colLocation}</th>
-                <th className="pb-2">{dict.checkin.colRadius}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {locations.map((l) => (
-                <tr key={l.id} className="border-t border-line-soft">
-                  <td className="py-2">{l.name}</td>
-                  <td className="py-2">{l.radiusMeters} {dict.checkin.meters}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <h2 className="text-base font-bold">{dict.checkin.todaySiteTitle}</h2>
+          <p className="mb-3 text-sm text-muted">{dict.checkin.todaySiteHint}</p>
+          <div className="flex flex-col gap-2">
+            <SiteRow label={dict.checkin.checkinSiteLabel} result={checkinSite} dict={dict} />
+            <SiteRow label={dict.checkin.checkoutSiteLabel} result={checkoutSite} dict={dict} />
+          </div>
         </div>
       </div>
     );
