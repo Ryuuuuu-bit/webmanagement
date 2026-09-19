@@ -15,7 +15,7 @@ async function main() {
   const admin = await prisma.user.upsert({
     where: { email: "admin@university.ac.th" },
     update: {},
-    create: { name: "ผู้ดูแลระบบ", email: "admin@university.ac.th", passwordHash: password, role: Role.ADMIN, emailVerified: new Date() },
+    create: { name: "ผู้ดูแลระบบ", email: "admin@university.ac.th", passwordHash: password, role: Role.ADMIN },
   });
 
   const teacherData = [
@@ -32,7 +32,7 @@ async function main() {
     const u = await prisma.user.upsert({
       where: { email: t.email },
       update: {},
-      create: { name: t.name, email: t.email, passwordHash: password, role: t.role, departmentId: t.dept, emailVerified: new Date() },
+      create: { name: t.name, email: t.email, passwordHash: password, role: t.role, departmentId: t.dept },
     });
     teachers.push(u);
   }

@@ -17,6 +17,8 @@ const ICON: Record<string, string> = {
     '<rect x="1.5" y="2.5" width="13" height="12" rx="1.6"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><line x1="5.7" y1="9" x2="10.3" y2="12" stroke-linecap="round"/><line x1="10.3" y1="9" x2="5.7" y2="12" stroke-linecap="round"/>',
   teachers:
     '<circle cx="5.6" cy="5.5" r="2.2"/><circle cx="11" cy="6" r="1.7"/><path d="M1.6 14c.4-2.6 2-4 4-4s3.6 1.4 4 4" stroke-linecap="round"/><path d="M10 10.4c1.7.2 2.9 1.4 3.2 3.6" stroke-linecap="round"/>',
+  users:
+    '<circle cx="8" cy="5" r="2.6"/><path d="M2.5 14c.6-3.4 2.6-5.2 5.5-5.2s4.9 1.8 5.5 5.2" stroke-linecap="round"/>',
 };
 
 export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
@@ -30,6 +32,7 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         ["/attest", "attest", "อนุมัติรับรองเวลา"],
         ["/leave", "leave", "อนุมัติการลา"],
         ["/teachers", "teachers", "รายชื่ออาจารย์"],
+        ["/admin/users", "users", "จัดการผู้ใช้"],
       ]
     : [
         ["/dashboard", "dashboard", "Dashboard"],
@@ -72,12 +75,20 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         })}
       </nav>
 
-      <button
-        onClick={() => signOut({ callbackUrl: "/login" })}
-        className="mt-auto rounded-lg border border-black/10 px-3 py-2 text-left text-sm font-medium text-black/60 hover:bg-black/5"
-      >
-        ออกจากระบบ
-      </button>
+      <div className="mt-auto flex flex-col gap-1.5">
+        <Link
+          href="/change-password"
+          className="rounded-lg border border-black/10 px-3 py-2 text-sm font-medium text-black/60 hover:bg-black/5"
+        >
+          เปลี่ยนรหัสผ่าน
+        </Link>
+        <button
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="rounded-lg border border-black/10 px-3 py-2 text-left text-sm font-medium text-black/60 hover:bg-black/5"
+        >
+          ออกจากระบบ
+        </button>
+      </div>
     </aside>
   );
 }
