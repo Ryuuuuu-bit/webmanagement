@@ -23,6 +23,8 @@ const ICON: Record<string, string> = {
     '<circle cx="8" cy="5" r="2.6"/><path d="M2.5 14c.6-3.4 2.6-5.2 5.5-5.2s4.9 1.8 5.5 5.2" stroke-linecap="round"/>',
   locations:
     '<path d="M8 14.5s5-4.6 5-8.4A5 5 0 0 0 3 6.1c0 3.8 5 8.4 5 8.4Z"/><circle cx="8" cy="6.2" r="1.8"/>',
+  masterdata:
+    '<rect x="1.5" y="2" width="5.5" height="5.5" rx="1"/><rect x="9" y="2" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="8.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="8.5" width="5.5" height="5.5" rx="1"/>',
 };
 
 export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
@@ -37,6 +39,7 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         ["/leave", "leave", "อนุมัติการลา"],
         ["/teachers", "teachers", "รายชื่ออาจารย์"],
         ["/lesson-plans", "lessonplans", "แผนการสอน"],
+        ["/admin/master-data", "masterdata", "ข้อมูลหลัก"],
         ["/admin/users", "users", "จัดการผู้ใช้"],
         ["/admin/locations", "locations", "จุดเช็คอิน-เอาต์"],
       ]
