@@ -41,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const locale = getLocale();
 
   return (
-    <html lang={locale} className={sarabun.variable}>
+    <html lang={locale} className={sarabun.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }} />
       </head>
