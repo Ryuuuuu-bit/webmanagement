@@ -3,26 +3,24 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import {
+  MARKER_ICON_OPTIONS,
+  OSM_TILE_URL,
+  OSM_ATTRIBUTION,
+  OSM_MAX_ZOOM,
+  MAP_CENTER_THAILAND,
+  MAP_ZOOM_THAILAND_WIDE,
+  MAP_ZOOM_FOCUSED,
+  MAP_HEIGHT_CLASS,
+  GEOFENCE_CIRCLE_STYLE,
+} from "@/lib/mapConstants";
 
 type Loc = { id: string; name: string; latitude: number; longitude: number; radiusMeters: number };
 
-// Leaflet's default marker images are resolved relative to its own bundled
-// CSS by default, which breaks under Next.js's bundler. Pointing the icon at
-// the same CDN copy of the package sidesteps that entirely — no bundler
-// asset config needed, and it's the same free OpenStreetMap-ecosystem stack
-// already used for place search (src/lib/geocode.ts).
-const markerIcon = L.icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-const DEFAULT_CENTER: [number, number] = [13.7563, 100.5018]; // Bangkok
-const DEFAULT_ZOOM = 11;
+// Same icon (and same tile/circle styling, via mapConstants) as the
+// pin-picker map (src/components/LocationPickerMap.tsx), so the two maps in
+// this app look like one consistent thing rather than two different ones.
+const markerIcon = L.icon(MARKER_ICON_OPTIONS);
 
 export default function LocationsMap({
   locations,
@@ -43,11 +41,11 @@ export default function LocationsMap({
   // Create the map once.
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-    const map = L.map(containerRef.current, { scrollWheelZoom: false }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(map);
+    const map = L.map(containerRef.current, { scrollWheelZoom: false }).setView(
+      MAP_CENTER_THAILAND,
+      MAP_ZOOM_THAILAND_WIDE
+    );
+    L.tileLayer(OSM_TILE_URL, { attribution: OSM_ATTRIBUTION, maxZoom: OSM_MAX_ZOOM }).addTo(map);
     mapRef.current = map;
 
     return () => {
@@ -89,7 +87,7 @@ export default function LocationsMap({
 
       let circle = circlesRef.current.get(loc.id);
       if (!circle) {
-        circle = L.circle(latLng, { radius: loc.radiusMeters, color: "#2f6f5e", weight: 1, fillOpacity: 0.08 }).addTo(map);
+        circle = L.circle(latLng, { radius: loc.radiusMeters, ...GEOFENCE_CIRCLE_STYLE }).addTo(map);
         circlesRef.current.set(loc.id, circle);
       } else {
         circle.setLatLng(latLng);
@@ -99,7 +97,7 @@ export default function LocationsMap({
 
     if (!selectedId && locations.length > 0) {
       const bounds = L.latLngBounds(locations.map((l) => [l.latitude, l.longitude] as [number, number]));
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: MAP_ZOOM_FOCUSED });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locations]);
@@ -111,10 +109,10 @@ export default function LocationsMap({
     const loc = locations.find((l) => l.id === selectedId);
     const marker = markersRef.current.get(selectedId);
     if (loc && marker) {
-      map.flyTo([loc.latitude, loc.longitude], 16, { duration: 0.6 });
+      map.flyTo([loc.latitude, loc.longitude], MAP_ZOOM_FOCUSED, { duration: 0.6 });
       marker.openPopup();
     }
   }, [selectedId, locations]);
 
-  return <div ref={containerRef} className="h-[420px] w-full rounded-xl border border-line" />;
+  return <div ref={containerRef} className={`w-full rounded-xl border border-line ${MAP_HEIGHT_CLASS}`} />;
 }

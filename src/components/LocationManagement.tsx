@@ -13,7 +13,7 @@ const LocationsMap = dynamic(() => import("@/components/LocationsMap"), {
 });
 const LocationPickerMap = dynamic(() => import("@/components/LocationPickerMap"), {
   ssr: false,
-  loading: () => <div className="h-[260px] w-full animate-pulse rounded-xl border border-line bg-bg" />,
+  loading: () => <div className="h-[420px] w-full animate-pulse rounded-xl border border-line bg-bg" />,
 });
 
 type Loc = { id: string; name: string; latitude: number; longitude: number; radiusMeters: number };
@@ -144,6 +144,7 @@ function LocationEditRow({
   const nameRef = useRef<HTMLInputElement>(null);
   const [lat, setLat] = useState<number>(loc.latitude);
   const [lng, setLng] = useState<number>(loc.longitude);
+  const [radius, setRadius] = useState<number>(loc.radiusMeters);
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3 rounded-lg border border-line p-3">
@@ -158,6 +159,7 @@ function LocationEditRow({
       <LocationPickerMap
         latitude={lat}
         longitude={lng}
+        radiusMeters={radius}
         onChange={(la, ln) => {
           setLat(la);
           setLng(ln);
@@ -168,7 +170,16 @@ function LocationEditRow({
         <input ref={nameRef} name="name" required defaultValue={loc.name} className="input" />
         <input name="latitude" required type="number" step="any" value={lat} onChange={(e) => setLat(Number(e.target.value))} className="input" />
         <input name="longitude" required type="number" step="any" value={lng} onChange={(e) => setLng(Number(e.target.value))} className="input" />
-        <input name="radiusMeters" required type="number" defaultValue={loc.radiusMeters} min={10} max={20000} className="input" />
+        <input
+          name="radiusMeters"
+          required
+          type="number"
+          value={radius}
+          onChange={(e) => setRadius(Number(e.target.value))}
+          min={10}
+          max={20000}
+          className="input"
+        />
         <div className="flex items-center gap-2">
           <button type="submit" disabled={pending} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">{dict.common.save}</button>
           <button type="button" onClick={onCancel} className="text-xs font-semibold text-muted">{dict.common.cancel}</button>
@@ -197,6 +208,7 @@ export default function LocationManagement({
   const nameRef = useRef<HTMLInputElement>(null);
   const [addLat, setAddLat] = useState<number | null>(null);
   const [addLng, setAddLng] = useState<number | null>(null);
+  const [addRadius, setAddRadius] = useState<number>(150);
   const [pending, startTransition] = useTransition();
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -214,6 +226,7 @@ export default function LocationManagement({
         // Resetting the native form doesn't reset React-controlled state.
         setAddLat(null);
         setAddLng(null);
+        setAddRadius(150);
       }
     });
   }
@@ -256,6 +269,7 @@ export default function LocationManagement({
           <LocationPickerMap
             latitude={addLat}
             longitude={addLng}
+            radiusMeters={addRadius}
             onChange={(la, ln) => {
               setAddLat(la);
               setAddLng(ln);
@@ -284,7 +298,17 @@ export default function LocationManagement({
               placeholder={dict.locations.longitudePlaceholder}
               className="input"
             />
-            <input name="radiusMeters" required type="number" defaultValue={150} min={10} max={20000} placeholder={dict.locations.radiusPlaceholder} className="input" />
+            <input
+              name="radiusMeters"
+              required
+              type="number"
+              value={addRadius}
+              onChange={(e) => setAddRadius(Number(e.target.value))}
+              min={10}
+              max={20000}
+              placeholder={dict.locations.radiusPlaceholder}
+              className="input"
+            />
           </div>
           <div className="flex items-center gap-3">
             <button type="submit" disabled={pending} className="w-fit rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
