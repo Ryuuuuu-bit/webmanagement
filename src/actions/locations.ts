@@ -76,9 +76,13 @@ export async function deleteLocation(id: string) {
 
 /**
  * Place-name search backing the "search instead of copy-pasting lat/lng from
- * Google Maps" flow in LocationManagement. Uses OpenStreetMap's free Nominatim
- * API (see src/lib/geocode.ts) rather than Google Places, since this admin-only,
- * low-volume lookup doesn't need a paid API key / Google Cloud billing account.
+ * Google Maps" flow in LocationManagement. Uses Geoapify's free Geocoding API
+ * (see src/lib/geocode.ts) rather than Google Places, since this admin-only,
+ * low-volume lookup doesn't need a paid Google Cloud billing account. (We
+ * previously used OpenStreetMap's unauthenticated Nominatim endpoint directly,
+ * but its shared public instance has no uptime guarantee and intermittently
+ * rejected requests; Geoapify still serves OSM-derived data, with a real quota
+ * tied to an API key instead.)
  */
 export async function searchLocationCandidates(
   query: string
@@ -92,7 +96,11 @@ export async function searchLocationCandidates(
   try {
     const results = await searchPlace(q);
     return { ok: true, results };
-  } catch {
+  } catch (err) {
+    // Logged (not just swallowed) so a future failure shows up in Railway's
+    // deploy logs with the actual cause (missing API key, HTTP status, etc.)
+    // instead of only the generic message the admin sees.
+    console.error("searchLocationCandidates failed:", err);
     return { ok: false, message: dict.actions.locations.searchFailed };
   }
 }

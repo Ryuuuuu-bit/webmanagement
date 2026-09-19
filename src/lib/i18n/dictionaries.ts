@@ -326,7 +326,8 @@ const th = {
       tooShort: "พิมพ์อย่างน้อย 3 ตัวอักษร",
       noResults: "ไม่พบสถานที่ที่ค้นหา ลองพิมพ์ชื่อให้สั้นลง (เช่น ตัดคำว่า \"วิทยาเขต\"/\"สาขา\" ออก) หรือกรอกพิกัดเองด้านล่าง",
       error: "ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง หรือกรอกพิกัดเอง",
-      attribution: "ค้นหาโดย OpenStreetMap (ฟรี ไม่มีค่าใช้จ่าย) — เลือกผลลัพธ์เพื่อกรอกพิกัดให้อัตโนมัติ ถ้าค้นหาชื่อเต็มไม่เจอ ลองพิมพ์ชื่อให้สั้นลง",
+      attributionPrefix: "ค้นหาโดย",
+      attributionSuffix: "(ฟรี ไม่มีค่าใช้จ่าย) — เลือกผลลัพธ์เพื่อกรอกพิกัดให้อัตโนมัติ ถ้าค้นหาชื่อเต็มไม่เจอ ลองพิมพ์ชื่อให้สั้นลง",
     },
   },
   status: {
@@ -776,7 +777,8 @@ const en: typeof th = {
       tooShort: "Type at least 3 characters",
       noResults: "No places found — try shortening the name (e.g. drop \"Campus\"/\"Branch\"), or enter coordinates manually below",
       error: "Search failed — try again, or enter coordinates manually",
-      attribution: "Search powered by OpenStreetMap (free, no cost) — pick a result to fill in the coordinates automatically. If the full name finds nothing, try a shorter name",
+      attributionPrefix: "Search powered by",
+      attributionSuffix: "(free, no cost) — pick a result to fill in the coordinates automatically. If the full name finds nothing, try a shorter name",
     },
   },
   status: {

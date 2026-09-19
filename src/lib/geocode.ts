@@ -1,64 +1,56 @@
-type NominatimResult = {
-  display_name: string;
-  lat: string;
-  lon: string;
+type GeoapifyResult = {
+  formatted: string;
+  lat: number;
+  lon: number;
 };
 
-const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+type GeoapifyResponse = {
+  results?: GeoapifyResult[];
+};
 
-// Nominatim's usage policy (https://operations.osmfoundation.org/policies/nominatim/)
-// caps the public instance at 1 request/second. This is a free service with no
-// API key, so we throttle ourselves rather than risk getting blocked.
-const MIN_INTERVAL_MS = 1100;
-let lastRequestAt = 0;
-
-async function throttle() {
-  const wait = lastRequestAt + MIN_INTERVAL_MS - Date.now();
-  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
-  lastRequestAt = Date.now();
-}
+const GEOAPIFY_URL = "https://api.geoapify.com/v1/geocode/search";
 
 export type PlaceCandidate = { label: string; lat: number; lng: number };
 
 /**
- * Looks up a place by name via OpenStreetMap's Nominatim search API — free,
- * no API key, no Google Cloud billing account needed.
+ * Looks up a place by name via Geoapify's Geocoding API — free (3,000
+ * lookups/day on the free plan, no credit card required), and far more
+ * reliable than the public OpenStreetMap Nominatim instance we used before:
+ * Nominatim is a volunteer-run server with no uptime guarantee and can
+ * intermittently reject requests even when a caller follows its usage
+ * policy. Geoapify still serves OpenStreetMap-derived data, but as a
+ * commercial API with an actual quota tied to an API key instead of a
+ * shared, unauthenticated public endpoint.
  *
- * Deliberately NOT wired to fire on every keystroke: Nominatim's usage policy
- * explicitly forbids implementing live autocomplete against the public
- * instance ("this is not yet supported... you must not implement such a
- * service on the client side"). Callers must only invoke this on an explicit
- * user action (a search button / Enter key), never on each keystroke. This
- * function also self-throttles to <=1 request/second and sends a real
- * User-Agent identifying the app, per that same policy.
+ * Requires the GEOAPIFY_API_KEY environment variable (free key from
+ * https://www.geoapify.com/). Deliberately NOT wired to fire on every
+ * keystroke — callers should only invoke this on an explicit user action
+ * (a search button / Enter key), to stay well within the free daily quota.
  */
 export async function searchPlace(query: string): Promise<PlaceCandidate[]> {
-  await throttle();
-
-  const contact = process.env.NEXTAUTH_URL || "https://teachschedule.app";
-  const url = new URL(NOMINATIM_URL);
-  url.searchParams.set("q", query);
-  url.searchParams.set("format", "json");
-  url.searchParams.set("limit", "5");
-  url.searchParams.set("countrycodes", "th");
-  url.searchParams.set("addressdetails", "0");
-
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": `TeachSchedule/1.0 (${contact})`,
-      "Accept-Language": "th",
-    },
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    throw new Error(`Nominatim request failed: ${res.status}`);
+  const apiKey = process.env.GEOAPIFY_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEOAPIFY_API_KEY is not configured");
   }
 
-  const data = (await res.json()) as NominatimResult[];
-  return data.map((d) => ({
-    label: d.display_name,
-    lat: Number(d.lat),
-    lng: Number(d.lon),
+  const url = new URL(GEOAPIFY_URL);
+  url.searchParams.set("text", query);
+  url.searchParams.set("apiKey", apiKey);
+  url.searchParams.set("filter", "countrycode:th");
+  url.searchParams.set("lang", "th");
+  url.searchParams.set("limit", "5");
+  url.searchParams.set("format", "json");
+
+  const res = await fetch(url, { cache: "no-store" });
+
+  if (!res.ok) {
+    throw new Error(`Geoapify request failed: ${res.status} ${await res.text().catch(() => "")}`);
+  }
+
+  const data = (await res.json()) as GeoapifyResponse;
+  return (data.results ?? []).map((r) => ({
+    label: r.formatted,
+    lat: r.lat,
+    lng: r.lon,
   }));
 }
