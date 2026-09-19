@@ -1,7 +1,6 @@
 // Sat/Sun included so a teacher can be scheduled for extra/make-up classes
 // on weekends, not just the regular Mon-Fri timetable.
 export const DAY_LABELS = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"];
-export const PERIOD_LABELS = ["08:30–10:20", "10:30–12:20", "13:00–14:50", "15:00–16:50"];
 
 /** Maps JS getDay() (0=Sun..6=Sat) to our 0=Mon..6=Sun scale used throughout the app. */
 export function toWeekdayIndex(date: Date) {
@@ -23,6 +22,20 @@ export function todayAtMidnight() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+/** Mon..Sun dates of the current week (server-local calendar, i.e. Bangkok time). Cosmetic only — the weekly timetable itself just repeats by dayOfWeek, not by specific date. */
+export function getCurrentWeekDates(): Date[] {
+  const now = new Date();
+  const idx = toWeekdayIndex(now);
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - idx);
+  monday.setHours(0, 0, 0, 0);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
 }
 
 export function formatTime(d: Date | null | undefined) {

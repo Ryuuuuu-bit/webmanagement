@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AttendanceBadge } from "@/components/StatusBadge";
-import { DAY_LABELS, PERIOD_LABELS, formatTime, todayAtMidnight, toWeekdayIndex } from "@/lib/date";
+import { formatTime, todayAtMidnight, toWeekdayIndex } from "@/lib/date";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -15,7 +15,7 @@ export default async function DashboardPage() {
       prisma.schedule.findMany({
         where: { teacherId: session!.user.id, dayOfWeek: toWeekdayIndex(new Date()) },
         include: { course: true, room: true },
-        orderBy: { periodIndex: "asc" },
+        orderBy: { startTime: "asc" },
       }),
       prisma.leaveRequest.count({ where: { requesterId: session!.user.id, status: "PENDING" } }),
       prisma.timeAttestation.count({ where: { requesterId: session!.user.id, status: "PENDING" } }),
@@ -47,7 +47,7 @@ export default async function DashboardPage() {
               <tbody>
                 {todaySchedule.map((s) => (
                   <tr key={s.id} className="border-t border-black/5">
-                    <td className="py-2">{PERIOD_LABELS[s.periodIndex]}</td>
+                    <td className="py-2">{s.startTime}–{s.endTime}</td>
                     <td className="py-2">{s.course!.code} {s.course!.name}</td>
                     <td className="py-2">{s.room!.name}</td>
                   </tr>

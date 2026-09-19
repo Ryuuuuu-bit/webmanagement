@@ -55,23 +55,17 @@ async function main() {
     data: { name: "1/2569", startDate: new Date("2026-08-01"), endDate: new Date("2026-12-15") },
   });
 
-  const periods = [
-    { i: 0, s: "08:30", e: "10:20" },
-    { i: 1, s: "10:30", e: "12:20" },
-    { i: 2, s: "13:00", e: "14:50" },
-    { i: 3, s: "15:00", e: "16:50" },
-  ];
-
+  // Free-form times, like a real calendar — not fixed period slots.
   const scheduleRows = [
-    { teacherId: somchai.id, courseId: cs201.id, roomId: lab105.id, dayOfWeek: 0, period: periods[0] },
-    { teacherId: somchai.id, courseId: me220.id, roomId: room301.id, dayOfWeek: 0, period: periods[2] },
-    { teacherId: somchai.id, courseId: cs201.id, roomId: lab105.id, dayOfWeek: 2, period: periods[0] },
-    { teacherId: somchai.id, courseId: me220.id, roomId: room301.id, dayOfWeek: 4, period: periods[1] },
-    { teacherId: supaporn.id, courseId: ba210.id, roomId: roomB204.id, dayOfWeek: 1, period: periods[0] },
-    { teacherId: supaporn.id, courseId: ba210.id, roomId: roomB204.id, dayOfWeek: 3, period: periods[2] },
-    { teacherId: kamonwan.id, courseId: ma101.id, roomId: room301.id, dayOfWeek: 0, period: periods[1] },
-    { teacherId: kamonwan.id, courseId: ma101.id, roomId: room301.id, dayOfWeek: 2, period: periods[1] },
-    { teacherId: prayuth.id, courseId: en101.id, roomId: room204.id, dayOfWeek: 1, period: periods[2] },
+    { teacherId: somchai.id, courseId: cs201.id, roomId: lab105.id, dayOfWeek: 0, startTime: "08:30", endTime: "10:20" },
+    { teacherId: somchai.id, courseId: me220.id, roomId: room301.id, dayOfWeek: 0, startTime: "13:00", endTime: "14:50" },
+    { teacherId: somchai.id, courseId: cs201.id, roomId: lab105.id, dayOfWeek: 2, startTime: "08:30", endTime: "10:20" },
+    { teacherId: somchai.id, courseId: me220.id, roomId: room301.id, dayOfWeek: 4, startTime: "10:30", endTime: "12:20" },
+    { teacherId: supaporn.id, courseId: ba210.id, roomId: roomB204.id, dayOfWeek: 1, startTime: "08:30", endTime: "10:20" },
+    { teacherId: supaporn.id, courseId: ba210.id, roomId: roomB204.id, dayOfWeek: 3, startTime: "13:00", endTime: "14:50" },
+    { teacherId: kamonwan.id, courseId: ma101.id, roomId: room301.id, dayOfWeek: 0, startTime: "10:30", endTime: "12:20" },
+    { teacherId: kamonwan.id, courseId: ma101.id, roomId: room301.id, dayOfWeek: 2, startTime: "10:30", endTime: "12:20" },
+    { teacherId: prayuth.id, courseId: en101.id, roomId: room204.id, dayOfWeek: 1, startTime: "13:00", endTime: "14:50" },
   ];
 
   for (const row of scheduleRows) {
@@ -82,9 +76,8 @@ async function main() {
         roomId: row.roomId,
         semesterId: semester.id,
         dayOfWeek: row.dayOfWeek,
-        periodIndex: row.period.i,
-        startTime: row.period.s,
-        endTime: row.period.e,
+        startTime: row.startTime,
+        endTime: row.endTime,
       },
     });
   }

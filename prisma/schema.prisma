@@ -130,9 +130,10 @@ model Schedule {
   semesterId String
   semester   Semester @relation(fields: [semesterId], references: [id])
   dayOfWeek  Int // 0=Mon .. 6=Sun (Sat/Sun for extra/make-up classes)
-  periodIndex Int // index into the standard period table
-  startTime  String // "08:30"
-  endTime    String // "10:20"
+  // Free-form time (like a real calendar, not fixed period slots) — a
+  // teacher's class can start/end at any time, e.g. "09:15"-"10:05".
+  startTime  String // "HH:MM"
+  endTime    String // "HH:MM"
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
