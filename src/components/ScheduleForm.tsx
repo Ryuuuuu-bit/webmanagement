@@ -8,12 +8,16 @@ type Option = { id: string; name?: string; code?: string; building?: string };
 export default function ScheduleForm({
   action,
   teachers,
+  selfTeacherId,
   courses,
   rooms,
   semesters,
 }: {
   action: (formData: FormData) => Promise<{ ok: boolean; message: string }>;
-  teachers: Option[];
+  /** Admin mode: pick which teacher this slot is for. */
+  teachers?: Option[];
+  /** Member mode: slot is always for this teacher — no picker shown. */
+  selfTeacherId?: string;
   courses: Option[];
   rooms: Option[];
   semesters: Option[];
@@ -34,11 +38,15 @@ export default function ScheduleForm({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="flex flex-col gap-3.5">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
-        <select name="teacherId" required className="input" defaultValue="">
-          <option value="" disabled>อาจารย์</option>
-          {teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
+      <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 ${selfTeacherId ? "md:grid-cols-5" : "md:grid-cols-6"}`}>
+        {selfTeacherId ? (
+          <input type="hidden" name="teacherId" value={selfTeacherId} />
+        ) : (
+          <select name="teacherId" required className="input" defaultValue="">
+            <option value="" disabled>อาจารย์</option>
+            {teachers!.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
         <select name="courseId" required className="input" defaultValue="">
           <option value="" disabled>วิชา</option>
           {courses.map((c) => <option key={c.id} value={c.id}>{c.code} {c.name}</option>)}

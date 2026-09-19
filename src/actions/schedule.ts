@@ -12,17 +12,23 @@ const PERIODS = [
   { start: "15:00", end: "16:50" },
 ];
 
-async function requireAdmin() {
+async function requireSession() {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "ADMIN") throw new Error("Unauthorized");
+  if (!session?.user) throw new Error("Unauthorized");
   return session;
 }
 
-/** FR-3.2 / FR-15: create a schedule slot, rejecting a teacher/room double-booking. */
+/**
+ * FR-3.2 / FR-15: create a schedule slot, rejecting a teacher/room double-booking.
+ * Admin can create a slot for any teacher; a member (teacher) can only add to
+ * their own schedule — the submitted teacherId is ignored and forced to their
+ * own id so a member can never book time for someone else.
+ */
 export async function createSchedule(formData: FormData) {
-  await requireAdmin();
+  const session = await requireSession();
+  const isAdmin = session.user.role === "ADMIN";
 
-  const teacherId = formData.get("teacherId") as string;
+  const teacherId = isAdmin ? (formData.get("teacherId") as string) : session.user.id;
   const courseId = formData.get("courseId") as string;
   const roomId = formData.get("roomId") as string;
   const semesterId = formData.get("semesterId") as string;
@@ -52,8 +58,16 @@ export async function createSchedule(formData: FormData) {
   return { ok: true, message: "บันทึกตารางสอนแล้ว" };
 }
 
+/** Admin can delete any schedule slot; a member can only delete their own. */
 export async function deleteSchedule(id: string) {
-  await requireAdmin();
+  const session = await requireSession();
+  const isAdmin = session.user.role === "ADMIN";
+
+  if (!isAdmin) {
+    const schedule = await prisma.schedule.findUnique({ where: { id } });
+    if (!schedule || schedule.teacherId !== session.user.id) throw new Error("Unauthorized");
+  }
+
   await prisma.schedule.delete({ where: { id } });
   revalidatePath("/schedule");
 }

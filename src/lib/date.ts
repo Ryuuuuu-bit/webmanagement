@@ -8,6 +8,15 @@ export function toWeekdayIndex(date: Date) {
   return map[js];
 }
 
+// All wall-clock computation in this app is meant to happen in Thailand
+// local time (UTC+7), regardless of what timezone the server process itself
+// runs in (Railway defaults containers to UTC). The TZ=Asia/Bangkok env var
+// set on the Railway service makes setHours/getHours/getDay etc. behave
+// correctly already; the explicit `timeZone` below is a belt-and-suspenders
+// guard for display formatting so it's correct even if that env var is ever
+// missing (e.g. a fresh environment).
+const BANGKOK_TZ = "Asia/Bangkok";
+
 export function todayAtMidnight() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -16,9 +25,9 @@ export function todayAtMidnight() {
 
 export function formatTime(d: Date | null | undefined) {
   if (!d) return null;
-  return new Date(d).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+  return new Date(d).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: BANGKOK_TZ });
 }
 
 export function formatDate(d: Date | string) {
-  return new Date(d).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(d).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: BANGKOK_TZ });
 }

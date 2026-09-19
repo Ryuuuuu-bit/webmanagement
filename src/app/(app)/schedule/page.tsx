@@ -21,24 +21,33 @@ export default async function SchedulePage() {
   const teachers = isAdmin ? Array.from(new Map(schedules.map((s) => [s.teacher!.id, s.teacher!])).values()) : [session!.user];
   const allTeachers = isAdmin ? await prisma.user.findMany({ where: { role: "MEMBER" } }) : [];
 
+  const [courses, rooms, semesters] = await Promise.all([
+    prisma.course.findMany(),
+    prisma.room.findMany(),
+    prisma.semester.findMany(),
+  ]);
+
   const grid = (teacherId: string) =>
     schedules.filter((s) => s.teacherId === teacherId);
 
   return (
     <div className="flex flex-col gap-6">
-      {isAdmin && (
-        <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-bold">เพิ่มตารางสอน</h2>
-          <p className="mb-3 text-sm text-black/50">ระบบตรวจสอบการจองซ้ำซ้อนของอาจารย์และห้องให้อัตโนมัติ (FR-15)</p>
-          <ScheduleForm
-            action={createSchedule}
-            teachers={allTeachers.map((t) => ({ id: t.id, name: t.name }))}
-            courses={await prisma.course.findMany()}
-            rooms={await prisma.room.findMany()}
-            semesters={await prisma.semester.findMany()}
-          />
-        </div>
-      )}
+      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+        <h2 className="text-base font-bold">เพิ่มตารางสอน</h2>
+        <p className="mb-3 text-sm text-black/50">
+          {isAdmin
+            ? "ระบบตรวจสอบการจองซ้ำซ้อนของอาจารย์และห้องให้อัตโนมัติ (FR-15)"
+            : "เพิ่มคาบสอนของตัวเองได้ — ระบบตรวจสอบการจองซ้ำซ้อนกับอาจารย์และห้องอื่นให้อัตโนมัติ (FR-15)"}
+        </p>
+        <ScheduleForm
+          action={createSchedule}
+          teachers={isAdmin ? allTeachers.map((t) => ({ id: t.id, name: t.name })) : undefined}
+          selfTeacherId={isAdmin ? undefined : session!.user.id}
+          courses={courses}
+          rooms={rooms}
+          semesters={semesters}
+        />
+      </div>
 
       {(isAdmin ? allTeachers.map((t) => t) : [session!.user]).map((t) => {
         const rows = grid(t.id);
@@ -63,7 +72,9 @@ export default async function SchedulePage() {
                               <div className="text-[11px] font-semibold text-brand-ink">{s.course!.code}</div>
                               <div className="text-[10px] text-black/60">{s.room!.name}</div>
                             </div>
-                            {isAdmin && <DeleteButton action={deleteSchedule.bind(null, s.id)} />}
+                            {(isAdmin || s.teacherId === session!.user.id) && (
+                              <DeleteButton action={deleteSchedule.bind(null, s.id)} />
+                            )}
                           </div>
                         )}
                       </div>

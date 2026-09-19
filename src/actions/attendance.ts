@@ -5,12 +5,7 @@ import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isWithinAnyCampus } from "@/lib/geo";
-
-function todayAtMidnight() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+import { todayAtMidnight } from "@/lib/date";
 
 /** FR-4: check-in — must be inside a registered campus location (geofence). */
 export async function checkIn(lat: number, lng: number) {
