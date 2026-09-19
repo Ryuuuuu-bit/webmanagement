@@ -25,17 +25,17 @@ export default function ChangePasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-black/10 bg-white p-8 shadow-sm">
+      <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">TS</div>
           <div>
             <div className="text-base font-bold leading-tight">TeachSchedule</div>
-            <div className="text-xs text-black/50">ระบบตารางสอนอาจารย์</div>
+            <div className="text-xs text-muted">ระบบตารางสอนอาจารย์</div>
           </div>
         </div>
 
         <h1 className="mb-1 text-lg font-bold">ตั้งรหัสผ่านใหม่</h1>
-        <p className="mb-6 text-sm text-black/50">บัญชีนี้ใช้รหัสผ่านชั่วคราวอยู่ กรุณาตั้งรหัสผ่านใหม่ก่อนใช้งานระบบ</p>
+        <p className="mb-6 text-sm text-muted">บัญชีนี้ใช้รหัสผ่านชั่วคราวอยู่ กรุณาตั้งรหัสผ่านใหม่ก่อนใช้งานระบบ</p>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
@@ -45,7 +45,7 @@ export default function ChangePasswordPage() {
               type="password"
               required
               minLength={8}
-              className="rounded-lg border border-black/15 px-3 py-2 text-sm outline-none focus:border-brand"
+              className="input"
               placeholder="อย่างน้อย 8 ตัวอักษร"
             />
           </div>
@@ -56,7 +56,7 @@ export default function ChangePasswordPage() {
               type="password"
               required
               minLength={8}
-              className="rounded-lg border border-black/15 px-3 py-2 text-sm outline-none focus:border-brand"
+              className="input"
             />
           </div>
           {result && !result.ok && <p className="text-sm text-danger">{result.message}</p>}

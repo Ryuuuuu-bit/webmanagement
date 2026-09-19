@@ -52,7 +52,7 @@ export default function DepartmentManagement({
   }
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <h2 className="text-base font-bold">สาขาวิชา</h2>
       <form ref={formRef} onSubmit={onCreate} className="mt-3 flex flex-wrap items-center gap-3">
         <input name="name" required placeholder="ชื่อสาขาวิชา" className="input" />
@@ -65,13 +65,13 @@ export default function DepartmentManagement({
       <div className="mt-4 flex flex-col gap-2">
         {departments.map((d) =>
           editingId === d.id ? (
-            <form key={d.id} onSubmit={(e) => onEditSubmit(d.id, e)} className="flex flex-wrap items-center gap-2 rounded-lg border border-black/10 p-2">
+            <form key={d.id} onSubmit={(e) => onEditSubmit(d.id, e)} className="flex flex-wrap items-center gap-2 rounded-lg border border-line p-2">
               <input name="name" required defaultValue={d.name} className="input" />
               <button type="submit" disabled={pending} className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60">บันทึก</button>
-              <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-black/50">ยกเลิก</button>
+              <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-muted">ยกเลิก</button>
             </form>
           ) : (
-            <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-black/5 pt-2 text-sm first:border-t-0 first:pt-0">
+            <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-2 text-sm first:border-t-0 first:pt-0">
               <span className="font-medium">{d.name}</span>
               <div className="flex items-center gap-3">
                 <button onClick={() => setEditingId(d.id)} className="text-xs font-semibold text-brand-ink underline">แก้ไข</button>
@@ -82,7 +82,7 @@ export default function DepartmentManagement({
             </div>
           )
         )}
-        {departments.length === 0 && <p className="text-sm text-black/40">ยังไม่มีสาขาวิชา</p>}
+        {departments.length === 0 && <p className="text-sm text-faint">ยังไม่มีสาขาวิชา</p>}
       </div>
     </div>
   );

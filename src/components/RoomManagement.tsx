@@ -52,7 +52,7 @@ export default function RoomManagement({
   }
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <h2 className="text-base font-bold">ห้อง / อาคาร</h2>
       <form ref={formRef} onSubmit={onCreate} className="mt-3 flex flex-wrap items-center gap-3">
         <input name="name" required placeholder="ชื่อห้อง เช่น ห้อง 301" className="input" />
@@ -66,15 +66,15 @@ export default function RoomManagement({
       <div className="mt-4 flex flex-col gap-2">
         {rooms.map((r) =>
           editingId === r.id ? (
-            <form key={r.id} onSubmit={(e) => onEditSubmit(r.id, e)} className="flex flex-wrap items-center gap-2 rounded-lg border border-black/10 p-2">
+            <form key={r.id} onSubmit={(e) => onEditSubmit(r.id, e)} className="flex flex-wrap items-center gap-2 rounded-lg border border-line p-2">
               <input name="name" required defaultValue={r.name} className="input" />
               <input name="building" required defaultValue={r.building} className="input" />
               <button type="submit" disabled={pending} className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60">บันทึก</button>
-              <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-black/50">ยกเลิก</button>
+              <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-muted">ยกเลิก</button>
             </form>
           ) : (
-            <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-black/5 pt-2 text-sm first:border-t-0 first:pt-0">
-              <span><span className="font-medium">{r.name}</span> <span className="ml-1 text-black/40">({r.building})</span></span>
+            <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-2 text-sm first:border-t-0 first:pt-0">
+              <span><span className="font-medium">{r.name}</span> <span className="ml-1 text-faint">({r.building})</span></span>
               <div className="flex items-center gap-3">
                 <button onClick={() => setEditingId(r.id)} className="text-xs font-semibold text-brand-ink underline">แก้ไข</button>
                 <button disabled={pending} onClick={() => onDelete(r.id, r.name)} className="text-xs font-semibold text-danger disabled:opacity-40">ลบ</button>
@@ -84,7 +84,7 @@ export default function RoomManagement({
             </div>
           )
         )}
-        {rooms.length === 0 && <p className="text-sm text-black/40">ยังไม่มีห้อง</p>}
+        {rooms.length === 0 && <p className="text-sm text-faint">ยังไม่มีห้อง</p>}
       </div>
     </div>
   );

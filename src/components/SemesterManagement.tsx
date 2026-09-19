@@ -56,7 +56,7 @@ export default function SemesterManagement({
   }
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <h2 className="text-base font-bold">ภาคเรียน</h2>
       <form ref={formRef} onSubmit={onCreate} className="mt-3 flex flex-wrap items-center gap-3">
         <input name="name" required placeholder="ชื่อภาคเรียน เช่น 2/2569" className="input w-36" />
@@ -71,18 +71,18 @@ export default function SemesterManagement({
       <div className="mt-4 flex flex-col gap-2">
         {semesters.map((s) =>
           editingId === s.id ? (
-            <form key={s.id} onSubmit={(e) => onEditSubmit(s.id, e)} className="flex flex-wrap items-center gap-2 rounded-lg border border-black/10 p-2">
+            <form key={s.id} onSubmit={(e) => onEditSubmit(s.id, e)} className="flex flex-wrap items-center gap-2 rounded-lg border border-line p-2">
               <input name="name" required defaultValue={s.name} className="input w-36" />
               <input name="startDate" required type="date" defaultValue={toDateInput(s.startDate)} className="input" />
               <input name="endDate" required type="date" defaultValue={toDateInput(s.endDate)} className="input" />
               <button type="submit" disabled={pending} className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60">บันทึก</button>
-              <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-black/50">ยกเลิก</button>
+              <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-muted">ยกเลิก</button>
             </form>
           ) : (
-            <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-black/5 pt-2 text-sm first:border-t-0 first:pt-0">
+            <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-2 text-sm first:border-t-0 first:pt-0">
               <span>
                 <span className="font-medium">{s.name}</span>
-                <span className="ml-2 text-black/40">
+                <span className="ml-2 text-faint">
                   {new Date(s.startDate).toLocaleDateString("th-TH")} – {new Date(s.endDate).toLocaleDateString("th-TH")}
                 </span>
               </span>
@@ -95,7 +95,7 @@ export default function SemesterManagement({
             </div>
           )
         )}
-        {semesters.length === 0 && <p className="text-sm text-black/40">ยังไม่มีภาคเรียน</p>}
+        {semesters.length === 0 && <p className="text-sm text-faint">ยังไม่มีภาคเรียน</p>}
       </div>
     </div>
   );

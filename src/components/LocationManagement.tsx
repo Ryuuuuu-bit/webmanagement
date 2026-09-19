@@ -49,9 +49,9 @@ export default function LocationManagement({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <h2 className="text-base font-bold">เพิ่มจุดเช็คอิน-เช็คเอาต์</h2>
-        <p className="mt-1 text-sm text-black/50">
+        <p className="mt-1 text-sm text-muted">
           พิกัดหาได้จาก Google Maps (คลิกขวาที่จุด แล้วคัดลอกตัวเลขละติจูด,ลองจิจูด) — อาจารย์ต้องอยู่ในรัศมีนี้ถึงจะเช็คอิน/เช็คเอาต์ได้
         </p>
         <form ref={formRef} onSubmit={onCreate} className="mt-4 flex flex-col gap-3">
@@ -72,7 +72,7 @@ export default function LocationManagement({
         </form>
       </div>
 
-      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <h2 className="text-base font-bold">จุดเช็คอินทั้งหมด</h2>
         {locations.length === 0 && (
           <p className="mt-2 text-sm text-danger">ยังไม่มีจุดเช็คอินเลย — ตอนนี้ระบบจะยอม "ทุกตำแหน่ง" ให้เช็คอินได้ (ไม่มีการกันตำแหน่ง)</p>
@@ -80,21 +80,21 @@ export default function LocationManagement({
         <div className="mt-3 flex flex-col gap-3">
           {locations.map((loc) =>
             editingId === loc.id ? (
-              <form key={loc.id} onSubmit={(e) => onEditSubmit(loc.id, e)} className="grid grid-cols-1 gap-3 rounded-lg border border-black/10 p-3 sm:grid-cols-2 md:grid-cols-5">
+              <form key={loc.id} onSubmit={(e) => onEditSubmit(loc.id, e)} className="grid grid-cols-1 gap-3 rounded-lg border border-line p-3 sm:grid-cols-2 md:grid-cols-5">
                 <input name="name" required defaultValue={loc.name} className="input" />
                 <input name="latitude" required type="number" step="any" defaultValue={loc.latitude} className="input" />
                 <input name="longitude" required type="number" step="any" defaultValue={loc.longitude} className="input" />
                 <input name="radiusMeters" required type="number" defaultValue={loc.radiusMeters} min={10} max={20000} className="input" />
                 <div className="flex items-center gap-2">
                   <button type="submit" disabled={pending} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">บันทึก</button>
-                  <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-black/50">ยกเลิก</button>
+                  <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-muted">ยกเลิก</button>
                 </div>
               </form>
             ) : (
-              <div key={loc.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-black/5 pt-3 text-sm first:border-t-0 first:pt-0">
+              <div key={loc.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-3 text-sm first:border-t-0 first:pt-0">
                 <div>
                   <span className="font-semibold">{loc.name}</span>
-                  <span className="ml-2 text-black/40">
+                  <span className="ml-2 text-faint">
                     ({loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}) รัศมี {loc.radiusMeters} ม.
                   </span>
                 </div>

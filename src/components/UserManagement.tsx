@@ -77,9 +77,9 @@ export default function UserManagement({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <h2 className="text-base font-bold">เพิ่มผู้ใช้ใหม่</h2>
-        <p className="mt-1 text-sm text-black/50">
+        <p className="mt-1 text-sm text-muted">
           ระบบจะสุ่มรหัสผ่านชั่วคราวให้ — แจ้งเจ้าตัวเอง (พูด/LINE) แล้วให้ตั้งรหัสผ่านใหม่ตอน login ครั้งแรก
         </p>
         <form ref={formRef} onSubmit={onCreate} className="mt-4 flex flex-col gap-3">
@@ -114,12 +114,12 @@ export default function UserManagement({
         )}
       </div>
 
-      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <h2 className="text-base font-bold">ผู้ใช้ทั้งหมด</h2>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase text-black/40">
+              <tr className="text-left text-xs uppercase text-faint">
                 <th className="pb-2">ชื่อ</th>
                 <th className="pb-2">อีเมล</th>
                 <th className="pb-2">ภาควิชา</th>
@@ -130,9 +130,9 @@ export default function UserManagement({
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-t border-black/5 align-top">
+                <tr key={u.id} className="border-t border-line-soft align-top">
                   <td className="py-2">{u.name}</td>
-                  <td className="py-2 text-black/50">{u.email}</td>
+                  <td className="py-2 text-muted">{u.email}</td>
                   <td className="py-2">{u.department?.name ?? "—"}</td>
                   <td className="py-2">
                     {u.id === currentUserId ? (
@@ -142,7 +142,7 @@ export default function UserManagement({
                         disabled={pending}
                         value={u.role}
                         onChange={(e) => onRoleChange(u.id, u.name, e.target.value as "ADMIN" | "MEMBER")}
-                        className="rounded-lg border border-black/15 px-2 py-1 text-xs disabled:opacity-40"
+                        className="rounded-lg border border-line-strong bg-surface px-2 py-1 text-xs text-ink disabled:opacity-40"
                       >
                         <option value="MEMBER">MEMBER</option>
                         <option value="ADMIN">ADMIN</option>
@@ -156,7 +156,7 @@ export default function UserManagement({
                     {u.mustChangePassword ? (
                       <span className="badge bg-warn-soft text-warn">รอผู้ใช้ตั้งรหัสผ่านใหม่</span>
                     ) : (
-                      <span className="text-black/40">ใช้งานปกติ</span>
+                      <span className="text-faint">ใช้งานปกติ</span>
                     )}
                   </td>
                   <td className="py-2">
@@ -182,7 +182,7 @@ export default function UserManagement({
                       <div className={`mt-1 text-xs ${resetResult.ok ? "text-ok" : "text-danger"}`}>
                         {resetResult.message}
                         {resetResult.tempPassword && (
-                          <div className="mt-1 font-mono text-sm font-bold tracking-wide text-black">{resetResult.tempPassword}</div>
+                          <div className="mt-1 font-mono text-sm font-bold tracking-wide text-ink">{resetResult.tempPassword}</div>
                         )}
                       </div>
                     )}

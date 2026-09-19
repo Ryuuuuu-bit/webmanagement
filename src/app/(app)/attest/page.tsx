@@ -33,29 +33,29 @@ export default async function AttestPage() {
 
     return (
       <div className="flex flex-col gap-6">
-        <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
           <h2 className="text-base font-bold">ขอรับรองเวลา</h2>
-          <p className="mb-3 text-sm text-black/50">
+          <p className="mb-3 text-sm text-muted">
             ใช้เมื่อลืมเช็คอินหรือเช็คเอาต์ในวันใดวันหนึ่ง — คำขอจะถูกส่งให้ Admin/Senior อนุมัติ
             และบันทึกแยกจากเวลาที่เช็คอินจริงผ่าน GPS (FR-13)
           </p>
           <AttestForm requestAttestation={requestAttestation} />
         </div>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
           <h2 className="text-base font-bold">ประวัติคำขอของฉัน</h2>
           {mine.length === 0 ? (
-            <p className="mt-2 text-sm text-black/50">ยังไม่มีคำขอรับรองเวลา</p>
+            <p className="mt-2 text-sm text-muted">ยังไม่มีคำขอรับรองเวลา</p>
           ) : (
             <table className="mt-3 w-full text-sm">
               <thead>
-                <tr className="text-left text-xs uppercase text-black/40">
+                <tr className="text-left text-xs uppercase text-faint">
                   <th className="pb-2">วันที่</th><th className="pb-2">ประเภท</th><th className="pb-2">เวลาที่ขอ</th><th className="pb-2">เหตุผล</th><th className="pb-2">สถานะ</th>
                 </tr>
               </thead>
               <tbody>
                 {mine.map((r) => (
-                  <tr key={r.id} className="border-t border-black/5">
+                  <tr key={r.id} className="border-t border-line-soft">
                     <td className="py-2">{formatDate(r.date)}</td>
                     <td className="py-2">{TYPE_LABEL[r.type]}</td>
                     <td className="py-2">{requestedTimeLabel(r)}</td>
@@ -78,20 +78,20 @@ export default async function AttestPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <h2 className="text-base font-bold">คำขอรับรองเวลาที่รออนุมัติ</h2>
         {pending.length === 0 ? (
-          <p className="mt-2 text-sm text-black/50">ไม่มีคำขอค้างอนุมัติ</p>
+          <p className="mt-2 text-sm text-muted">ไม่มีคำขอค้างอนุมัติ</p>
         ) : (
           <table className="mt-3 w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase text-black/40">
+              <tr className="text-left text-xs uppercase text-faint">
                 <th className="pb-2">อาจารย์</th><th className="pb-2">วันที่</th><th className="pb-2">ประเภท</th><th className="pb-2">เวลาที่ขอ</th><th className="pb-2">เหตุผล</th><th></th>
               </tr>
             </thead>
             <tbody>
               {pending.map((r) => (
-                <tr key={r.id} className="border-t border-black/5">
+                <tr key={r.id} className="border-t border-line-soft">
                   <td className="py-2">{r.requester!.name}</td>
                   <td className="py-2">{formatDate(r.date)}</td>
                   <td className="py-2">{TYPE_LABEL[r.type]}</td>
@@ -110,17 +110,17 @@ export default async function AttestPage() {
         )}
       </div>
 
-      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <h2 className="text-base font-bold">ประวัติที่ดำเนินการแล้ว</h2>
         <table className="mt-3 w-full text-sm">
           <thead>
-            <tr className="text-left text-xs uppercase text-black/40">
+            <tr className="text-left text-xs uppercase text-faint">
               <th className="pb-2">อาจารย์</th><th className="pb-2">วันที่</th><th className="pb-2">ประเภท</th><th className="pb-2">สถานะ</th>
             </tr>
           </thead>
           <tbody>
             {done.map((r) => (
-              <tr key={r.id} className="border-t border-black/5">
+              <tr key={r.id} className="border-t border-line-soft">
                 <td className="py-2">{r.requester!.name}</td>
                 <td className="py-2">{formatDate(r.date)}</td>
                 <td className="py-2">{TYPE_LABEL[r.type]}</td>

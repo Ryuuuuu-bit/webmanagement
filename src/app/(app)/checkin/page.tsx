@@ -18,7 +18,7 @@ export default async function CheckinPage() {
 
     return (
       <div className="flex flex-col gap-6">
-        <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <div className="mb-4 flex justify-center">
             <AttendanceBadge status={attendance?.status ?? "PENDING"} />
           </div>
@@ -33,25 +33,25 @@ export default async function CheckinPage() {
                 : null
             }
           />
-          <div className="mt-4 flex justify-center gap-6 text-sm text-black/60">
+          <div className="mt-4 flex justify-center gap-6 text-sm text-subtle">
             <span>เข้า: {formatTime(attendance?.checkinAt) ?? "—"}</span>
             <span>ออก: {formatTime(attendance?.checkoutAt) ?? "—"}</span>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
           <h2 className="text-base font-bold">สถานที่ที่อนุญาตให้เช็คอิน/เช็คเอาต์</h2>
-          <p className="mb-3 text-sm text-black/50">ลืมเช็คอิน/เช็คเอาต์วันไหน ไปที่เมนู “ขอรับรองเวลา”</p>
+          <p className="mb-3 text-sm text-muted">ลืมเช็คอิน/เช็คเอาต์วันไหน ไปที่เมนู “ขอรับรองเวลา”</p>
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase text-black/40">
+              <tr className="text-left text-xs uppercase text-faint">
                 <th className="pb-2">สถานที่</th>
                 <th className="pb-2">รัศมี</th>
               </tr>
             </thead>
             <tbody>
               {locations.map((l) => (
-                <tr key={l.id} className="border-t border-black/5">
+                <tr key={l.id} className="border-t border-line-soft">
                   <td className="py-2">{l.name}</td>
                   <td className="py-2">{l.radiusMeters} เมตร</td>
                 </tr>
@@ -70,13 +70,13 @@ export default async function CheckinPage() {
   const byUser = new Map(attendances.map((a) => [a.userId, a]));
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <h2 className="text-base font-bold">ภาพรวมการเข้า-ออกงานวันนี้</h2>
-      <p className="mb-3 text-sm text-black/50">เช็คอินและเช็คเอาต์ต้องอยู่ในพื้นที่มหาวิทยาลัย</p>
+      <p className="mb-3 text-sm text-muted">เช็คอินและเช็คเอาต์ต้องอยู่ในพื้นที่มหาวิทยาลัย</p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs uppercase text-black/40">
+            <tr className="text-left text-xs uppercase text-faint">
               <th className="pb-2">อาจารย์</th>
               <th className="pb-2">สถานะ</th>
               <th className="pb-2">เช็คอิน</th>
@@ -87,7 +87,7 @@ export default async function CheckinPage() {
             {teachers.map((t) => {
               const a = byUser.get(t.id);
               return (
-                <tr key={t.id} className="border-t border-black/5">
+                <tr key={t.id} className="border-t border-line-soft">
                   <td className="py-2">{t.name}</td>
                   <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} /></td>
                   <td className="py-2">

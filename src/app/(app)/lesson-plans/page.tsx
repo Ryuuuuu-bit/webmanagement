@@ -16,17 +16,17 @@ export default async function LessonPlansPage() {
     });
 
     return (
-      <div className="rounded-2xl border border-black/10 bg-white p-5">
+      <div className="rounded-2xl border border-line bg-surface p-5">
         <h1 className="text-lg font-bold">แผนการสอนของอาจารย์ทั้งหมด</h1>
-        <p className="mt-1 text-sm text-black/50">ตรวจสอบและอนุมัติแผนการสอนที่อาจารย์ส่งเข้ามา</p>
+        <p className="mt-1 text-sm text-muted">ตรวจสอบและอนุมัติแผนการสอนที่อาจารย์ส่งเข้ามา</p>
 
         {plans.length === 0 ? (
-          <p className="mt-6 text-sm text-black/40">ยังไม่มีการส่งแผนการสอน</p>
+          <p className="mt-6 text-sm text-faint">ยังไม่มีการส่งแผนการสอน</p>
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="text-xs uppercase tracking-wide text-black/40">
+                <tr className="text-xs uppercase tracking-wide text-faint">
                   <th className="pb-2 font-semibold">อาจารย์</th>
                   <th className="pb-2 font-semibold">วิชา</th>
                   <th className="pb-2 font-semibold">ไฟล์</th>
@@ -71,12 +71,12 @@ export default async function LessonPlansPage() {
   const planByCourse = new Map(plans.map((p) => [p.courseId, p]));
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-5">
+    <div className="rounded-2xl border border-line bg-surface p-5">
       <h1 className="text-lg font-bold">ส่งแผนการสอน</h1>
-      <p className="mt-1 text-sm text-black/50">ส่งไฟล์แผนการสอนของแต่ละวิชาที่คุณสอน ให้ Admin ตรวจสอบ</p>
+      <p className="mt-1 text-sm text-muted">ส่งไฟล์แผนการสอนของแต่ละวิชาที่คุณสอน ให้ Admin ตรวจสอบ</p>
 
       {schedules.length === 0 ? (
-        <p className="mt-6 text-sm text-black/40">คุณยังไม่มีตารางสอน จึงยังส่งแผนการสอนไม่ได้</p>
+        <p className="mt-6 text-sm text-faint">คุณยังไม่มีตารางสอน จึงยังส่งแผนการสอนไม่ได้</p>
       ) : (
         <div className="mt-2">
           {schedules.map((s) => {

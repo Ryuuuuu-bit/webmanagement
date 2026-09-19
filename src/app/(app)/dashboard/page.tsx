@@ -30,15 +30,15 @@ export default async function DashboardPage() {
           <StatTile label="คำขอที่รออนุมัติ" value={String(pendingLeave + pendingAttest)} />
         </div>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
           <h2 className="text-base font-bold">ตารางสอนวันนี้</h2>
-          <p className="mb-3 text-sm text-black/50">ดูตารางเต็มสัปดาห์ได้ที่เมนู “ตารางสอนของฉัน”</p>
+          <p className="mb-3 text-sm text-muted">ดูตารางเต็มสัปดาห์ได้ที่เมนู “ตารางสอนของฉัน”</p>
           {todaySchedule.length === 0 ? (
-            <p className="text-sm text-black/50">วันนี้ไม่มีคาบสอน</p>
+            <p className="text-sm text-muted">วันนี้ไม่มีคาบสอน</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs uppercase text-black/40">
+                <tr className="text-left text-xs uppercase text-faint">
                   <th className="pb-2">คาบเวลา</th>
                   <th className="pb-2">วิชา</th>
                   <th className="pb-2">ห้อง</th>
@@ -46,7 +46,7 @@ export default async function DashboardPage() {
               </thead>
               <tbody>
                 {todaySchedule.map((s) => (
-                  <tr key={s.id} className="border-t border-black/5">
+                  <tr key={s.id} className="border-t border-line-soft">
                     <td className="py-2">{s.startTime}–{s.endTime}</td>
                     <td className="py-2">{s.course!.code} {s.course!.name}</td>
                     <td className="py-2">{s.room!.name}</td>
@@ -81,13 +81,13 @@ export default async function DashboardPage() {
         <StatTile label="ลา" value={String(counts.LEAVE ?? 0)} tone="info" />
       </div>
 
-      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <h2 className="text-base font-bold">สถานะการเข้างานวันนี้</h2>
-        <p className="mb-3 text-sm text-black/50">อัปเดตแบบเรียลไทม์จากการเช็คอิน</p>
+        <p className="mb-3 text-sm text-muted">อัปเดตแบบเรียลไทม์จากการเช็คอิน</p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase text-black/40">
+              <tr className="text-left text-xs uppercase text-faint">
                 <th className="pb-2">อาจารย์</th>
                 <th className="pb-2">ภาควิชา</th>
                 <th className="pb-2">สถานะ</th>
@@ -99,7 +99,7 @@ export default async function DashboardPage() {
               {teachers.map((t) => {
                 const a = byUser.get(t.id);
                 return (
-                  <tr key={t.id} className="border-t border-black/5">
+                  <tr key={t.id} className="border-t border-line-soft">
                     <td className="py-2">{t.name}</td>
                     <td className="py-2">{t.department?.name ?? "—"}</td>
                     <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} /></td>
@@ -119,9 +119,9 @@ export default async function DashboardPage() {
 function StatTile({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "ok" | "warn" | "danger" | "info" }) {
   const toneCls = tone ? { ok: "text-ok", warn: "text-warn", danger: "text-danger", info: "text-info" }[tone] : "text-brand-ink";
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
       <div className={`text-xl font-semibold ${toneCls}`}>{value}</div>
-      <div className="mt-1 text-xs text-black/50">{label}</div>
+      <div className="mt-1 text-xs text-muted">{label}</div>
     </div>
   );
 }

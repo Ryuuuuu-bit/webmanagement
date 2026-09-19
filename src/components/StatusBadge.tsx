@@ -1,5 +1,5 @@
 const ATTENDANCE_META: Record<string, { label: string; cls: string }> = {
-  PENDING: { label: "ยังไม่เช็คอิน", cls: "bg-black/5 text-black/50" },
+  PENDING: { label: "ยังไม่เช็คอิน", cls: "bg-line-soft text-muted" },
   ON_TIME: { label: "ตรงเวลา", cls: "bg-ok-soft text-ok" },
   LATE: { label: "มาสาย", cls: "bg-warn-soft text-warn" },
   ABSENT: { label: "ขาด", cls: "bg-danger-soft text-danger" },
@@ -7,7 +7,7 @@ const ATTENDANCE_META: Record<string, { label: string; cls: string }> = {
 };
 
 const REQUEST_META: Record<string, { label: string; cls: string }> = {
-  PENDING: { label: "รออนุมัติ", cls: "bg-black/5 text-black/50" },
+  PENDING: { label: "รออนุมัติ", cls: "bg-line-soft text-muted" },
   APPROVED: { label: "อนุมัติแล้ว", cls: "bg-ok-soft text-ok" },
   REJECTED: { label: "ไม่อนุมัติ", cls: "bg-danger-soft text-danger" },
 };

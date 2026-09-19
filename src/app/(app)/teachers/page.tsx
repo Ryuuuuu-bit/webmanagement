@@ -17,20 +17,20 @@ export default async function TeachersPage() {
   const byUser = new Map(attendances.map((a) => [a.userId, a]));
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <h2 className="text-base font-bold">รายชื่ออาจารย์ทั้งหมด</h2>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs uppercase text-black/40">
+            <tr className="text-left text-xs uppercase text-faint">
               <th className="pb-2">ชื่อ</th><th className="pb-2">อีเมล</th><th className="pb-2">ภาควิชา</th><th className="pb-2">บทบาท</th><th className="pb-2">สถานะวันนี้</th>
             </tr>
           </thead>
           <tbody>
             {teachers.map((t) => (
-              <tr key={t.id} className="border-t border-black/5">
+              <tr key={t.id} className="border-t border-line-soft">
                 <td className="py-2">{t.name}</td>
-                <td className="py-2 text-black/50">{t.email}</td>
+                <td className="py-2 text-muted">{t.email}</td>
                 <td className="py-2">{t.department?.name ?? "—"}</td>
                 <td className="py-2"><span className="badge bg-info-soft text-info">{t.role}</span></td>
                 <td className="py-2"><AttendanceBadge status={byUser.get(t.id)?.status ?? "PENDING"} /></td>

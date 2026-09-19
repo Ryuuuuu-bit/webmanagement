@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
@@ -8,15 +9,30 @@ const config: Config = {
         sans: ["var(--font-sarabun)", "system-ui", "sans-serif"],
       },
       colors: {
-        brand: {
-          DEFAULT: "#2F6F5E",
-          ink: "#1B4438",
-          soft: "#E3F0EC",
+        // Semantic, theme-aware tokens — their actual color comes from CSS
+        // variables defined in globals.css (:root for light, .dark for
+        // dark), so a single class name like `bg-surface` or `text-muted`
+        // automatically flips when the `dark` class is toggled on <html>.
+        page: "var(--color-page)",
+        surface: "var(--color-surface)",
+        ink: "var(--color-text)",
+        line: {
+          DEFAULT: "var(--color-line)",
+          soft: "var(--color-line-soft)",
+          strong: "var(--color-line-strong)",
         },
-        ok: { DEFAULT: "#2F7D5A", soft: "#E3F3E9" },
-        warn: { DEFAULT: "#B5651D", soft: "#FBEEDD" },
-        danger: { DEFAULT: "#B4423A", soft: "#FBE7E5" },
-        info: { DEFAULT: "#3162A6", soft: "#E7EEF7" },
+        muted: "var(--color-muted)",
+        faint: "var(--color-faint)",
+        subtle: "var(--color-subtle)",
+        brand: {
+          DEFAULT: "var(--color-brand)",
+          ink: "var(--color-brand-ink)",
+          soft: "var(--color-brand-soft)",
+        },
+        ok: { DEFAULT: "var(--color-ok)", soft: "var(--color-ok-soft)" },
+        warn: { DEFAULT: "var(--color-warn)", soft: "var(--color-warn-soft)" },
+        danger: { DEFAULT: "var(--color-danger)", soft: "var(--color-danger-soft)" },
+        info: { DEFAULT: "var(--color-info)", soft: "var(--color-info-soft)" },
       },
     },
   },

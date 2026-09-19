@@ -26,7 +26,7 @@ export default async function MasterDataPage() {
     <div className="flex flex-col gap-5">
       <div>
         <h1 className="text-lg font-bold">ข้อมูลหลัก</h1>
-        <p className="mt-1 text-sm text-black/50">
+        <p className="mt-1 text-sm text-muted">
           จัดการสาขาวิชา รายวิชา ห้อง/อาคาร และภาคเรียนได้เอง — ไม่ต้องแก้โค้ดหรือ deploy ใหม่ทุกครั้งที่เปิดเทอมหรือเพิ่มวิชา
         </p>
       </div>

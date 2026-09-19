@@ -44,18 +44,18 @@ export default function LessonPlanUploadForm({
   const status = plan ? STATUS_LABEL[plan.status] : null;
 
   return (
-    <div className="border-t border-black/5 py-4 first:border-t-0 first:pt-0">
+    <div className="border-t border-line-soft py-4 first:border-t-0 first:pt-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-semibold">{courseLabel}</span>
         {status && <span className={`badge ${status.cls}`}>{status.text}</span>}
       </div>
 
       {plan && (
-        <div className="mt-2 text-sm text-black/60">
+        <div className="mt-2 text-sm text-subtle">
           <a href={`/api/lesson-plans/${plan.id}`} className="font-semibold text-brand-ink underline">
             {plan.fileName}
           </a>
-          <span className="ml-2 text-black/40">ส่งล่าสุด {new Date(plan.submittedAt).toLocaleString("th-TH")}</span>
+          <span className="ml-2 text-faint">ส่งล่าสุด {new Date(plan.submittedAt).toLocaleString("th-TH")}</span>
           {plan.status === "NEEDS_REVISION" && plan.reviewNote && (
             <p className="mt-1 rounded-lg bg-warn-soft p-2 text-xs text-warn">Admin ขอให้แก้ไข: {plan.reviewNote}</p>
           )}

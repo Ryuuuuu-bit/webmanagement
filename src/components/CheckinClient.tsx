@@ -49,15 +49,15 @@ export default function CheckinClient({ attendance }: { attendance: Attendance }
         <button
           onClick={() => run(checkOut)}
           disabled={pending || !canCheckout}
-          className="rounded-lg border border-black/15 px-4 py-2.5 text-sm font-semibold disabled:opacity-40"
+          className="rounded-lg border border-line-strong px-4 py-2.5 text-sm font-semibold disabled:opacity-40"
         >
           🚪 เช็คเอาต์ออกงาน
         </button>
       </div>
-      {pending && <p className="text-xs text-black/40">กำลังตรวจสอบตำแหน่ง...</p>}
+      {pending && <p className="text-xs text-faint">กำลังตรวจสอบตำแหน่ง...</p>}
       {message && <p className="text-sm font-medium text-brand-ink">{message}</p>}
       {geoError && <p className="text-sm text-danger">{geoError}</p>}
-      <p className="max-w-xs text-xs text-black/40">
+      <p className="max-w-xs text-xs text-faint">
         ต้องอยู่ในพื้นที่มหาวิทยาลัยขณะกดปุ่ม ระบบตรวจสอบพิกัดเทียบกับสถานที่ที่ลงทะเบียนไว้โดยอัตโนมัติ
       </p>
     </div>

@@ -52,7 +52,7 @@ export default function CourseManagement({
   }
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <h2 className="text-base font-bold">รายวิชา</h2>
       <form ref={formRef} onSubmit={onCreate} className="mt-3 flex flex-wrap items-center gap-3">
         <input name="code" required placeholder="รหัสวิชา เช่น CS201" className="input w-36" />
@@ -66,14 +66,14 @@ export default function CourseManagement({
       <div className="mt-4 flex flex-col gap-2">
         {courses.map((c) =>
           editingId === c.id ? (
-            <form key={c.id} onSubmit={(e) => onEditSubmit(c.id, e)} className="flex flex-wrap items-center gap-2 rounded-lg border border-black/10 p-2">
+            <form key={c.id} onSubmit={(e) => onEditSubmit(c.id, e)} className="flex flex-wrap items-center gap-2 rounded-lg border border-line p-2">
               <input name="code" required defaultValue={c.code} className="input w-36" />
               <input name="name" required defaultValue={c.name} className="input" />
               <button type="submit" disabled={pending} className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60">บันทึก</button>
-              <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-black/50">ยกเลิก</button>
+              <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-muted">ยกเลิก</button>
             </form>
           ) : (
-            <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-black/5 pt-2 text-sm first:border-t-0 first:pt-0">
+            <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-2 text-sm first:border-t-0 first:pt-0">
               <span><span className="font-mono font-semibold">{c.code}</span> <span className="ml-1">{c.name}</span></span>
               <div className="flex items-center gap-3">
                 <button onClick={() => setEditingId(c.id)} className="text-xs font-semibold text-brand-ink underline">แก้ไข</button>
@@ -84,7 +84,7 @@ export default function CourseManagement({
             </div>
           )
         )}
-        {courses.length === 0 && <p className="text-sm text-black/40">ยังไม่มีรายวิชา</p>}
+        {courses.length === 0 && <p className="text-sm text-faint">ยังไม่มีรายวิชา</p>}
       </div>
     </div>
   );

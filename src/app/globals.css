@@ -2,8 +2,81 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Semantic color tokens for site-wide Light/Dark mode. Every color used
+ * across the app (surfaces, borders, text tones, and the brand/status
+ * colors) is a CSS variable here, and Tailwind's `page`/`surface`/`line`/
+ * `muted`/`faint`/`subtle`/`brand`/`ok`/`warn`/`danger`/`info` classes
+ * (see tailwind.config.ts) just point at these variables — so toggling the
+ * `dark` class on <html> (see ThemeProvider) re-colors the whole site
+ * without touching a single component's classNames.
+ */
+:root {
+  color-scheme: light;
+  --color-page: #f4f6f4;
+  --color-surface: #ffffff;
+  --color-text: #1b231f;
+
+  --color-line: rgb(0 0 0 / 0.1);
+  --color-line-soft: rgb(0 0 0 / 0.05);
+  --color-line-strong: rgb(0 0 0 / 0.15);
+
+  --color-muted: rgb(0 0 0 / 0.5);
+  --color-faint: rgb(0 0 0 / 0.4);
+  --color-subtle: rgb(0 0 0 / 0.6);
+
+  --color-brand: #2f6f5e;
+  --color-brand-ink: #1b4438;
+  --color-brand-soft: #e3f0ec;
+
+  --color-ok: #2f7d5a;
+  --color-ok-soft: #e3f3e9;
+
+  --color-warn: #b5651d;
+  --color-warn-soft: #fbeedd;
+
+  --color-danger: #b4423a;
+  --color-danger-soft: #fbe7e5;
+
+  --color-info: #3162a6;
+  --color-info-soft: #e7eef7;
+}
+
+:root.dark {
+  color-scheme: dark;
+  --color-page: #14171a;
+  --color-surface: #1e2124;
+  --color-text: #e8ebe9;
+
+  --color-line: rgb(255 255 255 / 0.12);
+  --color-line-soft: rgb(255 255 255 / 0.06);
+  --color-line-strong: rgb(255 255 255 / 0.18);
+
+  --color-muted: rgb(255 255 255 / 0.55);
+  --color-faint: rgb(255 255 255 / 0.4);
+  --color-subtle: rgb(255 255 255 / 0.68);
+
+  --color-brand: #55b298;
+  --color-brand-ink: #bfe9da;
+  --color-brand-soft: rgb(85 178 152 / 0.18);
+
+  --color-ok: #5bc98d;
+  --color-ok-soft: rgb(91 201 141 / 0.18);
+
+  --color-warn: #e2984b;
+  --color-warn-soft: rgb(226 152 75 / 0.18);
+
+  --color-danger: #e2746b;
+  --color-danger-soft: rgb(226 116 107 / 0.18);
+
+  --color-info: #6fa0e0;
+  --color-info-soft: rgb(111 160 224 / 0.18);
+}
+
 body {
-  @apply bg-[#F4F6F4] text-[#1B231F];
+  background-color: var(--color-page);
+  color: var(--color-text);
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .badge {
@@ -11,5 +84,5 @@ body {
 }
 
 .input {
-  @apply rounded-lg border border-black/15 px-3 py-2 text-sm outline-none focus:border-brand;
+  @apply rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand;
 }

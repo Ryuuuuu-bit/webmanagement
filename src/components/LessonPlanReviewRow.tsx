@@ -42,13 +42,13 @@ export default function LessonPlanReviewRow({
   const status = STATUS_LABEL[plan.status];
 
   return (
-    <tr className="border-t border-black/5 align-top">
+    <tr className="border-t border-line-soft align-top">
       <td className="py-2">{plan.teacher.name}</td>
       <td className="py-2">{plan.course.code} {plan.course.name}</td>
       <td className="py-2">
         <a href={`/api/lesson-plans/${plan.id}`} className="font-semibold text-brand-ink underline">{plan.fileName}</a>
       </td>
-      <td className="py-2 text-black/40">{new Date(plan.submittedAt).toLocaleDateString("th-TH")}</td>
+      <td className="py-2 text-faint">{new Date(plan.submittedAt).toLocaleDateString("th-TH")}</td>
       <td className="py-2"><span className={`badge ${status.cls}`}>{status.text}</span></td>
       <td className="py-2">
         <div className="flex flex-col gap-1.5">

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import ThemeToggle from "./ThemeToggle";
 
 const ICON: Record<string, string> = {
   dashboard:
@@ -53,18 +54,18 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
       ];
 
   return (
-    <aside className="sticky top-0 flex h-screen w-56 flex-none flex-col border-r border-black/10 bg-white p-3">
+    <aside className="sticky top-0 flex h-screen w-56 flex-none flex-col border-r border-line bg-surface p-3">
       <div className="flex items-center gap-2 px-2 pb-5 pt-1.5">
         <div className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">
           TS
         </div>
         <div className="leading-tight">
           <div className="text-sm font-bold">TeachSchedule</div>
-          <div className="text-[11px] text-black/45">ระบบตารางสอนอาจารย์</div>
+          <div className="text-[11px] text-faint">ระบบตารางสอนอาจารย์</div>
         </div>
       </div>
 
-      <div className="px-2 pb-1.5 pt-3 text-[11px] font-semibold uppercase tracking-wide text-black/40">เมนู</div>
+      <div className="px-2 pb-1.5 pt-3 text-[11px] font-semibold uppercase tracking-wide text-faint">เมนู</div>
       <nav className="flex flex-col gap-0.5">
         {items.map(([href, icon, label]) => {
           const active = pathname === href;
@@ -73,11 +74,11 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
               key={href}
               href={href}
               className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium ${
-                active ? "bg-brand-soft text-brand-ink" : "text-black/65 hover:bg-black/5"
+                active ? "bg-brand-soft text-brand-ink" : "text-subtle hover:bg-line-soft"
               }`}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"
-                className={active ? "text-brand" : "text-black/40"}
+                className={active ? "text-brand" : "text-faint"}
                 dangerouslySetInnerHTML={{ __html: ICON[icon] }} />
               <span>{label}</span>
             </Link>
@@ -86,24 +87,25 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
       </nav>
 
       <div className="mt-auto flex flex-col gap-1.5">
-        <div className="flex items-center gap-2 rounded-lg bg-black/5 px-3 py-2">
+        <ThemeToggle />
+        <div className="flex items-center gap-2 rounded-lg bg-line-soft px-3 py-2">
           <div className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
             {userName.trim().charAt(0).toUpperCase() || "?"}
           </div>
           <div className="min-w-0 leading-tight">
-            <div className="truncate text-sm font-semibold text-black/80" title={userName}>{userName}</div>
-            <div className="text-[11px] text-black/45">{isAdmin ? "ผู้ดูแลระบบ" : "อาจารย์ผู้สอน"}</div>
+            <div className="truncate text-sm font-semibold text-ink" title={userName}>{userName}</div>
+            <div className="text-[11px] text-faint">{isAdmin ? "ผู้ดูแลระบบ" : "อาจารย์ผู้สอน"}</div>
           </div>
         </div>
         <Link
           href="/change-password"
-          className="rounded-lg border border-black/10 px-3 py-2 text-sm font-medium text-black/60 hover:bg-black/5"
+          className="rounded-lg border border-line px-3 py-2 text-sm font-medium text-subtle hover:bg-line-soft"
         >
           เปลี่ยนรหัสผ่าน
         </Link>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="rounded-lg border border-black/10 px-3 py-2 text-left text-sm font-medium text-black/60 hover:bg-black/5"
+          className="rounded-lg border border-line px-3 py-2 text-left text-sm font-medium text-subtle hover:bg-line-soft"
         >
           ออกจากระบบ
         </button>

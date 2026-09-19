@@ -28,7 +28,7 @@ export default async function LeavePage() {
 
     return (
       <div className="flex flex-col gap-6">
-        <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
           <h2 className="text-base font-bold">ยื่นคำขอลา</h2>
           <form action={requestLeave} className="mt-3 flex flex-col gap-3.5">
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
@@ -53,20 +53,20 @@ export default async function LeavePage() {
           </form>
         </div>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
           <h2 className="text-base font-bold">ประวัติการลาของฉัน</h2>
           {mine.length === 0 ? (
-            <p className="mt-2 text-sm text-black/50">ยังไม่มีประวัติการลา</p>
+            <p className="mt-2 text-sm text-muted">ยังไม่มีประวัติการลา</p>
           ) : (
             <table className="mt-3 w-full text-sm">
               <thead>
-                <tr className="text-left text-xs uppercase text-black/40">
+                <tr className="text-left text-xs uppercase text-faint">
                   <th className="pb-2">ประเภท</th><th className="pb-2">วันที่</th><th className="pb-2">เหตุผล</th><th className="pb-2">สถานะ</th>
                 </tr>
               </thead>
               <tbody>
                 {mine.map((l) => (
-                  <tr key={l.id} className="border-t border-black/5">
+                  <tr key={l.id} className="border-t border-line-soft">
                     <td className="py-2">{TYPE_LABEL[l.type]}</td>
                     <td className="py-2">{formatDate(l.startDate)} – {formatDate(l.endDate)}</td>
                     <td className="py-2">{l.reason}</td>
@@ -88,20 +88,20 @@ export default async function LeavePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <h2 className="text-base font-bold">คำขอลาที่รออนุมัติ</h2>
         {pending.length === 0 ? (
-          <p className="mt-2 text-sm text-black/50">ไม่มีคำขอค้างอนุมัติ</p>
+          <p className="mt-2 text-sm text-muted">ไม่มีคำขอค้างอนุมัติ</p>
         ) : (
           <table className="mt-3 w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase text-black/40">
+              <tr className="text-left text-xs uppercase text-faint">
                 <th className="pb-2">อาจารย์</th><th className="pb-2">ประเภท</th><th className="pb-2">วันที่</th><th className="pb-2">เหตุผล</th><th></th>
               </tr>
             </thead>
             <tbody>
               {pending.map((l) => (
-                <tr key={l.id} className="border-t border-black/5">
+                <tr key={l.id} className="border-t border-line-soft">
                   <td className="py-2">{l.requester!.name}</td>
                   <td className="py-2">{TYPE_LABEL[l.type]}</td>
                   <td className="py-2">{formatDate(l.startDate)} – {formatDate(l.endDate)}</td>
@@ -119,17 +119,17 @@ export default async function LeavePage() {
         )}
       </div>
 
-      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <h2 className="text-base font-bold">ประวัติที่ดำเนินการแล้ว</h2>
         <table className="mt-3 w-full text-sm">
           <thead>
-            <tr className="text-left text-xs uppercase text-black/40">
+            <tr className="text-left text-xs uppercase text-faint">
               <th className="pb-2">อาจารย์</th><th className="pb-2">ประเภท</th><th className="pb-2">วันที่</th><th className="pb-2">สถานะ</th>
             </tr>
           </thead>
           <tbody>
             {done.map((l) => (
-              <tr key={l.id} className="border-t border-black/5">
+              <tr key={l.id} className="border-t border-line-soft">
                 <td className="py-2">{l.requester!.name}</td>
                 <td className="py-2">{TYPE_LABEL[l.type]}</td>
                 <td className="py-2">{formatDate(l.startDate)} – {formatDate(l.endDate)}</td>
