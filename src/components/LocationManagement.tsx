@@ -208,7 +208,10 @@ export default function LocationManagement({
             onSelect={(r) => {
               if (latRef.current) latRef.current.value = String(r.lat);
               if (lngRef.current) lngRef.current.value = String(r.lng);
-              if (nameRef.current && !nameRef.current.value.trim()) nameRef.current.value = r.label;
+              // r.label is OSM's full display_name (name + full address) — only the
+              // first segment is the actual place name, so use just that as the
+              // suggested location name rather than the whole address string.
+              if (nameRef.current && !nameRef.current.value.trim()) nameRef.current.value = r.label.split(",")[0].trim();
             }}
           />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
