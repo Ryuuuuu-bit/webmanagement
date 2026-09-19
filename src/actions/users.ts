@@ -104,6 +104,29 @@ export async function resetUserPassword(
   };
 }
 
+/** Admin promotes/demotes an existing user. Can't change your own role (avoids accidentally locking out the only admin). */
+export async function updateUserRole(
+  userId: string,
+  role: Role
+): Promise<{ ok: boolean; message: string }> {
+  const session = await requireAdmin();
+
+  if (role !== "ADMIN" && role !== "MEMBER") {
+    return { ok: false, message: "บทบาทไม่ถูกต้อง" };
+  }
+  if (userId === session.user.id) {
+    return { ok: false, message: "ไม่สามารถเปลี่ยนบทบาทของตัวเองได้ ให้ผู้ดูแลระบบคนอื่นเปลี่ยนให้" };
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return { ok: false, message: "ไม่พบผู้ใช้นี้" };
+
+  await prisma.user.update({ where: { id: userId }, data: { role } });
+
+  revalidatePath("/admin/users");
+  return { ok: true, message: `เปลี่ยนบทบาทของ ${user.name} เป็น ${role} แล้ว` };
+}
+
 /** Self-service: the logged-in user sets their own new password (forced after admin creates/resets an account). */
 export async function changeOwnPassword(
   _prev: { ok: boolean; message: string } | null,

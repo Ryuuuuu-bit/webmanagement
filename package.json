@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "prisma db push --accept-data-loss --skip-generate && next start",
+    "start": "prisma db execute --schema=prisma/schema.prisma --file prisma/migrate-fixups/03-bootstrap-admin.sql && prisma db push --accept-data-loss --skip-generate && next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",

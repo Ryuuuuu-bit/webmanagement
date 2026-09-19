@@ -16,18 +16,23 @@ type ActionResult = { ok: boolean; message: string; tempPassword?: string };
 export default function UserManagement({
   users,
   departments,
+  currentUserId,
   createUser,
   resetUserPassword,
+  updateUserRole,
 }: {
   users: UserRow[];
   departments: Dept[];
+  currentUserId: string;
   createUser: (_prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   resetUserPassword: (userId: string) => Promise<ActionResult>;
+  updateUserRole: (userId: string, role: "ADMIN" | "MEMBER") => Promise<{ ok: boolean; message: string }>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);
   const [resetResult, setResetResult] = useState<{ userId: string } & ActionResult | null>(null);
+  const [roleResult, setRoleResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
 
   function onCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -46,6 +51,15 @@ export default function UserManagement({
     startTransition(async () => {
       const res = await resetUserPassword(userId);
       setResetResult({ userId, ...res });
+    });
+  }
+
+  function onRoleChange(userId: string, name: string, role: "ADMIN" | "MEMBER") {
+    if (!confirm(`เปลี่ยนบทบาทของ ${name} เป็น ${role} ใช่ไหม?`)) return;
+    setCreateResult(null);
+    startTransition(async () => {
+      const res = await updateUserRole(userId, role);
+      setRoleResult({ userId, ...res });
     });
   }
 
@@ -108,7 +122,24 @@ export default function UserManagement({
                   <td className="py-2">{u.name}</td>
                   <td className="py-2 text-black/50">{u.email}</td>
                   <td className="py-2">{u.department?.name ?? "—"}</td>
-                  <td className="py-2"><span className="badge bg-info-soft text-info">{u.role}</span></td>
+                  <td className="py-2">
+                    {u.id === currentUserId ? (
+                      <span className="badge bg-info-soft text-info">{u.role} (คุณ)</span>
+                    ) : (
+                      <select
+                        disabled={pending}
+                        value={u.role}
+                        onChange={(e) => onRoleChange(u.id, u.name, e.target.value as "ADMIN" | "MEMBER")}
+                        className="rounded-lg border border-black/15 px-2 py-1 text-xs disabled:opacity-40"
+                      >
+                        <option value="MEMBER">MEMBER</option>
+                        <option value="ADMIN">ADMIN</option>
+                      </select>
+                    )}
+                    {roleResult?.userId === u.id && (
+                      <div className={`mt-1 text-xs ${roleResult.ok ? "text-ok" : "text-danger"}`}>{roleResult.message}</div>
+                    )}
+                  </td>
                   <td className="py-2">
                     {u.mustChangePassword ? (
                       <span className="badge bg-warn-soft text-warn">รอผู้ใช้ตั้งรหัสผ่านใหม่</span>
