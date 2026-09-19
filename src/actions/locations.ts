@@ -4,6 +4,9 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -19,11 +22,14 @@ function parseLocationInput(formData: FormData) {
   return { name, latitude, longitude, radiusMeters };
 }
 
-function validateLocationInput({ name, latitude, longitude, radiusMeters }: ReturnType<typeof parseLocationInput>) {
-  if (!name) return "กรอกชื่อจุดเช็คอิน";
-  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return "ละติจูดไม่ถูกต้อง";
-  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return "ลองจิจูดไม่ถูกต้อง";
-  if (!Number.isFinite(radiusMeters) || radiusMeters < 10 || radiusMeters > 20000) return "รัศมีต้องอยู่ระหว่าง 10 - 20,000 เมตร";
+function validateLocationInput(
+  { name, latitude, longitude, radiusMeters }: ReturnType<typeof parseLocationInput>,
+  dict: Dictionary
+) {
+  if (!name) return dict.actions.locations.fillName;
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return dict.actions.locations.invalidLatitude;
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return dict.actions.locations.invalidLongitude;
+  if (!Number.isFinite(radiusMeters) || radiusMeters < 10 || radiusMeters > 20000) return dict.actions.locations.invalidRadius;
   return null;
 }
 
@@ -33,14 +39,15 @@ export async function createLocation(
   formData: FormData
 ): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const input = parseLocationInput(formData);
-  const error = validateLocationInput(input);
+  const error = validateLocationInput(input, dict);
   if (error) return { ok: false, message: error };
 
   await prisma.campusLocation.create({ data: input });
   revalidatePath("/admin/locations");
-  return { ok: true, message: `เพิ่มจุดเช็คอิน "${input.name}" แล้ว` };
+  return { ok: true, message: dict.actions.locations.created(input.name) };
 }
 
 export async function updateLocation(
@@ -49,14 +56,15 @@ export async function updateLocation(
   formData: FormData
 ): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const input = parseLocationInput(formData);
-  const error = validateLocationInput(input);
+  const error = validateLocationInput(input, dict);
   if (error) return { ok: false, message: error };
 
   await prisma.campusLocation.update({ where: { id }, data: input });
   revalidatePath("/admin/locations");
-  return { ok: true, message: `บันทึกจุดเช็คอิน "${input.name}" แล้ว` };
+  return { ok: true, message: dict.actions.locations.updated(input.name) };
 }
 
 export async function deleteLocation(id: string) {

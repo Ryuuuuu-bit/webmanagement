@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useLanguage } from "@/components/LanguageProvider";
 
 type UserRow = {
   id: string;
@@ -30,6 +31,7 @@ export default function UserManagement({
   updateUserRole: (userId: string, role: "ADMIN" | "MEMBER") => Promise<{ ok: boolean; message: string }>;
   deleteUser: (userId: string) => Promise<{ ok: boolean; message: string }>;
 }) {
+  const { dict } = useLanguage();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);
@@ -49,7 +51,7 @@ export default function UserManagement({
   }
 
   function onReset(userId: string, name: string) {
-    if (!confirm(`รีเซ็ตรหัสผ่านของ ${name} ใช่ไหม? รหัสผ่านเดิมจะใช้ไม่ได้ทันที`)) return;
+    if (!confirm(dict.users.resetConfirm(name))) return;
     setCreateResult(null);
     startTransition(async () => {
       const res = await resetUserPassword(userId);
@@ -58,7 +60,7 @@ export default function UserManagement({
   }
 
   function onRoleChange(userId: string, name: string, role: "ADMIN" | "MEMBER") {
-    if (!confirm(`เปลี่ยนบทบาทของ ${name} เป็น ${role} ใช่ไหม?`)) return;
+    if (!confirm(dict.users.roleChangeConfirm(name, role))) return;
     setCreateResult(null);
     startTransition(async () => {
       const res = await updateUserRole(userId, role);
@@ -67,7 +69,7 @@ export default function UserManagement({
   }
 
   function onDelete(userId: string, name: string) {
-    if (!confirm(`ลบบัญชี "${name}" ใช่ไหม? จะลบตารางสอน/ประวัติเข้างาน/คำขอลาและรับรองเวลาของคนนี้ทั้งหมดด้วย และกู้คืนไม่ได้`)) return;
+    if (!confirm(dict.users.deleteConfirm(name))) return;
     setCreateResult(null);
     startTransition(async () => {
       const res = await deleteUser(userId);
@@ -78,28 +80,28 @@ export default function UserManagement({
   return (
     <div className="flex flex-col gap-5">
       <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="text-base font-bold">เพิ่มผู้ใช้ใหม่</h2>
+        <h2 className="text-base font-bold">{dict.users.addTitle}</h2>
         <p className="mt-1 text-sm text-muted">
-          ระบบจะสุ่มรหัสผ่านชั่วคราวให้ — แจ้งเจ้าตัวเอง (พูด/LINE) แล้วให้ตั้งรหัสผ่านใหม่ตอน login ครั้งแรก
+          {dict.users.addHint}
         </p>
         <form ref={formRef} onSubmit={onCreate} className="mt-4 flex flex-col gap-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-            <input name="name" required placeholder="ชื่อ-นามสกุล" className="input" />
-            <input name="email" type="email" required placeholder="อีเมล" className="input" />
+            <input name="name" required placeholder={dict.users.namePlaceholder} className="input" />
+            <input name="email" type="email" required placeholder={dict.users.emailPlaceholder} className="input" />
             <select name="departmentId" className="input" defaultValue="">
-              <option value="">ภาควิชา (ไม่ระบุ)</option>
+              <option value="">{dict.users.departmentUnset}</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
             <select name="role" className="input" defaultValue="MEMBER">
-              <option value="MEMBER">อาจารย์ (Member)</option>
-              <option value="ADMIN">ผู้ดูแลระบบ (Admin)</option>
+              <option value="MEMBER">{dict.users.roleMemberOption}</option>
+              <option value="ADMIN">{dict.users.roleAdminOption}</option>
             </select>
           </div>
           <div className="flex items-center gap-3">
             <button type="submit" disabled={pending} className="w-fit rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
-              {pending ? "กำลังสร้าง..." : "สร้างบัญชี"}
+              {pending ? dict.common.creating : dict.users.createAccount}
             </button>
           </div>
         </form>
@@ -115,16 +117,16 @@ export default function UserManagement({
       </div>
 
       <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="text-base font-bold">ผู้ใช้ทั้งหมด</h2>
+        <h2 className="text-base font-bold">{dict.users.allUsersTitle}</h2>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase text-faint">
-                <th className="pb-2">ชื่อ</th>
-                <th className="pb-2">อีเมล</th>
-                <th className="pb-2">ภาควิชา</th>
-                <th className="pb-2">บทบาท</th>
-                <th className="pb-2">สถานะรหัสผ่าน</th>
+                <th className="pb-2">{dict.users.colName}</th>
+                <th className="pb-2">{dict.users.colEmail}</th>
+                <th className="pb-2">{dict.users.colDepartment}</th>
+                <th className="pb-2">{dict.users.colRole}</th>
+                <th className="pb-2">{dict.users.colPasswordStatus}</th>
                 <th className="pb-2"></th>
               </tr>
             </thead>
@@ -136,7 +138,7 @@ export default function UserManagement({
                   <td className="py-2">{u.department?.name ?? "—"}</td>
                   <td className="py-2">
                     {u.id === currentUserId ? (
-                      <span className="badge bg-info-soft text-info">{u.role} (คุณ)</span>
+                      <span className="badge bg-info-soft text-info">{u.role} ({dict.common.you})</span>
                     ) : (
                       <select
                         disabled={pending}
@@ -154,9 +156,9 @@ export default function UserManagement({
                   </td>
                   <td className="py-2">
                     {u.mustChangePassword ? (
-                      <span className="badge bg-warn-soft text-warn">รอผู้ใช้ตั้งรหัสผ่านใหม่</span>
+                      <span className="badge bg-warn-soft text-warn">{dict.users.passwordPendingReset}</span>
                     ) : (
-                      <span className="text-faint">ใช้งานปกติ</span>
+                      <span className="text-faint">{dict.users.passwordNormal}</span>
                     )}
                   </td>
                   <td className="py-2">
@@ -166,7 +168,7 @@ export default function UserManagement({
                         onClick={() => onReset(u.id, u.name)}
                         className="text-xs font-semibold text-brand-ink underline disabled:opacity-40"
                       >
-                        รีเซ็ตรหัสผ่าน
+                        {dict.users.resetPassword}
                       </button>
                       {u.role !== "ADMIN" && u.id !== currentUserId && (
                         <button
@@ -174,7 +176,7 @@ export default function UserManagement({
                           onClick={() => onDelete(u.id, u.name)}
                           className="text-xs font-semibold text-danger underline disabled:opacity-40"
                         >
-                          ลบบัญชี
+                          {dict.users.deleteAccount}
                         </button>
                       )}
                     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import type { Dictionary, Locale } from "@/lib/i18n/dictionaries";
 
 type Plan = {
   id: string;
@@ -10,22 +11,20 @@ type Plan = {
   submittedAt: string;
 } | null;
 
-const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
-  PENDING: { text: "รอ Admin ตรวจสอบ", cls: "bg-info-soft text-info" },
-  APPROVED: { text: "อนุมัติแล้ว", cls: "bg-ok-soft text-ok" },
-  NEEDS_REVISION: { text: "ต้องแก้ไข", cls: "bg-warn-soft text-warn" },
-};
-
 export default function LessonPlanUploadForm({
   courseId,
   courseLabel,
   plan,
   submitLessonPlan,
+  dict,
+  locale,
 }: {
   courseId: string;
   courseLabel: string;
   plan: Plan;
   submitLessonPlan: (_prev: { ok: boolean; message: string } | null, formData: FormData) => Promise<{ ok: boolean; message: string }>;
+  dict: Dictionary;
+  locale: Locale;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
@@ -41,6 +40,12 @@ export default function LessonPlanUploadForm({
     });
   }
 
+  const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
+    PENDING: { text: dict.lessonPlans.statusPendingUpload, cls: "bg-info-soft text-info" },
+    APPROVED: { text: dict.lessonPlans.statusApproved, cls: "bg-ok-soft text-ok" },
+    NEEDS_REVISION: { text: dict.lessonPlans.statusNeedsRevisionUpload, cls: "bg-warn-soft text-warn" },
+  };
+
   const status = plan ? STATUS_LABEL[plan.status] : null;
 
   return (
@@ -55,9 +60,11 @@ export default function LessonPlanUploadForm({
           <a href={`/api/lesson-plans/${plan.id}`} className="font-semibold text-brand-ink underline">
             {plan.fileName}
           </a>
-          <span className="ml-2 text-faint">ส่งล่าสุด {new Date(plan.submittedAt).toLocaleString("th-TH")}</span>
+          <span className="ml-2 text-faint">
+            {dict.lessonPlans.lastSubmitted} {new Date(plan.submittedAt).toLocaleString(locale === "en" ? "en-US" : "th-TH")}
+          </span>
           {plan.status === "NEEDS_REVISION" && plan.reviewNote && (
-            <p className="mt-1 rounded-lg bg-warn-soft p-2 text-xs text-warn">Admin ขอให้แก้ไข: {plan.reviewNote}</p>
+            <p className="mt-1 rounded-lg bg-warn-soft p-2 text-xs text-warn">{dict.lessonPlans.adminRequestedChanges} {plan.reviewNote}</p>
           )}
         </div>
       )}
@@ -66,7 +73,7 @@ export default function LessonPlanUploadForm({
         <input type="hidden" name="courseId" value={courseId} />
         <input name="file" type="file" required accept=".pdf,.doc,.docx,.ppt,.pptx" className="text-sm" />
         <button type="submit" disabled={pending} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
-          {pending ? "กำลังส่ง..." : plan ? "ส่งไฟล์ใหม่" : "ส่งแผนการสอน"}
+          {pending ? dict.lessonPlans.sending : plan ? dict.lessonPlans.submitNew : dict.lessonPlans.submitFirst}
         </button>
         {result && <span className={`text-xs ${result.ok ? "text-brand-ink" : "text-danger"}`}>{result.message}</span>}
       </form>

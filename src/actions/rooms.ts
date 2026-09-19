@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -24,13 +26,14 @@ export async function createRoom(
   formData: FormData
 ): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const { name, building } = parseRoomInput(formData);
-  if (!name || !building) return { ok: false, message: "กรอกชื่อห้องและอาคารให้ครบ" };
+  if (!name || !building) return { ok: false, message: dict.actions.rooms.fillRequired };
 
   await prisma.room.create({ data: { name, building } });
   revalidatePath("/admin/master-data");
-  return { ok: true, message: `เพิ่มห้อง "${name}" (${building}) แล้ว` };
+  return { ok: true, message: dict.actions.rooms.created(name, building) };
 }
 
 export async function updateRoom(
@@ -39,26 +42,28 @@ export async function updateRoom(
   formData: FormData
 ): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const { name, building } = parseRoomInput(formData);
-  if (!name || !building) return { ok: false, message: "กรอกชื่อห้องและอาคารให้ครบ" };
+  if (!name || !building) return { ok: false, message: dict.actions.rooms.fillRequired };
 
   await prisma.room.update({ where: { id }, data: { name, building } });
   revalidatePath("/admin/master-data");
-  return { ok: true, message: `บันทึกห้อง "${name}" แล้ว` };
+  return { ok: true, message: dict.actions.rooms.updated(name) };
 }
 
 /** Blocked if used in any schedule — a schedule row requires a room. */
 export async function deleteRoom(id: string): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const room = await prisma.room.findUnique({ where: { id }, include: { _count: { select: { schedules: true } } } });
-  if (!room) return { ok: false, message: "ไม่พบห้องนี้" };
+  if (!room) return { ok: false, message: dict.actions.rooms.notFound };
   if (room._count!.schedules > 0) {
-    return { ok: false, message: "ลบไม่ได้ — ห้องนี้ถูกใช้อยู่ในตารางสอนแล้ว ลบตารางสอนที่เกี่ยวข้องก่อน" };
+    return { ok: false, message: dict.actions.rooms.inUse };
   }
 
   await prisma.room.delete({ where: { id } });
   revalidatePath("/admin/master-data");
-  return { ok: true, message: `ลบห้อง "${room.name}" แล้ว` };
+  return { ok: true, message: dict.actions.rooms.deleted(room.name) };
 }

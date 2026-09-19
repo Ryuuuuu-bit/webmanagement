@@ -7,6 +7,8 @@ import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -33,6 +35,7 @@ export async function createUser(
   formData: FormData
 ): Promise<{ ok: boolean; message: string; tempPassword?: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const name = (formData.get("name") as string || "").trim();
   const email = (formData.get("email") as string || "").trim().toLowerCase();
@@ -40,18 +43,18 @@ export async function createUser(
   const departmentId = (formData.get("departmentId") as string) || null;
 
   if (!name || !email) {
-    return { ok: false, message: "กรอกชื่อและอีเมลให้ครบ" };
+    return { ok: false, message: dict.actions.users.fillRequired };
   }
   if (!/^\S+@\S+\.\S+$/.test(email)) {
-    return { ok: false, message: "รูปแบบอีเมลไม่ถูกต้อง" };
+    return { ok: false, message: dict.actions.users.invalidEmail };
   }
   if (role !== "ADMIN" && role !== "MEMBER") {
-    return { ok: false, message: "บทบาทไม่ถูกต้อง" };
+    return { ok: false, message: dict.actions.users.invalidRole };
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return { ok: false, message: "อีเมลนี้มีบัญชีอยู่แล้ว" };
+    return { ok: false, message: dict.actions.users.emailExists };
   }
 
   const tempPassword = generateTempPassword();
@@ -71,7 +74,7 @@ export async function createUser(
   revalidatePath("/admin/users");
   return {
     ok: true,
-    message: `สร้างบัญชีให้ ${name} แล้ว — แจ้งรหัสผ่านชั่วคราวด้านล่างนี้ให้เจ้าตัวทันที (จะไม่แสดงซ้ำอีก)`,
+    message: dict.actions.users.created(name),
     tempPassword,
   };
 }
@@ -84,9 +87,10 @@ export async function resetUserPassword(
   userId: string
 ): Promise<{ ok: boolean; message: string; tempPassword?: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return { ok: false, message: "ไม่พบผู้ใช้นี้" };
+  if (!user) return { ok: false, message: dict.actions.users.notFound };
 
   const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 10);
@@ -102,7 +106,7 @@ export async function resetUserPassword(
   revalidatePath("/admin/users");
   return {
     ok: true,
-    message: `รีเซ็ตรหัสผ่านของ ${user.name} แล้ว — แจ้งรหัสผ่านชั่วคราวด้านล่างนี้ให้เจ้าตัวทันที (จะไม่แสดงซ้ำอีก)`,
+    message: dict.actions.users.resetDone(user.name),
     tempPassword,
   };
 }
@@ -113,23 +117,24 @@ export async function updateUserRole(
   role: Role
 ): Promise<{ ok: boolean; message: string }> {
   const session = await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   if (role !== "ADMIN" && role !== "MEMBER") {
-    return { ok: false, message: "บทบาทไม่ถูกต้อง" };
+    return { ok: false, message: dict.actions.users.invalidRole };
   }
   if (userId === session.user.id) {
-    return { ok: false, message: "ไม่สามารถเปลี่ยนบทบาทของตัวเองได้ ให้ผู้ดูแลระบบคนอื่นเปลี่ยนให้" };
+    return { ok: false, message: dict.actions.users.cannotChangeOwnRole };
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return { ok: false, message: "ไม่พบผู้ใช้นี้" };
+  if (!user) return { ok: false, message: dict.actions.users.notFound };
 
   // Bump tokenVersion so the change takes effect immediately (forces
   // re-login) instead of waiting for their current session to expire.
   await prisma.user.update({ where: { id: userId }, data: { role, tokenVersion: { increment: 1 } } });
 
   revalidatePath("/admin/users");
-  return { ok: true, message: `เปลี่ยนบทบาทของ ${user.name} เป็น ${role} แล้ว` };
+  return { ok: true, message: dict.actions.users.roleChanged(user.name, role) };
 }
 
 /**
@@ -142,15 +147,16 @@ export async function updateUserRole(
  */
 export async function deleteUser(userId: string): Promise<{ ok: boolean; message: string }> {
   const session = await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   if (userId === session.user.id) {
-    return { ok: false, message: "ไม่สามารถลบบัญชีของตัวเองได้" };
+    return { ok: false, message: dict.actions.users.cannotDeleteSelf };
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return { ok: false, message: "ไม่พบผู้ใช้นี้" };
+  if (!user) return { ok: false, message: dict.actions.users.notFound };
   if (user.role === "ADMIN") {
-    return { ok: false, message: "ไม่สามารถลบบัญชี Admin ได้ (Admin ลบกันเองไม่ได้)" };
+    return { ok: false, message: dict.actions.users.cannotDeleteAdmin };
   }
 
   await prisma.$transaction([
@@ -164,7 +170,7 @@ export async function deleteUser(userId: string): Promise<{ ok: boolean; message
   ]);
 
   revalidatePath("/admin/users");
-  return { ok: true, message: `ลบบัญชี ${user.name} และข้อมูลตารางสอน/เข้างาน/คำขอที่เกี่ยวข้องแล้ว` };
+  return { ok: true, message: dict.actions.users.deleted(user.name) };
 }
 
 /** Self-service: the logged-in user sets their own new password (forced after admin creates/resets an account). */
@@ -173,16 +179,17 @@ export async function changeOwnPassword(
   formData: FormData
 ): Promise<{ ok: boolean; message: string }> {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return { ok: false, message: "กรุณาเข้าสู่ระบบใหม่" };
+  const dict = getDictionary(getLocale());
+  if (!session?.user) return { ok: false, message: dict.actions.pleaseSignInAgain };
 
   const newPassword = (formData.get("newPassword") as string) || "";
   const confirm = (formData.get("confirm") as string) || "";
 
   if (newPassword.length < 8) {
-    return { ok: false, message: "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร" };
+    return { ok: false, message: dict.actions.users.passwordTooShort };
   }
   if (newPassword !== confirm) {
-    return { ok: false, message: "รหัสผ่านทั้งสองช่องไม่ตรงกัน" };
+    return { ok: false, message: dict.actions.users.passwordMismatch };
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
@@ -195,5 +202,5 @@ export async function changeOwnPassword(
     data: { passwordHash, mustChangePassword: false, tokenVersion: { increment: 1 } },
   });
 
-  return { ok: true, message: "เปลี่ยนรหัสผ่านสำเร็จ" };
+  return { ok: true, message: dict.actions.users.passwordChanged };
 }

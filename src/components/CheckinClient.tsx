@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { checkIn, checkOut } from "@/actions/attendance";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 type Attendance = {
   status: string;
@@ -9,7 +10,7 @@ type Attendance = {
   checkoutAt: string | null;
 } | null;
 
-export default function CheckinClient({ attendance }: { attendance: Attendance }) {
+export default function CheckinClient({ attendance, dict }: { attendance: Attendance; dict: Dictionary }) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
@@ -21,7 +22,7 @@ export default function CheckinClient({ attendance }: { attendance: Attendance }
     setGeoError(null);
     setMessage(null);
     if (!("geolocation" in navigator)) {
-      setGeoError("อุปกรณ์นี้ไม่รองรับการอ่านตำแหน่ง GPS");
+      setGeoError(dict.checkin.geoUnsupported);
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -31,7 +32,7 @@ export default function CheckinClient({ attendance }: { attendance: Attendance }
           setMessage(res.message);
         });
       },
-      () => setGeoError("ไม่สามารถอ่านตำแหน่งได้ — กรุณาอนุญาตการเข้าถึงตำแหน่งในเบราว์เซอร์"),
+      () => setGeoError(dict.checkin.geoError),
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }
@@ -44,21 +45,21 @@ export default function CheckinClient({ attendance }: { attendance: Attendance }
           disabled={pending || !canCheckin}
           className="rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
         >
-          📍 เช็คอินเข้างาน
+          📍 {dict.checkin.checkinButton}
         </button>
         <button
           onClick={() => run(checkOut)}
           disabled={pending || !canCheckout}
           className="rounded-lg border border-line-strong px-4 py-2.5 text-sm font-semibold disabled:opacity-40"
         >
-          🚪 เช็คเอาต์ออกงาน
+          🚪 {dict.checkin.checkoutButton}
         </button>
       </div>
-      {pending && <p className="text-xs text-faint">กำลังตรวจสอบตำแหน่ง...</p>}
+      {pending && <p className="text-xs text-faint">{dict.checkin.locating}</p>}
       {message && <p className="text-sm font-medium text-brand-ink">{message}</p>}
       {geoError && <p className="text-sm text-danger">{geoError}</p>}
       <p className="max-w-xs text-xs text-faint">
-        ต้องอยู่ในพื้นที่มหาวิทยาลัยขณะกดปุ่ม ระบบตรวจสอบพิกัดเทียบกับสถานที่ที่ลงทะเบียนไว้โดยอัตโนมัติ
+        {dict.checkin.helpText}
       </p>
     </div>
   );

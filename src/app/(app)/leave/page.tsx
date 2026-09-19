@@ -5,20 +5,14 @@ import { requestLeave, decideLeave } from "@/actions/leave";
 import { RequestBadge } from "@/components/StatusBadge";
 import DecisionButtons from "@/components/DecisionButtons";
 import { formatDate } from "@/lib/date";
-
-const TYPE_LABEL: Record<string, string> = {
-  SICK: "ลาป่วย",
-  PERSONAL: "ลากิจ",
-  VACATION: "ลาพักร้อน",
-  MATERNITY: "ลาคลอดบุตร",
-  STERILIZATION: "ลาทำหมัน",
-  MILITARY: "ลารับราชการทหาร",
-  TRAINING: "ลาฝึกอบรม",
-};
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export default async function LeavePage() {
   const session = await getServerSession(authOptions);
   const canApprove = session!.user.role === "ADMIN";
+  const locale = getLocale();
+  const dict = getDictionary(locale);
 
   if (!canApprove) {
     const mine = await prisma.leaveRequest.findMany({
@@ -29,48 +23,48 @@ export default async function LeavePage() {
     return (
       <div className="flex flex-col gap-6">
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-          <h2 className="text-base font-bold">ยื่นคำขอลา</h2>
+          <h2 className="text-base font-bold">{dict.leave.requestTitle}</h2>
           <form action={requestLeave} className="mt-3 flex flex-col gap-3.5">
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
-              <Field label="ประเภทการลา">
+              <Field label={dict.leave.fieldType}>
                 <select name="type" className="input">
-                  <option value="SICK">ลาป่วย</option>
-                  <option value="PERSONAL">ลากิจ</option>
-                  <option value="VACATION">ลาพักร้อน</option>
-                  <option value="MATERNITY">ลาคลอดบุตร</option>
-                  <option value="STERILIZATION">ลาทำหมัน</option>
-                  <option value="MILITARY">ลารับราชการทหาร</option>
-                  <option value="TRAINING">ลาฝึกอบรม</option>
+                  <option value="SICK">{dict.leave.types.SICK}</option>
+                  <option value="PERSONAL">{dict.leave.types.PERSONAL}</option>
+                  <option value="VACATION">{dict.leave.types.VACATION}</option>
+                  <option value="MATERNITY">{dict.leave.types.MATERNITY}</option>
+                  <option value="STERILIZATION">{dict.leave.types.STERILIZATION}</option>
+                  <option value="MILITARY">{dict.leave.types.MILITARY}</option>
+                  <option value="TRAINING">{dict.leave.types.TRAINING}</option>
                 </select>
               </Field>
-              <Field label="วันที่เริ่ม"><input type="date" name="from" required className="input" /></Field>
-              <Field label="วันที่สิ้นสุด"><input type="date" name="to" required className="input" /></Field>
+              <Field label={dict.leave.fieldFrom}><input type="date" name="from" required className="input" /></Field>
+              <Field label={dict.leave.fieldTo}><input type="date" name="to" required className="input" /></Field>
             </div>
-            <Field label="เหตุผล"><textarea name="reason" className="input min-h-[70px]" placeholder="ระบุเหตุผลโดยย่อ" /></Field>
+            <Field label={dict.leave.fieldReason}><textarea name="reason" className="input min-h-[70px]" placeholder={dict.leave.reasonPlaceholder} /></Field>
             <button type="submit" className="w-fit rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white">
-              ส่งคำขอลา
+              {dict.leave.submit}
             </button>
           </form>
         </div>
 
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-          <h2 className="text-base font-bold">ประวัติการลาของฉัน</h2>
+          <h2 className="text-base font-bold">{dict.leave.myHistoryTitle}</h2>
           {mine.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">ยังไม่มีประวัติการลา</p>
+            <p className="mt-2 text-sm text-muted">{dict.leave.noHistory}</p>
           ) : (
             <table className="mt-3 w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase text-faint">
-                  <th className="pb-2">ประเภท</th><th className="pb-2">วันที่</th><th className="pb-2">เหตุผล</th><th className="pb-2">สถานะ</th>
+                  <th className="pb-2">{dict.leave.colType}</th><th className="pb-2">{dict.leave.colDate}</th><th className="pb-2">{dict.leave.colReason}</th><th className="pb-2">{dict.leave.colStatus}</th>
                 </tr>
               </thead>
               <tbody>
                 {mine.map((l) => (
                   <tr key={l.id} className="border-t border-line-soft">
-                    <td className="py-2">{TYPE_LABEL[l.type]}</td>
-                    <td className="py-2">{formatDate(l.startDate)} – {formatDate(l.endDate)}</td>
+                    <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
+                    <td className="py-2">{formatDate(l.startDate, locale)} – {formatDate(l.endDate, locale)}</td>
                     <td className="py-2">{l.reason}</td>
-                    <td className="py-2"><RequestBadge status={l.status} /></td>
+                    <td className="py-2"><RequestBadge status={l.status} dict={dict} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -89,27 +83,28 @@ export default async function LeavePage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="text-base font-bold">คำขอลาที่รออนุมัติ</h2>
+        <h2 className="text-base font-bold">{dict.leave.pendingTitle}</h2>
         {pending.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">ไม่มีคำขอค้างอนุมัติ</p>
+          <p className="mt-2 text-sm text-muted">{dict.leave.noPending}</p>
         ) : (
           <table className="mt-3 w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase text-faint">
-                <th className="pb-2">อาจารย์</th><th className="pb-2">ประเภท</th><th className="pb-2">วันที่</th><th className="pb-2">เหตุผล</th><th></th>
+                <th className="pb-2">{dict.leave.colTeacher}</th><th className="pb-2">{dict.leave.colType}</th><th className="pb-2">{dict.leave.colDate}</th><th className="pb-2">{dict.leave.colReason}</th><th></th>
               </tr>
             </thead>
             <tbody>
               {pending.map((l) => (
                 <tr key={l.id} className="border-t border-line-soft">
                   <td className="py-2">{l.requester!.name}</td>
-                  <td className="py-2">{TYPE_LABEL[l.type]}</td>
-                  <td className="py-2">{formatDate(l.startDate)} – {formatDate(l.endDate)}</td>
+                  <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
+                  <td className="py-2">{formatDate(l.startDate, locale)} – {formatDate(l.endDate, locale)}</td>
                   <td className="py-2">{l.reason}</td>
                   <td className="py-2">
                     <DecisionButtons
                       onApprove={decideLeave.bind(null, l.id, "APPROVED")}
                       onReject={decideLeave.bind(null, l.id, "REJECTED")}
+                      dict={dict}
                     />
                   </td>
                 </tr>
@@ -120,20 +115,20 @@ export default async function LeavePage() {
       </div>
 
       <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="text-base font-bold">ประวัติที่ดำเนินการแล้ว</h2>
+        <h2 className="text-base font-bold">{dict.leave.decidedTitle}</h2>
         <table className="mt-3 w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-faint">
-              <th className="pb-2">อาจารย์</th><th className="pb-2">ประเภท</th><th className="pb-2">วันที่</th><th className="pb-2">สถานะ</th>
+              <th className="pb-2">{dict.leave.colTeacher}</th><th className="pb-2">{dict.leave.colType}</th><th className="pb-2">{dict.leave.colDate}</th><th className="pb-2">{dict.leave.colStatus}</th>
             </tr>
           </thead>
           <tbody>
             {done.map((l) => (
               <tr key={l.id} className="border-t border-line-soft">
                 <td className="py-2">{l.requester!.name}</td>
-                <td className="py-2">{TYPE_LABEL[l.type]}</td>
-                <td className="py-2">{formatDate(l.startDate)} – {formatDate(l.endDate)}</td>
-                <td className="py-2"><RequestBadge status={l.status} /></td>
+                <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
+                <td className="py-2">{formatDate(l.startDate, locale)} – {formatDate(l.endDate, locale)}</td>
+                <td className="py-2"><RequestBadge status={l.status} dict={dict} /></td>
               </tr>
             ))}
           </tbody>

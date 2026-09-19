@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -17,16 +19,17 @@ export async function createDepartment(
   formData: FormData
 ): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const name = (formData.get("name") as string || "").trim();
-  if (!name) return { ok: false, message: "กรอกชื่อสาขาวิชา" };
+  if (!name) return { ok: false, message: dict.actions.departments.fillRequired };
 
   const existing = await prisma.department.findUnique({ where: { name } });
-  if (existing) return { ok: false, message: "มีสาขาวิชานี้อยู่แล้ว" };
+  if (existing) return { ok: false, message: dict.actions.departments.exists };
 
   await prisma.department.create({ data: { name } });
   revalidatePath("/admin/master-data");
-  return { ok: true, message: `เพิ่มสาขาวิชา "${name}" แล้ว` };
+  return { ok: true, message: dict.actions.departments.created(name) };
 }
 
 export async function updateDepartment(
@@ -35,29 +38,31 @@ export async function updateDepartment(
   formData: FormData
 ): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const name = (formData.get("name") as string || "").trim();
-  if (!name) return { ok: false, message: "กรอกชื่อสาขาวิชา" };
+  if (!name) return { ok: false, message: dict.actions.departments.fillRequired };
 
   const conflict = await prisma.department.findFirst({ where: { name, NOT: { id } } });
-  if (conflict) return { ok: false, message: "มีสาขาวิชาชื่อนี้อยู่แล้ว" };
+  if (conflict) return { ok: false, message: dict.actions.departments.existsOther };
 
   await prisma.department.update({ where: { id }, data: { name } });
   revalidatePath("/admin/master-data");
-  return { ok: true, message: `บันทึกสาขาวิชา "${name}" แล้ว` };
+  return { ok: true, message: dict.actions.departments.updated(name) };
 }
 
 /** Blocked if any user is still assigned — avoids silently orphaning their department. */
 export async function deleteDepartment(id: string): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const dept = await prisma.department.findUnique({ where: { id }, include: { _count: { select: { users: true } } } });
-  if (!dept) return { ok: false, message: "ไม่พบสาขาวิชานี้" };
+  if (!dept) return { ok: false, message: dict.actions.departments.notFound };
   if (dept._count!.users > 0) {
-    return { ok: false, message: `ลบไม่ได้ — ยังมีผู้ใช้ ${dept._count!.users} คนอยู่ในสาขาวิชานี้ ย้ายออกก่อนแล้วค่อยลบ` };
+    return { ok: false, message: dict.actions.departments.inUse(dept._count!.users) };
   }
 
   await prisma.department.delete({ where: { id } });
   revalidatePath("/admin/master-data");
-  return { ok: true, message: `ลบสาขาวิชา "${dept.name}" แล้ว` };
+  return { ok: true, message: dict.actions.departments.deleted(dept.name) };
 }

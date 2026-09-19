@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import ThemeToggle from "./ThemeToggle";
+import LanguageToggle from "./LanguageToggle";
+import { useLanguage } from "./LanguageProvider";
 
 const ICON: Record<string, string> = {
   dashboard:
@@ -30,27 +32,29 @@ const ICON: Record<string, string> = {
 
 export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userName: string }) {
   const pathname = usePathname();
+  const { dict } = useLanguage();
+  const nav = dict.sidebar.nav;
 
   const items = isAdmin
     ? [
-        ["/dashboard", "dashboard", "Dashboard"],
-        ["/schedule", "schedule", "ตารางสอนทั้งหมด"],
-        ["/checkin", "checkin", "เช็คอิน-เอาต์ (ภาพรวม)"],
-        ["/attest", "attest", "อนุมัติรับรองเวลา"],
-        ["/leave", "leave", "อนุมัติการลา"],
-        ["/teachers", "teachers", "รายชื่ออาจารย์"],
-        ["/lesson-plans", "lessonplans", "แผนการสอน"],
-        ["/admin/master-data", "masterdata", "ข้อมูลหลัก"],
-        ["/admin/users", "users", "จัดการผู้ใช้"],
-        ["/admin/locations", "locations", "จุดเช็คอิน-เอาต์"],
+        ["/dashboard", "dashboard", nav.dashboard],
+        ["/schedule", "schedule", nav.scheduleAll],
+        ["/checkin", "checkin", nav.checkinAll],
+        ["/attest", "attest", nav.attestApprove],
+        ["/leave", "leave", nav.leaveApprove],
+        ["/teachers", "teachers", nav.teachers],
+        ["/lesson-plans", "lessonplans", nav.lessonPlansAll],
+        ["/admin/master-data", "masterdata", nav.masterData],
+        ["/admin/users", "users", nav.users],
+        ["/admin/locations", "locations", nav.locations],
       ]
     : [
-        ["/dashboard", "dashboard", "Dashboard"],
-        ["/schedule", "schedule", "ตารางสอนของฉัน"],
-        ["/checkin", "checkin", "เช็คอิน-เช็คเอาต์"],
-        ["/attest", "attest", "ขอรับรองเวลา"],
-        ["/leave", "leave", "การลาของฉัน"],
-        ["/lesson-plans", "lessonplans", "ส่งแผนการสอน"],
+        ["/dashboard", "dashboard", nav.dashboard],
+        ["/schedule", "schedule", nav.scheduleMine],
+        ["/checkin", "checkin", nav.checkinMine],
+        ["/attest", "attest", nav.attestMine],
+        ["/leave", "leave", nav.leaveMine],
+        ["/lesson-plans", "lessonplans", nav.lessonPlansMine],
       ];
 
   return (
@@ -60,12 +64,12 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
           TS
         </div>
         <div className="leading-tight">
-          <div className="text-sm font-bold">TeachSchedule</div>
-          <div className="text-[11px] text-faint">ระบบตารางสอนอาจารย์</div>
+          <div className="text-sm font-bold">{dict.appName}</div>
+          <div className="text-[11px] text-faint">{dict.appTagline}</div>
         </div>
       </div>
 
-      <div className="px-2 pb-1.5 pt-3 text-[11px] font-semibold uppercase tracking-wide text-faint">เมนู</div>
+      <div className="px-2 pb-1.5 pt-3 text-[11px] font-semibold uppercase tracking-wide text-faint">{dict.sidebar.menu}</div>
       <nav className="flex flex-col gap-0.5">
         {items.map(([href, icon, label]) => {
           const active = pathname === href;
@@ -88,26 +92,27 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
 
       <div className="mt-auto flex flex-col gap-1.5">
         <ThemeToggle />
+        <LanguageToggle />
         <div className="flex items-center gap-2 rounded-lg bg-line-soft px-3 py-2">
           <div className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
             {userName.trim().charAt(0).toUpperCase() || "?"}
           </div>
           <div className="min-w-0 leading-tight">
             <div className="truncate text-sm font-semibold text-ink" title={userName}>{userName}</div>
-            <div className="text-[11px] text-faint">{isAdmin ? "ผู้ดูแลระบบ" : "อาจารย์ผู้สอน"}</div>
+            <div className="text-[11px] text-faint">{isAdmin ? dict.sidebar.roleAdmin : dict.sidebar.roleMember}</div>
           </div>
         </div>
         <Link
           href="/change-password"
           className="rounded-lg border border-line px-3 py-2 text-sm font-medium text-subtle hover:bg-line-soft"
         >
-          เปลี่ยนรหัสผ่าน
+          {dict.sidebar.changePassword}
         </Link>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           className="rounded-lg border border-line px-3 py-2 text-left text-sm font-medium text-subtle hover:bg-line-soft"
         >
-          ออกจากระบบ
+          {dict.sidebar.signOut}
         </button>
       </div>
     </aside>

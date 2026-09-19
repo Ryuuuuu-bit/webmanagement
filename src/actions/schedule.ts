@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -24,6 +26,7 @@ async function requireSession() {
  */
 export async function createSchedule(formData: FormData) {
   const session = await requireSession();
+  const dict = getDictionary(getLocale());
   const isAdmin = session.user.role === "ADMIN";
 
   const teacherId = isAdmin ? (formData.get("teacherId") as string) : session.user.id;
@@ -36,10 +39,10 @@ export async function createSchedule(formData: FormData) {
   const note = ((formData.get("note") as string) || "").trim() || null;
 
   if (!TIME_RE.test(startTime) || !TIME_RE.test(endTime)) {
-    return { ok: false, message: "กรอกเวลาเริ่ม-สิ้นสุดให้ถูกต้อง (HH:MM)" };
+    return { ok: false, message: dict.actions.schedule.invalidTime };
   }
   if (endTime <= startTime) {
-    return { ok: false, message: "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม" };
+    return { ok: false, message: dict.actions.schedule.endBeforeStart };
   }
 
   // Two ranges [s1,e1) and [s2,e2) overlap iff s1 < e2 && s2 < e1 — "HH:MM"
@@ -50,8 +53,11 @@ export async function createSchedule(formData: FormData) {
   });
   const conflict = sameDay.find((s) => startTime < s.endTime && s.startTime < endTime);
   if (conflict) {
-    const who = conflict.teacherId === teacherId ? `อาจารย์ ${conflict.teacher!.name}` : `ห้อง ${conflict.room!.name}`;
-    return { ok: false, message: `ไม่สามารถบันทึกได้ — ${who} ถูกจองไว้แล้วในวัน-เวลานี้ (${conflict.startTime}–${conflict.endTime}) (FR-15)` };
+    const who =
+      conflict.teacherId === teacherId
+        ? dict.actions.schedule.conflictWhoTeacher(conflict.teacher!.name)
+        : dict.actions.schedule.conflictWhoRoom(conflict.room!.name);
+    return { ok: false, message: dict.actions.schedule.conflict(who, conflict.startTime, conflict.endTime) };
   }
 
   await prisma.schedule.create({
@@ -60,40 +66,42 @@ export async function createSchedule(formData: FormData) {
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
-  return { ok: true, message: "บันทึกตารางสอนแล้ว" };
+  return { ok: true, message: dict.actions.schedule.created };
 }
 
 /** Admin can edit any schedule's note; a member can only edit their own. */
 export async function updateScheduleNote(id: string, note: string): Promise<{ ok: boolean; message: string }> {
   const session = await requireSession();
+  const dict = getDictionary(getLocale());
   const isAdmin = session.user.role === "ADMIN";
 
   const schedule = await prisma.schedule.findUnique({ where: { id } });
-  if (!schedule) return { ok: false, message: "ไม่พบตารางสอนนี้" };
+  if (!schedule) return { ok: false, message: dict.actions.schedule.notFound };
   if (!isAdmin && schedule.teacherId !== session.user.id) {
-    return { ok: false, message: "ไม่มีสิทธิ์แก้ไขตารางสอนนี้" };
+    return { ok: false, message: dict.actions.schedule.noteUnauthorized };
   }
 
   await prisma.schedule.update({ where: { id }, data: { note: note.trim() || null } });
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
-  return { ok: true, message: "บันทึกรายละเอียดแล้ว" };
+  return { ok: true, message: dict.actions.schedule.noteSaved };
 }
 
 /** Admin can delete any schedule slot; a member can only delete their own. */
 export async function deleteSchedule(id: string): Promise<{ ok: boolean; message: string }> {
   const session = await requireSession();
+  const dict = getDictionary(getLocale());
   const isAdmin = session.user.role === "ADMIN";
 
   if (!isAdmin) {
     const schedule = await prisma.schedule.findUnique({ where: { id } });
     if (!schedule || schedule.teacherId !== session.user.id) {
-      return { ok: false, message: "ไม่มีสิทธิ์ลบตารางสอนนี้" };
+      return { ok: false, message: dict.actions.schedule.deleteUnauthorized };
     }
   }
 
   await prisma.schedule.delete({ where: { id } });
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
-  return { ok: true, message: "ลบตารางสอนแล้ว" };
+  return { ok: true, message: dict.actions.schedule.deleted };
 }

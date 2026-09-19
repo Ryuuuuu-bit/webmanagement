@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useLanguage } from "@/components/LanguageProvider";
 
 type Loc = { id: string; name: string; latitude: number; longitude: number; radiusMeters: number };
 type ActionResult = { ok: boolean; message: string };
@@ -16,6 +17,7 @@ export default function LocationManagement({
   updateLocation: (id: string, _prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   deleteLocation: (id: string) => Promise<void>;
 }) {
+  const { dict } = useLanguage();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);
@@ -43,27 +45,27 @@ export default function LocationManagement({
   }
 
   function onDelete(id: string, name: string) {
-    if (!confirm(`ลบจุดเช็คอิน "${name}" ใช่ไหม?`)) return;
+    if (!confirm(dict.locations.deleteConfirm(name))) return;
     startTransition(() => deleteLocation(id));
   }
 
   return (
     <div className="flex flex-col gap-5">
       <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="text-base font-bold">เพิ่มจุดเช็คอิน-เช็คเอาต์</h2>
+        <h2 className="text-base font-bold">{dict.locations.addTitle}</h2>
         <p className="mt-1 text-sm text-muted">
-          พิกัดหาได้จาก Google Maps (คลิกขวาที่จุด แล้วคัดลอกตัวเลขละติจูด,ลองจิจูด) — อาจารย์ต้องอยู่ในรัศมีนี้ถึงจะเช็คอิน/เช็คเอาต์ได้
+          {dict.locations.addHint}
         </p>
         <form ref={formRef} onSubmit={onCreate} className="mt-4 flex flex-col gap-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-            <input name="name" required placeholder="ชื่อจุด เช่น คณะวิศวกรรมศาสตร์" className="input" />
-            <input name="latitude" required type="number" step="any" placeholder="ละติจูด เช่น 13.8486" className="input" />
-            <input name="longitude" required type="number" step="any" placeholder="ลองจิจูด เช่น 100.5681" className="input" />
-            <input name="radiusMeters" required type="number" defaultValue={150} min={10} max={20000} placeholder="รัศมี (เมตร)" className="input" />
+            <input name="name" required placeholder={dict.locations.namePlaceholder} className="input" />
+            <input name="latitude" required type="number" step="any" placeholder={dict.locations.latitudePlaceholder} className="input" />
+            <input name="longitude" required type="number" step="any" placeholder={dict.locations.longitudePlaceholder} className="input" />
+            <input name="radiusMeters" required type="number" defaultValue={150} min={10} max={20000} placeholder={dict.locations.radiusPlaceholder} className="input" />
           </div>
           <div className="flex items-center gap-3">
             <button type="submit" disabled={pending} className="w-fit rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
-              {pending ? "กำลังบันทึก..." : "เพิ่มจุดเช็คอิน"}
+              {pending ? dict.common.saving : dict.locations.addButton}
             </button>
             {createResult && (
               <span className={`text-sm ${createResult.ok ? "text-brand-ink" : "text-danger"}`}>{createResult.message}</span>
@@ -73,9 +75,9 @@ export default function LocationManagement({
       </div>
 
       <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="text-base font-bold">จุดเช็คอินทั้งหมด</h2>
+        <h2 className="text-base font-bold">{dict.locations.allTitle}</h2>
         {locations.length === 0 && (
-          <p className="mt-2 text-sm text-danger">ยังไม่มีจุดเช็คอินเลย — ตอนนี้ระบบจะยอม "ทุกตำแหน่ง" ให้เช็คอินได้ (ไม่มีการกันตำแหน่ง)</p>
+          <p className="mt-2 text-sm text-danger">{dict.locations.none}</p>
         )}
         <div className="mt-3 flex flex-col gap-3">
           {locations.map((loc) =>
@@ -86,8 +88,8 @@ export default function LocationManagement({
                 <input name="longitude" required type="number" step="any" defaultValue={loc.longitude} className="input" />
                 <input name="radiusMeters" required type="number" defaultValue={loc.radiusMeters} min={10} max={20000} className="input" />
                 <div className="flex items-center gap-2">
-                  <button type="submit" disabled={pending} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">บันทึก</button>
-                  <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-muted">ยกเลิก</button>
+                  <button type="submit" disabled={pending} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">{dict.common.save}</button>
+                  <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-muted">{dict.common.cancel}</button>
                 </div>
               </form>
             ) : (
@@ -95,12 +97,12 @@ export default function LocationManagement({
                 <div>
                   <span className="font-semibold">{loc.name}</span>
                   <span className="ml-2 text-faint">
-                    ({loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}) รัศมี {loc.radiusMeters} ม.
+                    ({loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}) {dict.locations.radiusLabel} {loc.radiusMeters} {dict.locations.metersShort}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setEditingId(loc.id)} className="text-xs font-semibold text-brand-ink underline">แก้ไข</button>
-                  <button disabled={pending} onClick={() => onDelete(loc.id, loc.name)} className="text-xs font-semibold text-danger disabled:opacity-40">ลบ</button>
+                  <button onClick={() => setEditingId(loc.id)} className="text-xs font-semibold text-brand-ink underline">{dict.common.edit}</button>
+                  <button disabled={pending} onClick={() => onDelete(loc.id, loc.name)} className="text-xs font-semibold text-danger disabled:opacity-40">{dict.common.delete}</button>
                 </div>
                 {editResult?.id === loc.id && !editResult.ok && (
                   <p className="w-full text-xs text-danger">{editResult.message}</p>

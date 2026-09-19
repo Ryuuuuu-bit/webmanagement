@@ -10,10 +10,15 @@ import { createDepartment, updateDepartment, deleteDepartment } from "@/actions/
 import { createCourse, updateCourse, deleteCourse } from "@/actions/courses";
 import { createRoom, updateRoom, deleteRoom } from "@/actions/rooms";
 import { createSemester, updateSemester, deleteSemester } from "@/actions/semesters";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export default async function MasterDataPage() {
   const session = await getServerSession(authOptions);
   if (session!.user.role !== "ADMIN") redirect("/dashboard");
+
+  const locale = getLocale();
+  const dict = getDictionary(locale);
 
   const [departments, courses, rooms, semesters] = await Promise.all([
     prisma.department.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { users: true } } } }),
@@ -25,13 +30,12 @@ export default async function MasterDataPage() {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-lg font-bold">ข้อมูลหลัก</h1>
-        <p className="mt-1 text-sm text-muted">
-          จัดการสาขาวิชา รายวิชา ห้อง/อาคาร และภาคเรียนได้เอง — ไม่ต้องแก้โค้ดหรือ deploy ใหม่ทุกครั้งที่เปิดเทอมหรือเพิ่มวิชา
-        </p>
+        <h1 className="text-lg font-bold">{dict.masterData.title}</h1>
+        <p className="mt-1 text-sm text-muted">{dict.masterData.hint}</p>
       </div>
 
       <DepartmentManagement
+        dict={dict}
         departments={departments}
         createDepartment={createDepartment}
         updateDepartment={updateDepartment}
@@ -39,6 +43,7 @@ export default async function MasterDataPage() {
       />
 
       <CourseManagement
+        dict={dict}
         courses={courses}
         createCourse={createCourse}
         updateCourse={updateCourse}
@@ -46,6 +51,7 @@ export default async function MasterDataPage() {
       />
 
       <RoomManagement
+        dict={dict}
         rooms={rooms}
         createRoom={createRoom}
         updateRoom={updateRoom}
@@ -53,6 +59,7 @@ export default async function MasterDataPage() {
       />
 
       <SemesterManagement
+        dict={dict}
         semesters={semesters.map((s) => ({
           id: s.id,
           name: s.name,

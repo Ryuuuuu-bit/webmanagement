@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { AttendanceBadge } from "@/components/StatusBadge";
+import { formatDate } from "@/lib/date";
+import type { Dictionary, Locale } from "@/lib/i18n/dictionaries";
 
 type Plan = {
   id: string;
@@ -13,18 +15,16 @@ type Plan = {
   course: { code: string; name: string };
 };
 
-const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
-  PENDING: { text: "รอตรวจสอบ", cls: "bg-info-soft text-info" },
-  APPROVED: { text: "อนุมัติแล้ว", cls: "bg-ok-soft text-ok" },
-  NEEDS_REVISION: { text: "ให้แก้ไข", cls: "bg-warn-soft text-warn" },
-};
-
 export default function LessonPlanReviewRow({
   plan,
   reviewLessonPlan,
+  dict,
+  locale,
 }: {
   plan: Plan;
   reviewLessonPlan: (id: string, decision: "APPROVED" | "NEEDS_REVISION", note: string) => Promise<{ ok: boolean; message: string }>;
+  dict: Dictionary;
+  locale: Locale;
 }) {
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState("");
@@ -39,6 +39,12 @@ export default function LessonPlanReviewRow({
     });
   }
 
+  const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
+    PENDING: { text: dict.lessonPlans.statusPendingReview, cls: "bg-info-soft text-info" },
+    APPROVED: { text: dict.lessonPlans.statusApproved, cls: "bg-ok-soft text-ok" },
+    NEEDS_REVISION: { text: dict.lessonPlans.statusNeedsRevisionReview, cls: "bg-warn-soft text-warn" },
+  };
+
   const status = STATUS_LABEL[plan.status];
 
   return (
@@ -48,16 +54,16 @@ export default function LessonPlanReviewRow({
       <td className="py-2">
         <a href={`/api/lesson-plans/${plan.id}`} className="font-semibold text-brand-ink underline">{plan.fileName}</a>
       </td>
-      <td className="py-2 text-faint">{new Date(plan.submittedAt).toLocaleDateString("th-TH")}</td>
+      <td className="py-2 text-faint">{formatDate(plan.submittedAt, locale)}</td>
       <td className="py-2"><span className={`badge ${status.cls}`}>{status.text}</span></td>
       <td className="py-2">
         <div className="flex flex-col gap-1.5">
           <div className="flex gap-2">
             <button disabled={pending} onClick={() => decide("APPROVED")} className="text-xs font-semibold text-ok underline disabled:opacity-40">
-              อนุมัติ
+              {dict.lessonPlans.approveAction}
             </button>
             <button disabled={pending} onClick={() => setShowNoteBox((v) => !v)} className="text-xs font-semibold text-warn underline disabled:opacity-40">
-              ให้แก้ไข
+              {dict.lessonPlans.requestChangesAction}
             </button>
           </div>
           {showNoteBox && (
@@ -65,12 +71,12 @@ export default function LessonPlanReviewRow({
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="ระบุสิ่งที่ต้องแก้ไข"
+                placeholder={dict.lessonPlans.requestChangesPlaceholder}
                 className="input min-w-[200px] text-xs"
                 rows={2}
               />
               <button disabled={pending} onClick={() => decide("NEEDS_REVISION")} className="w-fit rounded-lg bg-warn px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60">
-                {pending ? "กำลังส่ง..." : "ส่งกลับให้แก้ไข"}
+                {pending ? dict.lessonPlans.sending : dict.lessonPlans.sendBackAction}
               </button>
             </div>
           )}

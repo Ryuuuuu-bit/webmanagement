@@ -1,3 +1,5 @@
+import type { Dictionary, Locale } from "./i18n/dictionaries";
+
 // Sat/Sun included so a teacher can be scheduled for extra/make-up classes
 // on weekends, not just the regular Mon-Fri timetable.
 export const DAY_LABELS = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"];
@@ -17,6 +19,10 @@ export function toWeekdayIndex(date: Date) {
 // guard for display formatting so it's correct even if that env var is ever
 // missing (e.g. a fresh environment).
 const BANGKOK_TZ = "Asia/Bangkok";
+
+function intlLocale(locale: Locale) {
+  return locale === "en" ? "en-US" : "th-TH";
+}
 
 export function todayAtMidnight() {
   const d = new Date();
@@ -38,26 +44,39 @@ export function getCurrentWeekDates(): Date[] {
   });
 }
 
-export function formatTime(d: Date | null | undefined) {
+/** English renders as 12-hour with AM/PM (the natural convention); Thai stays 24-hour, as before. */
+export function formatTime(d: Date | null | undefined, locale: Locale = "th") {
   if (!d) return null;
-  return new Date(d).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: BANGKOK_TZ });
+  return new Date(d).toLocaleTimeString(intlLocale(locale), {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: locale === "en",
+    timeZone: BANGKOK_TZ,
+  });
 }
 
-export function formatDate(d: Date | string) {
-  return new Date(d).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: BANGKOK_TZ });
+/** th-TH renders the Buddhist Era year (e.g. 2569) automatically — intentional and expected for Thai users; en-US renders the Gregorian year. */
+export function formatDate(d: Date | string, locale: Locale = "th") {
+  return new Date(d).toLocaleDateString(intlLocale(locale), {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: BANGKOK_TZ,
+  });
 }
 
 /**
- * Thai-style label for a recurring weekly day + time (schedule slots repeat
- * by day-of-week, not a specific calendar date) — e.g. "วันอาทิตย์ 14:00 น."
- * or, with an end time, "วันอาทิตย์ 14:00–15:00 น."
+ * Label for a recurring weekly day + time (schedule slots repeat by
+ * day-of-week, not a specific calendar date) — e.g. "วันอาทิตย์ 14:00 น."
+ * or "Sunday 14:00–15:00" in English.
  */
-export function formatDayTime(dayOfWeek: number, startTime: string, endTime?: string) {
+export function formatDayTime(dict: Dictionary, locale: Locale, dayOfWeek: number, startTime: string, endTime?: string) {
   const time = endTime ? `${startTime}–${endTime}` : startTime;
-  return `วัน${DAY_LABELS[dayOfWeek]} ${time} น.`;
+  const suffix = locale === "th" ? " น." : "";
+  return `${dict.day.full[dayOfWeek]} ${time}${suffix}`;
 }
 
-/** Thai-style "HH:MM น." label for a plain time-of-day value. */
-export function formatTimeLabel(t: string) {
-  return `${t} น.`;
+/** "HH:MM น." in Thai; plain "HH:MM" in English. */
+export function formatTimeLabel(t: string, locale: Locale = "th") {
+  return locale === "th" ? `${t} น.` : t;
 }

@@ -4,6 +4,9 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -18,10 +21,13 @@ function parseSemesterInput(formData: FormData) {
   return { name, startDate, endDate };
 }
 
-function validateSemesterInput({ name, startDate, endDate }: ReturnType<typeof parseSemesterInput>) {
-  if (!name) return "กรอกชื่อภาคเรียน";
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return "กรอกวันที่เริ่ม-สิ้นสุดให้ถูกต้อง";
-  if (endDate <= startDate) return "วันสิ้นสุดต้องอยู่หลังวันเริ่มต้น";
+function validateSemesterInput(
+  { name, startDate, endDate }: ReturnType<typeof parseSemesterInput>,
+  dict: Dictionary
+) {
+  if (!name) return dict.actions.semesters.fillRequired;
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return dict.actions.semesters.invalidDates;
+  if (endDate <= startDate) return dict.actions.semesters.endBeforeStart;
   return null;
 }
 
@@ -31,14 +37,15 @@ export async function createSemester(
   formData: FormData
 ): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const input = parseSemesterInput(formData);
-  const error = validateSemesterInput(input);
+  const error = validateSemesterInput(input, dict);
   if (error) return { ok: false, message: error };
 
   await prisma.semester.create({ data: input });
   revalidatePath("/admin/master-data");
-  return { ok: true, message: `เพิ่มภาคเรียน "${input.name}" แล้ว` };
+  return { ok: true, message: dict.actions.semesters.created(input.name) };
 }
 
 export async function updateSemester(
@@ -47,27 +54,29 @@ export async function updateSemester(
   formData: FormData
 ): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const input = parseSemesterInput(formData);
-  const error = validateSemesterInput(input);
+  const error = validateSemesterInput(input, dict);
   if (error) return { ok: false, message: error };
 
   await prisma.semester.update({ where: { id }, data: input });
   revalidatePath("/admin/master-data");
-  return { ok: true, message: `บันทึกภาคเรียน "${input.name}" แล้ว` };
+  return { ok: true, message: dict.actions.semesters.updated(input.name) };
 }
 
 /** Blocked if used in any schedule — a schedule row requires a semester. */
 export async function deleteSemester(id: string): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
+  const dict = getDictionary(getLocale());
 
   const semester = await prisma.semester.findUnique({ where: { id }, include: { _count: { select: { schedules: true } } } });
-  if (!semester) return { ok: false, message: "ไม่พบภาคเรียนนี้" };
+  if (!semester) return { ok: false, message: dict.actions.semesters.notFound };
   if (semester._count!.schedules > 0) {
-    return { ok: false, message: "ลบไม่ได้ — ภาคเรียนนี้ถูกใช้อยู่ในตารางสอนแล้ว ลบตารางสอนที่เกี่ยวข้องก่อน" };
+    return { ok: false, message: dict.actions.semesters.inUse };
   }
 
   await prisma.semester.delete({ where: { id } });
   revalidatePath("/admin/master-data");
-  return { ok: true, message: `ลบภาคเรียน "${semester.name}" แล้ว` };
+  return { ok: true, message: dict.actions.semesters.deleted(semester.name) };
 }

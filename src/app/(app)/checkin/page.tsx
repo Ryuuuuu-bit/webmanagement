@@ -4,11 +4,15 @@ import { prisma } from "@/lib/prisma";
 import { AttendanceBadge } from "@/components/StatusBadge";
 import CheckinClient from "@/components/CheckinClient";
 import { formatTime, todayAtMidnight } from "@/lib/date";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export default async function CheckinPage() {
   const session = await getServerSession(authOptions);
   const isAdmin = session!.user.role === "ADMIN";
   const date = todayAtMidnight();
+  const locale = getLocale();
+  const dict = getDictionary(locale);
 
   if (!isAdmin) {
     const attendance = await prisma.attendance.findUnique({
@@ -20,7 +24,7 @@ export default async function CheckinPage() {
       <div className="flex flex-col gap-6">
         <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <div className="mb-4 flex justify-center">
-            <AttendanceBadge status={attendance?.status ?? "PENDING"} />
+            <AttendanceBadge status={attendance?.status ?? "PENDING"} dict={dict} />
           </div>
           <CheckinClient
             attendance={
@@ -32,28 +36,29 @@ export default async function CheckinPage() {
                   }
                 : null
             }
+            dict={dict}
           />
           <div className="mt-4 flex justify-center gap-6 text-sm text-subtle">
-            <span>เข้า: {formatTime(attendance?.checkinAt) ?? "—"}</span>
-            <span>ออก: {formatTime(attendance?.checkoutAt) ?? "—"}</span>
+            <span>{dict.checkin.checkinShort}: {formatTime(attendance?.checkinAt, locale) ?? "—"}</span>
+            <span>{dict.checkin.checkoutShort}: {formatTime(attendance?.checkoutAt, locale) ?? "—"}</span>
           </div>
         </div>
 
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-          <h2 className="text-base font-bold">สถานที่ที่อนุญาตให้เช็คอิน/เช็คเอาต์</h2>
-          <p className="mb-3 text-sm text-muted">ลืมเช็คอิน/เช็คเอาต์วันไหน ไปที่เมนู “ขอรับรองเวลา”</p>
+          <h2 className="text-base font-bold">{dict.checkin.allowedLocationsTitle}</h2>
+          <p className="mb-3 text-sm text-muted">{dict.checkin.allowedLocationsHint}</p>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase text-faint">
-                <th className="pb-2">สถานที่</th>
-                <th className="pb-2">รัศมี</th>
+                <th className="pb-2">{dict.checkin.colLocation}</th>
+                <th className="pb-2">{dict.checkin.colRadius}</th>
               </tr>
             </thead>
             <tbody>
               {locations.map((l) => (
                 <tr key={l.id} className="border-t border-line-soft">
                   <td className="py-2">{l.name}</td>
-                  <td className="py-2">{l.radiusMeters} เมตร</td>
+                  <td className="py-2">{l.radiusMeters} {dict.checkin.meters}</td>
                 </tr>
               ))}
             </tbody>
@@ -71,16 +76,16 @@ export default async function CheckinPage() {
 
   return (
     <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-      <h2 className="text-base font-bold">ภาพรวมการเข้า-ออกงานวันนี้</h2>
-      <p className="mb-3 text-sm text-muted">เช็คอินและเช็คเอาต์ต้องอยู่ในพื้นที่มหาวิทยาลัย</p>
+      <h2 className="text-base font-bold">{dict.checkin.overviewTitle}</h2>
+      <p className="mb-3 text-sm text-muted">{dict.checkin.overviewHint}</p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-faint">
-              <th className="pb-2">อาจารย์</th>
-              <th className="pb-2">สถานะ</th>
-              <th className="pb-2">เช็คอิน</th>
-              <th className="pb-2">เช็คเอาต์</th>
+              <th className="pb-2">{dict.dashboard.admin.colTeacher}</th>
+              <th className="pb-2">{dict.dashboard.admin.colStatus}</th>
+              <th className="pb-2">{dict.checkin.colCheckin}</th>
+              <th className="pb-2">{dict.checkin.colCheckout}</th>
             </tr>
           </thead>
           <tbody>
@@ -89,12 +94,12 @@ export default async function CheckinPage() {
               return (
                 <tr key={t.id} className="border-t border-line-soft">
                   <td className="py-2">{t.name}</td>
-                  <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} /></td>
+                  <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} dict={dict} /></td>
                   <td className="py-2">
-                    {formatTime(a?.checkinAt) ?? "—"} {a?.attestedCheckin && <span className="text-[10px] text-warn">(รับรอง)</span>}
+                    {formatTime(a?.checkinAt, locale) ?? "—"} {a?.attestedCheckin && <span className="text-[10px] text-warn">{dict.checkin.attested}</span>}
                   </td>
                   <td className="py-2">
-                    {formatTime(a?.checkoutAt) ?? "—"} {a?.attestedCheckout && <span className="text-[10px] text-warn">(รับรอง)</span>}
+                    {formatTime(a?.checkoutAt, locale) ?? "—"} {a?.attestedCheckout && <span className="text-[10px] text-warn">{dict.checkin.attested}</span>}
                   </td>
                 </tr>
               );

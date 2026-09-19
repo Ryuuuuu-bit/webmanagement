@@ -1,27 +1,24 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 type ActionResult = { ok: boolean; message: string };
-
-const TYPE_LABEL: Record<string, string> = {
-  FORGOT_CHECKIN: "ลืมเช็คอิน",
-  FORGOT_CHECKOUT: "ลืมเช็คเอาต์",
-  FORGOT_BOTH: "ลืมทั้งสองอย่าง",
-};
 
 /**
  * "ลืมทั้งสองอย่าง" (forgot both check-in AND check-out) needs two separate
  * time fields, not one — a teacher who forgot both has two real, different
  * moments to attest to. This form shows one time field for a one-sided
- * request and two (เช็คอิน / เช็คเอาต์) when "ลืมทั้งสองอย่าง" is selected.
+ * request and two (check-in / check-out) when "forgot both" is selected.
  */
 export default function AttestForm({
   requestAttestation,
+  dict,
 }: {
   requestAttestation: (formData: FormData) => Promise<ActionResult>;
+  dict: Dictionary;
 }) {
-  const [type, setType] = useState<keyof typeof TYPE_LABEL>("FORGOT_BOTH");
+  const [type, setType] = useState<keyof Dictionary["attest"]["types"]>("FORGOT_BOTH");
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -44,38 +41,38 @@ export default function AttestForm({
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
-        <Field label="วันที่">
+        <Field label={dict.attest.fieldDate}>
           <input type="date" name="date" required className="input" />
         </Field>
-        <Field label="ประเภท">
+        <Field label={dict.attest.fieldType}>
           <select
             name="type"
             value={type}
-            onChange={(e) => setType(e.target.value as keyof typeof TYPE_LABEL)}
+            onChange={(e) => setType(e.target.value as keyof Dictionary["attest"]["types"])}
             className="input"
           >
-            <option value="FORGOT_CHECKIN">{TYPE_LABEL.FORGOT_CHECKIN}</option>
-            <option value="FORGOT_CHECKOUT">{TYPE_LABEL.FORGOT_CHECKOUT}</option>
-            <option value="FORGOT_BOTH">{TYPE_LABEL.FORGOT_BOTH}</option>
+            <option value="FORGOT_CHECKIN">{dict.attest.types.FORGOT_CHECKIN}</option>
+            <option value="FORGOT_CHECKOUT">{dict.attest.types.FORGOT_CHECKOUT}</option>
+            <option value="FORGOT_BOTH">{dict.attest.types.FORGOT_BOTH}</option>
           </select>
         </Field>
         {type === "FORGOT_BOTH" ? (
           <div className="grid grid-cols-2 gap-2">
-            <Field label="เวลาเช็คอิน">
+            <Field label={dict.attest.fieldTimeCheckin}>
               <input type="time" name="time" required className="input" />
             </Field>
-            <Field label="เวลาเช็คเอาต์">
+            <Field label={dict.attest.fieldTimeCheckout}>
               <input type="time" name="time2" required className="input" />
             </Field>
           </div>
         ) : (
-          <Field label={type === "FORGOT_CHECKOUT" ? "เวลาเช็คเอาต์" : "เวลาเช็คอิน"}>
+          <Field label={type === "FORGOT_CHECKOUT" ? dict.attest.fieldTimeCheckout : dict.attest.fieldTimeCheckin}>
             <input type="time" name="time" required className="input" />
           </Field>
         )}
       </div>
-      <Field label="เหตุผล">
-        <textarea name="reason" required className="input min-h-[70px]" placeholder="เช่น มือถือแบตหมด, สัญญาณ GPS ขัดข้อง" />
+      <Field label={dict.attest.fieldReason}>
+        <textarea name="reason" required className="input min-h-[70px]" placeholder={dict.attest.reasonPlaceholder} />
       </Field>
       {formError && <p className="text-xs text-danger">{formError}</p>}
       <button
@@ -83,7 +80,7 @@ export default function AttestForm({
         disabled={pending}
         className="w-fit rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
       >
-        {pending ? "กำลังส่ง..." : "ส่งคำขอรับรองเวลา"}
+        {pending ? dict.attest.submitting : dict.attest.submit}
       </button>
     </form>
   );

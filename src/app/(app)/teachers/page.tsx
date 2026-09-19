@@ -4,11 +4,15 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AttendanceBadge } from "@/components/StatusBadge";
 import { todayAtMidnight } from "@/lib/date";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export default async function TeachersPage() {
   const session = await getServerSession(authOptions);
   if (session!.user.role !== "ADMIN") redirect("/dashboard");
 
+  const locale = getLocale();
+  const dict = getDictionary(locale);
   const date = todayAtMidnight();
   const [teachers, attendances] = await Promise.all([
     prisma.user.findMany({ where: { role: "MEMBER" }, include: { department: true }, orderBy: { name: "asc" } }),
@@ -18,12 +22,12 @@ export default async function TeachersPage() {
 
   return (
     <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-      <h2 className="text-base font-bold">รายชื่ออาจารย์ทั้งหมด</h2>
+      <h2 className="text-base font-bold">{dict.teachers.title}</h2>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-faint">
-              <th className="pb-2">ชื่อ</th><th className="pb-2">อีเมล</th><th className="pb-2">ภาควิชา</th><th className="pb-2">บทบาท</th><th className="pb-2">สถานะวันนี้</th>
+              <th className="pb-2">{dict.teachers.colName}</th><th className="pb-2">{dict.teachers.colEmail}</th><th className="pb-2">{dict.teachers.colDepartment}</th><th className="pb-2">{dict.teachers.colRole}</th><th className="pb-2">{dict.teachers.colStatusToday}</th>
             </tr>
           </thead>
           <tbody>
@@ -33,7 +37,7 @@ export default async function TeachersPage() {
                 <td className="py-2 text-muted">{t.email}</td>
                 <td className="py-2">{t.department?.name ?? "—"}</td>
                 <td className="py-2"><span className="badge bg-info-soft text-info">{t.role}</span></td>
-                <td className="py-2"><AttendanceBadge status={byUser.get(t.id)?.status ?? "PENDING"} /></td>
+                <td className="py-2"><AttendanceBadge status={byUser.get(t.id)?.status ?? "PENDING"} dict={dict} /></td>
               </tr>
             ))}
           </tbody>

@@ -4,10 +4,15 @@ import { prisma } from "@/lib/prisma";
 import { submitLessonPlan, reviewLessonPlan } from "@/actions/lessonPlans";
 import LessonPlanUploadForm from "@/components/LessonPlanUploadForm";
 import LessonPlanReviewRow from "@/components/LessonPlanReviewRow";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export default async function LessonPlansPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return null;
+
+  const locale = getLocale();
+  const dict = getDictionary(locale);
 
   if (session.user.role === "ADMIN") {
     const plans = await prisma.lessonPlan.findMany({
@@ -17,22 +22,22 @@ export default async function LessonPlansPage() {
 
     return (
       <div className="rounded-2xl border border-line bg-surface p-5">
-        <h1 className="text-lg font-bold">แผนการสอนของอาจารย์ทั้งหมด</h1>
-        <p className="mt-1 text-sm text-muted">ตรวจสอบและอนุมัติแผนการสอนที่อาจารย์ส่งเข้ามา</p>
+        <h1 className="text-lg font-bold">{dict.lessonPlans.adminTitle}</h1>
+        <p className="mt-1 text-sm text-muted">{dict.lessonPlans.adminHint}</p>
 
         {plans.length === 0 ? (
-          <p className="mt-6 text-sm text-faint">ยังไม่มีการส่งแผนการสอน</p>
+          <p className="mt-6 text-sm text-faint">{dict.lessonPlans.noneSubmitted}</p>
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-wide text-faint">
-                  <th className="pb-2 font-semibold">อาจารย์</th>
-                  <th className="pb-2 font-semibold">วิชา</th>
-                  <th className="pb-2 font-semibold">ไฟล์</th>
-                  <th className="pb-2 font-semibold">ส่งเมื่อ</th>
-                  <th className="pb-2 font-semibold">สถานะ</th>
-                  <th className="pb-2 font-semibold">การตรวจ</th>
+                  <th className="pb-2 font-semibold">{dict.lessonPlans.colTeacher}</th>
+                  <th className="pb-2 font-semibold">{dict.lessonPlans.colCourse}</th>
+                  <th className="pb-2 font-semibold">{dict.lessonPlans.colFile}</th>
+                  <th className="pb-2 font-semibold">{dict.lessonPlans.colSubmittedAt}</th>
+                  <th className="pb-2 font-semibold">{dict.lessonPlans.colStatus}</th>
+                  <th className="pb-2 font-semibold">{dict.lessonPlans.colReview}</th>
                 </tr>
               </thead>
               <tbody>
@@ -49,6 +54,8 @@ export default async function LessonPlansPage() {
                       course: { code: plan.course!.code, name: plan.course!.name },
                     }}
                     reviewLessonPlan={reviewLessonPlan}
+                    dict={dict}
+                    locale={locale}
                   />
                 ))}
               </tbody>
@@ -72,11 +79,11 @@ export default async function LessonPlansPage() {
 
   return (
     <div className="rounded-2xl border border-line bg-surface p-5">
-      <h1 className="text-lg font-bold">ส่งแผนการสอน</h1>
-      <p className="mt-1 text-sm text-muted">ส่งไฟล์แผนการสอนของแต่ละวิชาที่คุณสอน ให้ Admin ตรวจสอบ</p>
+      <h1 className="text-lg font-bold">{dict.lessonPlans.memberTitle}</h1>
+      <p className="mt-1 text-sm text-muted">{dict.lessonPlans.memberHint}</p>
 
       {schedules.length === 0 ? (
-        <p className="mt-6 text-sm text-faint">คุณยังไม่มีตารางสอน จึงยังส่งแผนการสอนไม่ได้</p>
+        <p className="mt-6 text-sm text-faint">{dict.lessonPlans.noSchedule}</p>
       ) : (
         <div className="mt-2">
           {schedules.map((s) => {
@@ -98,6 +105,8 @@ export default async function LessonPlansPage() {
                     : null
                 }
                 submitLessonPlan={submitLessonPlan}
+                dict={dict}
+                locale={locale}
               />
             );
           })}

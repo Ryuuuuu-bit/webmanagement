@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AttestType, RequestStatus } from "@prisma/client";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -16,20 +18,24 @@ const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 export async function requestAttestation(formData: FormData): Promise<{ ok: boolean; message: string }> {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
+  const dict = getDictionary(getLocale());
 
   const type = formData.get("type") as AttestType;
   const time = (formData.get("time") as string) || "";
   const time2 = (formData.get("time2") as string) || "";
 
   if (!TIME_RE.test(time)) {
-    return { ok: false, message: type === "FORGOT_CHECKOUT" ? "กรอกเวลาเช็คเอาต์ให้ถูกต้อง (HH:MM)" : "กรอกเวลาเช็คอินให้ถูกต้อง (HH:MM)" };
+    return {
+      ok: false,
+      message: type === "FORGOT_CHECKOUT" ? dict.actions.attest.invalidCheckoutTime : dict.actions.attest.invalidCheckinTime,
+    };
   }
   if (type === "FORGOT_BOTH") {
     if (!TIME_RE.test(time2)) {
-      return { ok: false, message: "กรอกเวลาเช็คเอาต์ให้ถูกต้อง (HH:MM)" };
+      return { ok: false, message: dict.actions.attest.invalidCheckoutTime };
     }
     if (time2 <= time) {
-      return { ok: false, message: "เวลาเช็คเอาต์ต้องอยู่หลังเวลาเช็คอิน" };
+      return { ok: false, message: dict.actions.attest.checkoutBeforeCheckin };
     }
   }
 
@@ -45,7 +51,7 @@ export async function requestAttestation(formData: FormData): Promise<{ ok: bool
   });
 
   revalidatePath("/attest");
-  return { ok: true, message: "ส่งคำขอรับรองเวลาแล้ว" };
+  return { ok: true, message: dict.actions.attest.submitted };
 }
 
 /**

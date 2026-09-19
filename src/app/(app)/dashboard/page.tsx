@@ -3,11 +3,15 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AttendanceBadge } from "@/components/StatusBadge";
 import { formatTime, todayAtMidnight, toWeekdayIndex } from "@/lib/date";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary, type Dictionary } from "@/lib/i18n/dictionaries";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   const isAdmin = session!.user.role === "ADMIN";
   const date = todayAtMidnight();
+  const locale = getLocale();
+  const dict = getDictionary(locale);
 
   if (!isAdmin) {
     const [attendance, todaySchedule, pendingLeave, pendingAttest] = await Promise.all([
@@ -21,27 +25,29 @@ export default async function DashboardPage() {
       prisma.timeAttestation.count({ where: { requesterId: session!.user.id, status: "PENDING" } }),
     ]);
 
+    const d = dict.dashboard.member;
+
     return (
       <div className="flex flex-col gap-6">
         <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
-          <StatTile label="สถานะเข้างานวันนี้" value={<AttendanceBadge status={attendance?.status ?? "PENDING"} />} />
-          <StatTile label="เวลาเช็คอิน" value={formatTime(attendance?.checkinAt) ?? "—"} />
-          <StatTile label="เวลาเช็คเอาต์" value={formatTime(attendance?.checkoutAt) ?? "—"} />
-          <StatTile label="คำขอที่รออนุมัติ" value={String(pendingLeave + pendingAttest)} />
+          <StatTile label={d.statusToday} value={<AttendanceBadge status={attendance?.status ?? "PENDING"} dict={dict} />} />
+          <StatTile label={d.checkinTime} value={formatTime(attendance?.checkinAt, locale) ?? "—"} />
+          <StatTile label={d.checkoutTime} value={formatTime(attendance?.checkoutAt, locale) ?? "—"} />
+          <StatTile label={d.pendingRequests} value={String(pendingLeave + pendingAttest)} />
         </div>
 
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-          <h2 className="text-base font-bold">ตารางสอนวันนี้</h2>
-          <p className="mb-3 text-sm text-muted">ดูตารางเต็มสัปดาห์ได้ที่เมนู “ตารางสอนของฉัน”</p>
+          <h2 className="text-base font-bold">{d.todayScheduleTitle}</h2>
+          <p className="mb-3 text-sm text-muted">{d.todayScheduleHint}</p>
           {todaySchedule.length === 0 ? (
-            <p className="text-sm text-muted">วันนี้ไม่มีคาบสอน</p>
+            <p className="text-sm text-muted">{d.noClassToday}</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase text-faint">
-                  <th className="pb-2">คาบเวลา</th>
-                  <th className="pb-2">วิชา</th>
-                  <th className="pb-2">ห้อง</th>
+                  <th className="pb-2">{d.colPeriod}</th>
+                  <th className="pb-2">{d.colCourse}</th>
+                  <th className="pb-2">{d.colRoom}</th>
                 </tr>
               </thead>
               <tbody>
@@ -71,28 +77,30 @@ export default async function DashboardPage() {
     counts[s] = (counts[s] ?? 0) + 1;
   }
 
+  const d = dict.dashboard.admin;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-5">
-        <StatTile label="อาจารย์ทั้งหมด" value={String(teachers.length)} />
-        <StatTile label="ตรงเวลา" value={String(counts.ON_TIME ?? 0)} tone="ok" />
-        <StatTile label="มาสาย" value={String(counts.LATE ?? 0)} tone="warn" />
-        <StatTile label="ขาด" value={String(counts.ABSENT ?? 0)} tone="danger" />
-        <StatTile label="ลา" value={String(counts.LEAVE ?? 0)} tone="info" />
+        <StatTile label={d.totalTeachers} value={String(teachers.length)} />
+        <StatTile label={d.onTime} value={String(counts.ON_TIME ?? 0)} tone="ok" />
+        <StatTile label={d.late} value={String(counts.LATE ?? 0)} tone="warn" />
+        <StatTile label={d.absent} value={String(counts.ABSENT ?? 0)} tone="danger" />
+        <StatTile label={d.onLeave} value={String(counts.LEAVE ?? 0)} tone="info" />
       </div>
 
       <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="text-base font-bold">สถานะการเข้างานวันนี้</h2>
-        <p className="mb-3 text-sm text-muted">อัปเดตแบบเรียลไทม์จากการเช็คอิน</p>
+        <h2 className="text-base font-bold">{d.statusTodayTitle}</h2>
+        <p className="mb-3 text-sm text-muted">{d.statusTodayHint}</p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase text-faint">
-                <th className="pb-2">อาจารย์</th>
-                <th className="pb-2">ภาควิชา</th>
-                <th className="pb-2">สถานะ</th>
-                <th className="pb-2">เข้า</th>
-                <th className="pb-2">ออก</th>
+                <th className="pb-2">{d.colTeacher}</th>
+                <th className="pb-2">{d.colDepartment}</th>
+                <th className="pb-2">{d.colStatus}</th>
+                <th className="pb-2">{d.colCheckin}</th>
+                <th className="pb-2">{d.colCheckout}</th>
               </tr>
             </thead>
             <tbody>
@@ -102,9 +110,9 @@ export default async function DashboardPage() {
                   <tr key={t.id} className="border-t border-line-soft">
                     <td className="py-2">{t.name}</td>
                     <td className="py-2">{t.department?.name ?? "—"}</td>
-                    <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} /></td>
-                    <td className="py-2">{formatTime(a?.checkinAt) ?? "—"}</td>
-                    <td className="py-2">{formatTime(a?.checkoutAt) ?? "—"}</td>
+                    <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} dict={dict} /></td>
+                    <td className="py-2">{formatTime(a?.checkinAt, locale) ?? "—"}</td>
+                    <td className="py-2">{formatTime(a?.checkoutAt, locale) ?? "—"}</td>
                   </tr>
                 );
               })}

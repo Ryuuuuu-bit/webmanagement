@@ -4,10 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { createSchedule, deleteSchedule, updateScheduleNote } from "@/actions/schedule";
 import { getCurrentWeekDates, toWeekdayIndex } from "@/lib/date";
 import ScheduleCalendar from "@/components/ScheduleCalendar";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export default async function SchedulePage() {
   const session = await getServerSession(authOptions);
   const isAdmin = session!.user.role === "ADMIN";
+  const locale = getLocale();
+  const dict = getDictionary(locale);
 
   const teacherFilter = isAdmin ? {} : { teacherId: session!.user.id };
   const [schedules, allTeachers, courses, rooms, semesters] = await Promise.all([
@@ -53,6 +57,8 @@ export default async function SchedulePage() {
         createSchedule={createSchedule}
         updateScheduleNote={updateScheduleNote}
         deleteSchedule={deleteSchedule}
+        dict={dict}
+        locale={locale}
       />
     </div>
   );

@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/components/LanguageProvider";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { dict } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -18,11 +20,11 @@ export default function LoginPage() {
     const res = await signIn("credentials", { email, password, redirect: false });
     setLoading(false);
     if (res?.error === "TOO_MANY_ATTEMPTS") {
-      setError("พยายามเข้าสู่ระบบผิดหลายครั้งเกินไป กรุณาลองใหม่อีกครั้งภายใน 15 นาที");
+      setError(dict.login.tooManyAttempts);
       return;
     }
     if (res?.error) {
-      setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
+      setError(dict.login.invalidCredentials);
       return;
     }
     router.push("/dashboard");
@@ -35,17 +37,17 @@ export default function LoginPage() {
         <div className="mb-6 flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">TS</div>
           <div>
-            <div className="text-base font-bold leading-tight">TeachSchedule</div>
-            <div className="text-xs text-muted">ระบบตารางสอนอาจารย์</div>
+            <div className="text-base font-bold leading-tight">{dict.appName}</div>
+            <div className="text-xs text-muted">{dict.appTagline}</div>
           </div>
         </div>
 
-        <h1 className="mb-1 text-lg font-bold">เข้าสู่ระบบ</h1>
-        <p className="mb-6 text-sm text-muted">ใช้บัญชีที่ผู้ดูแลระบบสร้างให้ — ถ้ายังไม่มีบัญชี ติดต่อผู้ดูแลระบบ</p>
+        <h1 className="mb-1 text-lg font-bold">{dict.login.title}</h1>
+        <p className="mb-6 text-sm text-muted">{dict.login.subtitle}</p>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">อีเมล</label>
+            <label className="text-sm font-medium">{dict.login.email}</label>
             <input
               type="email"
               required
@@ -56,7 +58,7 @@ export default function LoginPage() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">รหัสผ่าน</label>
+            <label className="text-sm font-medium">{dict.login.password}</label>
             <input
               type="password"
               required
@@ -72,7 +74,7 @@ export default function LoginPage() {
             disabled={loading}
             className="mt-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
           >
-            {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+            {loading ? dict.login.submitting : dict.login.submit}
           </button>
         </form>
       </div>
