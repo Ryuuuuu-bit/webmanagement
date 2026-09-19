@@ -10,7 +10,7 @@ const TYPE_LABEL: Record<string, string> = { SICK: "ลาป่วย", PERSONA
 
 export default async function LeavePage() {
   const session = await getServerSession(authOptions);
-  const canApprove = session!.user.role === "ADMIN" || session!.user.role === "SENIOR";
+  const canApprove = session!.user.role === "ADMIN";
 
   if (!canApprove) {
     const mine = await prisma.leaveRequest.findMany({

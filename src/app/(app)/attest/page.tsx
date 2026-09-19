@@ -14,7 +14,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 export default async function AttestPage() {
   const session = await getServerSession(authOptions);
-  const canApprove = session!.user.role === "ADMIN" || session!.user.role === "SENIOR";
+  const canApprove = session!.user.role === "ADMIN";
 
   if (!canApprove) {
     const mine = await prisma.timeAttestation.findMany({

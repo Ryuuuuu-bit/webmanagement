@@ -1,28 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { resendVerification } from "@/actions/register";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [needsVerification, setNeedsVerification] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resendPending, startResend] = useTransition();
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setNeedsVerification(false);
+    setResendMessage(null);
     const res = await signIn("credentials", { email, password, redirect: false });
     setLoading(false);
+    if (res?.error === "EMAIL_NOT_VERIFIED") {
+      setNeedsVerification(true);
+      setError("บัญชีนี้ยังไม่ได้ยืนยันอีเมล กรุณาเช็คกล่องจดหมาย (Gmail) หรือขอส่งอีเมลยืนยันใหม่");
+      return;
+    }
     if (res?.error) {
       setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
       return;
     }
     router.push("/dashboard");
     router.refresh();
+  }
+
+  function onResend() {
+    setResendMessage(null);
+    const formData = new FormData();
+    formData.set("email", email);
+    startResend(async () => {
+      const res = await resendVerification(null, formData);
+      setResendMessage(res.message);
+    });
   }
 
   return (
@@ -37,7 +59,7 @@ export default function LoginPage() {
         </div>
 
         <h1 className="mb-1 text-lg font-bold">เข้าสู่ระบบ</h1>
-        <p className="mb-6 text-sm text-black/50">ใช้บัญชีที่มหาวิทยาลัยออกให้</p>
+        <p className="mb-6 text-sm text-black/50">ใช้บัญชีที่สมัครไว้ หรือบัญชีที่มหาวิทยาลัยออกให้</p>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
@@ -48,7 +70,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="rounded-lg border border-black/15 px-3 py-2 text-sm outline-none focus:border-brand"
-              placeholder="name@university.ac.th"
+              placeholder="name@gmail.com"
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -63,6 +85,17 @@ export default function LoginPage() {
             />
           </div>
           {error && <p className="text-sm text-danger">{error}</p>}
+          {needsVerification && (
+            <button
+              type="button"
+              onClick={onResend}
+              disabled={resendPending}
+              className="w-fit text-sm font-semibold text-brand-ink underline disabled:opacity-60"
+            >
+              {resendPending ? "กำลังส่ง..." : "ส่งอีเมลยืนยันอีกครั้ง"}
+            </button>
+          )}
+          {resendMessage && <p className="text-sm text-brand-ink">{resendMessage}</p>}
           <button
             type="submit"
             disabled={loading}
@@ -73,7 +106,10 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-xs text-black/40">
-          บัญชีทดสอบ (หลัง seed ข้อมูล): admin@university.ac.th / password123
+          ยังไม่มีบัญชี?{" "}
+          <Link href="/register" className="font-semibold text-brand-ink underline">
+            สมัครสมาชิก
+          </Link>
         </p>
       </div>
     </div>

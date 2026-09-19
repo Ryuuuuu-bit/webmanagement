@@ -15,13 +15,13 @@ async function main() {
   const admin = await prisma.user.upsert({
     where: { email: "admin@university.ac.th" },
     update: {},
-    create: { name: "ผู้ดูแลระบบ", email: "admin@university.ac.th", passwordHash: password, role: Role.ADMIN },
+    create: { name: "ผู้ดูแลระบบ", email: "admin@university.ac.th", passwordHash: password, role: Role.ADMIN, emailVerified: new Date() },
   });
 
   const teacherData = [
     { name: "อ.สมชาย ใจดี", email: "somchai@university.ac.th", role: Role.MEMBER, dept: eng.id },
     { name: "อ.สุภาพร วงศ์ตระกูล", email: "supaporn@university.ac.th", role: Role.MEMBER, dept: biz.id },
-    { name: "ผศ.ดร.กมลวรรณ ทองอยู่", email: "kamonwan@university.ac.th", role: Role.SENIOR, dept: eng.id },
+    { name: "ผศ.ดร.กมลวรรณ ทองอยู่", email: "kamonwan@university.ac.th", role: Role.MEMBER, dept: eng.id },
     { name: "อ.ประยุทธ์ ศรีสุข", email: "prayuth@university.ac.th", role: Role.MEMBER, dept: arts.id },
     { name: "อ.นภัสสร เพชรรัตน์", email: "napassorn@university.ac.th", role: Role.MEMBER, dept: biz.id },
     { name: "อ.ธนกร อินทร์แก้ว", email: "thanakorn@university.ac.th", role: Role.MEMBER, dept: eng.id },
@@ -32,7 +32,7 @@ async function main() {
     const u = await prisma.user.upsert({
       where: { email: t.email },
       update: {},
-      create: { name: t.name, email: t.email, passwordHash: password, role: t.role, departmentId: t.dept },
+      create: { name: t.name, email: t.email, passwordHash: password, role: t.role, departmentId: t.dept, emailVerified: new Date() },
     });
     teachers.push(u);
   }

@@ -9,7 +9,6 @@ datasource db {
 
 enum Role {
   ADMIN
-  SENIOR
   MEMBER
 }
 
@@ -46,21 +45,38 @@ model Department {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         Role     @default(MEMBER)
-  departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id])
-  createdAt    DateTime @default(now())
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(MEMBER)
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  // Gmail email verification (self-registration, FR-signup): null until the
+  // user clicks the verification link we email them. Login is blocked until set.
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
 
-  schedules       Schedule[]
-  attendances     Attendance[]
-  leaveRequests   LeaveRequest[]    @relation("LeaveRequester")
-  decidedLeaves   LeaveRequest[]    @relation("LeaveApprover")
-  attestRequests  TimeAttestation[] @relation("AttestRequester")
-  decidedAttests  TimeAttestation[] @relation("AttestApprover")
+  schedules          Schedule[]
+  attendances        Attendance[]
+  leaveRequests      LeaveRequest[]       @relation("LeaveRequester")
+  decidedLeaves      LeaveRequest[]       @relation("LeaveApprover")
+  attestRequests     TimeAttestation[]    @relation("AttestRequester")
+  decidedAttests     TimeAttestation[]    @relation("AttestApprover")
+  verificationTokens VerificationToken[]
+}
+
+// Self-registration (FR-signup): one-time token emailed to the user's Gmail;
+// visiting the link marks User.emailVerified and lets them log in.
+model VerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Course {

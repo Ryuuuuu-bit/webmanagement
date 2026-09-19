@@ -19,7 +19,7 @@ export default async function SchedulePage() {
   });
 
   const teachers = isAdmin ? Array.from(new Map(schedules.map((s) => [s.teacher!.id, s.teacher!])).values()) : [session!.user];
-  const allTeachers = isAdmin ? await prisma.user.findMany({ where: { role: { in: ["MEMBER", "SENIOR"] } } }) : [];
+  const allTeachers = isAdmin ? await prisma.user.findMany({ where: { role: "MEMBER" } }) : [];
 
   const grid = (teacherId: string) =>
     schedules.filter((s) => s.teacherId === teacherId);

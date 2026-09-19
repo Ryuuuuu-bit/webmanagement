@@ -19,6 +19,8 @@ export const authOptions: AuthOptions = {
         if (!user) return null;
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) return null;
+        // Self-registered accounts must verify their Gmail before they can log in.
+        if (!user.emailVerified) throw new Error("EMAIL_NOT_VERIFIED");
         return { id: user.id, name: user.name, email: user.email, role: user.role };
       },
     }),

@@ -25,13 +25,13 @@ export async function requestAttestation(formData: FormData) {
 }
 
 /**
- * FR-13.2 / 13.3: Admin/Senior decide a request. On approval, the day's
+ * FR-13.2 / 13.3: Admin decides a request. On approval, the day's
  * attendance is updated but flagged `attested*` — kept distinct from a real
  * GPS-verified check-in/out for later audit (FR-11).
  */
 export async function decideAttestation(id: string, decision: "APPROVED" | "REJECTED") {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user.role !== "ADMIN" && session.user.role !== "SENIOR")) {
+  if (!session || session.user.role !== "ADMIN") {
     throw new Error("Unauthorized");
   }
 

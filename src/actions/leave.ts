@@ -24,10 +24,10 @@ export async function requestLeave(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
-/** FR-8: Admin/Senior approve or reject a leave request. */
+/** FR-8: Admin approves or rejects a leave request. */
 export async function decideLeave(id: string, decision: "APPROVED" | "REJECTED") {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user.role !== "ADMIN" && session.user.role !== "SENIOR")) {
+  if (!session || session.user.role !== "ADMIN") {
     throw new Error("Unauthorized");
   }
 
