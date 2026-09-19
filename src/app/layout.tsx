@@ -15,7 +15,7 @@ const sarabun = Sarabun({
 export async function generateMetadata(): Promise<Metadata> {
   const dict = getDictionary(getLocale());
   return {
-    title: dict.appTagline,
+    title: dict.appName,
     description: dict.appDescription,
   };
 }
