@@ -6,7 +6,15 @@ import { RequestBadge } from "@/components/StatusBadge";
 import DecisionButtons from "@/components/DecisionButtons";
 import { formatDate } from "@/lib/date";
 
-const TYPE_LABEL: Record<string, string> = { SICK: "ลาป่วย", PERSONAL: "ลากิจ", VACATION: "ลาพักร้อน" };
+const TYPE_LABEL: Record<string, string> = {
+  SICK: "ลาป่วย",
+  PERSONAL: "ลากิจ",
+  VACATION: "ลาพักร้อน",
+  MATERNITY: "ลาคลอดบุตร",
+  STERILIZATION: "ลาทำหมัน",
+  MILITARY: "ลารับราชการทหาร",
+  TRAINING: "ลาฝึกอบรม",
+};
 
 export default async function LeavePage() {
   const session = await getServerSession(authOptions);
@@ -29,6 +37,10 @@ export default async function LeavePage() {
                   <option value="SICK">ลาป่วย</option>
                   <option value="PERSONAL">ลากิจ</option>
                   <option value="VACATION">ลาพักร้อน</option>
+                  <option value="MATERNITY">ลาคลอดบุตร</option>
+                  <option value="STERILIZATION">ลาทำหมัน</option>
+                  <option value="MILITARY">ลารับราชการทหาร</option>
+                  <option value="TRAINING">ลาฝึกอบรม</option>
                 </select>
               </Field>
               <Field label="วันที่เริ่ม"><input type="date" name="from" required className="input" /></Field>

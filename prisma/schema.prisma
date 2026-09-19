@@ -12,10 +12,20 @@ enum Role {
   MEMBER
 }
 
+// Statutory leave categories under the Thai Labor Protection Act (พ.ร.บ. คุ้มครองแรงงาน):
+// SICK/PERSONAL/VACATION were already supported; MATERNITY (ม.41), STERILIZATION (ม.33),
+// MILITARY service leave (ม.35), and TRAINING leave (ม.36) are the remaining categories the
+// law requires employers to allow. (A 2025 amendment reportedly adds paid spousal leave and
+// child sick-care leave — deliberately not added here pending confirmation against a primary
+// legal source; see conversation with Admin.)
 enum LeaveType {
   SICK
   PERSONAL
   VACATION
+  MATERNITY
+  STERILIZATION
+  MILITARY
+  TRAINING
 }
 
 enum RequestStatus {
