@@ -38,6 +38,12 @@ enum AttestType {
   FORGOT_BOTH
 }
 
+enum LessonPlanStatus {
+  PENDING
+  APPROVED
+  NEEDS_REVISION
+}
+
 model Department {
   id    String @id @default(cuid())
   name  String @unique
@@ -55,6 +61,10 @@ model User {
   // Admin-created accounts (no self-registration): true right after an admin
   // creates or resets the account, until the user sets their own password.
   mustChangePassword Boolean @default(false)
+  // Bumped on password reset/change or role change so existing JWT sessions
+  // (which otherwise keep working until they expire) are forced to log in
+  // again and pick up the change immediately.
+  tokenVersion  Int       @default(0)
   createdAt     DateTime  @default(now())
 
   schedules          Schedule[]
@@ -63,13 +73,16 @@ model User {
   decidedLeaves      LeaveRequest[]       @relation("LeaveApprover")
   attestRequests     TimeAttestation[]    @relation("AttestRequester")
   decidedAttests     TimeAttestation[]    @relation("AttestApprover")
+  lessonPlans        LessonPlan[]         @relation("LessonPlanTeacher")
+  reviewedLessonPlans LessonPlan[]        @relation("LessonPlanReviewer")
 }
 
 model Course {
-  id        String     @id @default(cuid())
-  code      String     @unique
-  name      String
-  schedules Schedule[]
+  id          String       @id @default(cuid())
+  code        String       @unique
+  name        String
+  schedules   Schedule[]
+  lessonPlans LessonPlan[]
 }
 
 model Room {
@@ -172,4 +185,27 @@ model TimeAttestation {
   approver      User?         @relation("AttestApprover", fields: [approverId], references: [id])
   decidedAt     DateTime?
   createdAt     DateTime      @default(now())
+}
+
+// FR-6: lesson plan submission — teacher uploads a file per course they
+// teach, Admin reviews it and either approves or sends it back with a note
+// for revision (one record per teacher+course, overwritten on resubmission).
+model LessonPlan {
+  id          String           @id @default(cuid())
+  teacherId   String
+  teacher     User             @relation("LessonPlanTeacher", fields: [teacherId], references: [id])
+  courseId    String
+  course      Course           @relation(fields: [courseId], references: [id])
+  fileName    String
+  fileData    Bytes
+  mimeType    String
+  fileSize    Int
+  status      LessonPlanStatus @default(PENDING)
+  reviewerId  String?
+  reviewer    User?            @relation("LessonPlanReviewer", fields: [reviewerId], references: [id])
+  reviewNote  String?
+  submittedAt DateTime         @default(now())
+  decidedAt   DateTime?
+
+  @@unique([teacherId, courseId])
 }

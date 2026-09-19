@@ -89,11 +89,13 @@ async function main() {
     });
   }
 
-  // Example campus geofence — replace with the real coordinates for each building (FR-17).
+  // FR-17: real geofence — Kasetsart University, Bang Khen campus, Bangkok.
+  // One campus-wide geofence (rather than per-building) since the campus
+  // covers a wide area; Admin can add tighter per-building geofences later
+  // from /admin/locations without a code deploy.
   await prisma.campusLocation.createMany({
     data: [
-      { name: "อาคารวิศวกรรมศาสตร์", latitude: 13.736717, longitude: 100.523186, radiusMeters: 150 },
-      { name: "อาคารบริหารธุรกิจ", latitude: 13.737200, longitude: 100.524500, radiusMeters: 150 },
+      { name: "มหาวิทยาลัยเกษตรศาสตร์ บางเขน", latitude: 13.8486, longitude: 100.5681, radiusMeters: 1200 },
     ],
   });
 
