@@ -318,6 +318,7 @@ const th = {
     radiusLabel: "รัศมี",
     metersShort: "ม.",
     deleteConfirm: (name: string) => `ลบจุดเช็คอิน "${name}" ใช่ไหม?`,
+    mapHint: "คลิกรายการด้านซ้ายเพื่อซูมไปยังจุดนั้นบนแผนที่ — วงกลมสีเขียวคือขอบเขตที่เช็คอิน/เช็คเอาต์ได้",
     search: {
       placeholder: "พิมพ์ชื่อสถานที่สั้นๆ เช่น มหาวิทยาลัยเกษตรศาสตร์",
       button: "ค้นหา",
@@ -766,6 +767,7 @@ const en: typeof th = {
     radiusLabel: "radius",
     metersShort: "m",
     deleteConfirm: (name: string) => `Delete check-in location "${name}"?`,
+    mapHint: "Click a location on the left to zoom to it on the map — the green circle is the check-in/out boundary.",
     search: {
       placeholder: "Type a short place name, e.g. Kasetsart University",
       button: "Search",

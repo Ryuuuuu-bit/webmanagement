@@ -1,8 +1,16 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import dynamic from "next/dynamic";
 import { useLanguage } from "@/components/LanguageProvider";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+
+// Leaflet touches `window` at import time, so it can only run in the browser.
+// next/dynamic with ssr:false keeps it out of the server render entirely.
+const LocationsMap = dynamic(() => import("@/components/LocationsMap"), {
+  ssr: false,
+  loading: () => <div className="h-[420px] w-full animate-pulse rounded-xl border border-line bg-bg" />,
+});
 
 type Loc = { id: string; name: string; latitude: number; longitude: number; radiusMeters: number };
 type ActionResult = { ok: boolean; message: string };
@@ -168,6 +176,7 @@ export default function LocationManagement({
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editResult, setEditResult] = useState<{ id: string } & ActionResult | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   function onCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -236,33 +245,67 @@ export default function LocationManagement({
         {locations.length === 0 && (
           <p className="mt-2 text-sm text-danger">{dict.locations.none}</p>
         )}
-        <div className="mt-3 flex flex-col gap-3">
-          {locations.map((loc) =>
-            editingId === loc.id ? (
-              <LocationEditRow
-                key={loc.id}
-                loc={loc}
-                dict={dict}
-                pending={pending}
-                searchLocationCandidates={searchLocationCandidates}
-                onSubmit={(e) => onEditSubmit(loc.id, e)}
-                onCancel={() => setEditingId(null)}
-                errorMessage={editResult?.id === loc.id && !editResult.ok ? editResult.message : undefined}
-              />
-            ) : (
-              <div key={loc.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-3 text-sm first:border-t-0 first:pt-0">
-                <div>
-                  <span className="font-semibold">{loc.name}</span>
-                  <span className="ml-2 text-faint">
-                    ({loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}) {dict.locations.radiusLabel} {loc.radiusMeters} {dict.locations.metersShort}
-                  </span>
+        {locations.length > 0 && <p className="mt-1 text-sm text-muted">{dict.locations.mapHint}</p>}
+        <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div className="flex flex-col gap-3">
+            {locations.map((loc) =>
+              editingId === loc.id ? (
+                <LocationEditRow
+                  key={loc.id}
+                  loc={loc}
+                  dict={dict}
+                  pending={pending}
+                  searchLocationCandidates={searchLocationCandidates}
+                  onSubmit={(e) => onEditSubmit(loc.id, e)}
+                  onCancel={() => setEditingId(null)}
+                  errorMessage={editResult?.id === loc.id && !editResult.ok ? editResult.message : undefined}
+                />
+              ) : (
+                <div
+                  key={loc.id}
+                  onClick={() => setSelectedId(loc.id)}
+                  className={`flex cursor-pointer flex-wrap items-center justify-between gap-2 rounded-lg border-t border-line-soft pt-3 text-sm first:border-t-0 first:pt-0 ${
+                    selectedId === loc.id ? "bg-bg" : ""
+                  }`}
+                >
+                  <div>
+                    <span className="font-semibold">📍 {loc.name}</span>
+                    <span className="ml-2 text-faint">
+                      ({loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}) {dict.locations.radiusLabel} {loc.radiusMeters} {dict.locations.metersShort}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingId(loc.id);
+                      }}
+                      className="text-xs font-semibold text-brand-ink underline"
+                    >
+                      {dict.common.edit}
+                    </button>
+                    <button
+                      disabled={pending}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(loc.id, loc.name);
+                      }}
+                      className="text-xs font-semibold text-danger disabled:opacity-40"
+                    >
+                      {dict.common.delete}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setEditingId(loc.id)} className="text-xs font-semibold text-brand-ink underline">{dict.common.edit}</button>
-                  <button disabled={pending} onClick={() => onDelete(loc.id, loc.name)} className="text-xs font-semibold text-danger disabled:opacity-40">{dict.common.delete}</button>
-                </div>
-              </div>
-            )
+              )
+            )}
+          </div>
+          {locations.length > 0 && (
+            <LocationsMap
+              locations={locations}
+              selectedId={selectedId}
+              radiusLabel={dict.locations.radiusLabel}
+              metersShort={dict.locations.metersShort}
+            />
           )}
         </div>
       </div>
