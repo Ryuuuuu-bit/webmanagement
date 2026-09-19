@@ -1,17 +1,16 @@
 "use client";
 
 import { useTransition } from "react";
-import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { useLanguage } from "./LanguageProvider";
 
 export default function DecisionButtons({
   onApprove,
   onReject,
-  dict,
 }: {
   onApprove: () => Promise<void>;
   onReject: () => Promise<void>;
-  dict: Dictionary;
 }) {
+  const { dict } = useLanguage();
   const [pending, startTransition] = useTransition();
 
   return (

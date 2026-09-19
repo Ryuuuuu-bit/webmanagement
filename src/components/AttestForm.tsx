@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { useLanguage } from "./LanguageProvider";
 
 type ActionResult = { ok: boolean; message: string };
 
@@ -13,11 +14,10 @@ type ActionResult = { ok: boolean; message: string };
  */
 export default function AttestForm({
   requestAttestation,
-  dict,
 }: {
   requestAttestation: (formData: FormData) => Promise<ActionResult>;
-  dict: Dictionary;
 }) {
+  const { dict } = useLanguage();
   const [type, setType] = useState<keyof Dictionary["attest"]["types"]>("FORGOT_BOTH");
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();

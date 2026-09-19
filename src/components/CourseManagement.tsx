@@ -1,24 +1,23 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { useLanguage } from "./LanguageProvider";
 
 type CourseRow = { id: string; code: string; name: string };
 type ActionResult = { ok: boolean; message: string };
 
 export default function CourseManagement({
-  dict,
   courses,
   createCourse,
   updateCourse,
   deleteCourse,
 }: {
-  dict: Dictionary;
   courses: CourseRow[];
   createCourse: (_prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   updateCourse: (id: string, _prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   deleteCourse: (id: string) => Promise<ActionResult>;
 }) {
+  const { dict } = useLanguage();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);

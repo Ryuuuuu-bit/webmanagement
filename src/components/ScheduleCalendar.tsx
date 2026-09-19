@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { formatDayTime } from "@/lib/date";
-import type { Dictionary, Locale } from "@/lib/i18n/dictionaries";
+import { useLanguage } from "./LanguageProvider";
 
 type Option = { id: string; name?: string; code?: string; building?: string };
 type ScheduleRow = {
@@ -71,8 +71,6 @@ export default function ScheduleCalendar({
   createSchedule,
   updateScheduleNote,
   deleteSchedule,
-  dict,
-  locale,
 }: {
   schedules: ScheduleRow[];
   /** Admin mode: full teacher list to switch between calendars. */
@@ -89,9 +87,8 @@ export default function ScheduleCalendar({
   createSchedule: (formData: FormData) => Promise<ActionResult>;
   updateScheduleNote: (id: string, note: string) => Promise<ActionResult>;
   deleteSchedule: (id: string) => Promise<ActionResult>;
-  dict: Dictionary;
-  locale: Locale;
 }) {
+  const { dict, locale } = useLanguage();
   const [viewTeacherId, setViewTeacherId] = useState(selfTeacherId ?? teachers?.[0]?.id ?? "");
   const [draft, setDraft] = useState<Draft>(null);
   const [formError, setFormError] = useState<string | null>(null);

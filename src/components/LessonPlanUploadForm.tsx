@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import type { Dictionary, Locale } from "@/lib/i18n/dictionaries";
+import { useLanguage } from "./LanguageProvider";
 
 type Plan = {
   id: string;
@@ -16,16 +16,13 @@ export default function LessonPlanUploadForm({
   courseLabel,
   plan,
   submitLessonPlan,
-  dict,
-  locale,
 }: {
   courseId: string;
   courseLabel: string;
   plan: Plan;
   submitLessonPlan: (_prev: { ok: boolean; message: string } | null, formData: FormData) => Promise<{ ok: boolean; message: string }>;
-  dict: Dictionary;
-  locale: Locale;
 }) {
+  const { dict, locale } = useLanguage();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);

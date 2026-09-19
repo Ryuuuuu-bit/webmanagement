@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { AttendanceBadge } from "@/components/StatusBadge";
 import { formatDate } from "@/lib/date";
-import type { Dictionary, Locale } from "@/lib/i18n/dictionaries";
+import { useLanguage } from "./LanguageProvider";
 
 type Plan = {
   id: string;
@@ -18,14 +17,11 @@ type Plan = {
 export default function LessonPlanReviewRow({
   plan,
   reviewLessonPlan,
-  dict,
-  locale,
 }: {
   plan: Plan;
   reviewLessonPlan: (id: string, decision: "APPROVED" | "NEEDS_REVISION", note: string) => Promise<{ ok: boolean; message: string }>;
-  dict: Dictionary;
-  locale: Locale;
 }) {
+  const { dict, locale } = useLanguage();
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState("");
   const [showNoteBox, setShowNoteBox] = useState(false);

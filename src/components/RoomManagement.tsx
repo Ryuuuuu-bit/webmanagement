@@ -1,24 +1,23 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { useLanguage } from "./LanguageProvider";
 
 type RoomRow = { id: string; name: string; building: string };
 type ActionResult = { ok: boolean; message: string };
 
 export default function RoomManagement({
-  dict,
   rooms,
   createRoom,
   updateRoom,
   deleteRoom,
 }: {
-  dict: Dictionary;
   rooms: RoomRow[];
   createRoom: (_prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   updateRoom: (id: string, _prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   deleteRoom: (id: string) => Promise<ActionResult>;
 }) {
+  const { dict } = useLanguage();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);

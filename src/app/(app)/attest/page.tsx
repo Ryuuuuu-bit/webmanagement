@@ -40,7 +40,7 @@ export default async function AttestPage() {
           <p className="mb-3 text-sm text-muted">
             {dict.attest.requestHint}
           </p>
-          <AttestForm requestAttestation={requestAttestation} dict={dict} />
+          <AttestForm requestAttestation={requestAttestation} />
         </div>
 
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
@@ -102,7 +102,6 @@ export default async function AttestPage() {
                     <DecisionButtons
                       onApprove={decideAttestation.bind(null, r.id, "APPROVED")}
                       onReject={decideAttestation.bind(null, r.id, "REJECTED")}
-                      dict={dict}
                     />
                   </td>
                 </tr>

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { checkIn, checkOut } from "@/actions/attendance";
-import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { useLanguage } from "./LanguageProvider";
 
 type Attendance = {
   status: string;
@@ -10,7 +10,8 @@ type Attendance = {
   checkoutAt: string | null;
 } | null;
 
-export default function CheckinClient({ attendance, dict }: { attendance: Attendance; dict: Dictionary }) {
+export default function CheckinClient({ attendance }: { attendance: Attendance }) {
+  const { dict } = useLanguage();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);

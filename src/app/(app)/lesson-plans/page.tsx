@@ -54,8 +54,6 @@ export default async function LessonPlansPage() {
                       course: { code: plan.course!.code, name: plan.course!.name },
                     }}
                     reviewLessonPlan={reviewLessonPlan}
-                    dict={dict}
-                    locale={locale}
                   />
                 ))}
               </tbody>
@@ -105,8 +103,6 @@ export default async function LessonPlansPage() {
                     : null
                 }
                 submitLessonPlan={submitLessonPlan}
-                dict={dict}
-                locale={locale}
               />
             );
           })}

@@ -1,24 +1,23 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { useLanguage } from "./LanguageProvider";
 
 type Dept = { id: string; name: string; _count?: { users: number } };
 type ActionResult = { ok: boolean; message: string };
 
 export default function DepartmentManagement({
-  dict,
   departments,
   createDepartment,
   updateDepartment,
   deleteDepartment,
 }: {
-  dict: Dictionary;
   departments: Dept[];
   createDepartment: (_prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   updateDepartment: (id: string, _prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   deleteDepartment: (id: string) => Promise<ActionResult>;
 }) {
+  const { dict } = useLanguage();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);

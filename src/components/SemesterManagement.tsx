@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { useLanguage } from "./LanguageProvider";
 
 type SemesterRow = { id: string; name: string; startDate: string; endDate: string };
 type ActionResult = { ok: boolean; message: string };
@@ -11,18 +11,17 @@ function toDateInput(iso: string) {
 }
 
 export default function SemesterManagement({
-  dict,
   semesters,
   createSemester,
   updateSemester,
   deleteSemester,
 }: {
-  dict: Dictionary;
   semesters: SemesterRow[];
   createSemester: (_prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   updateSemester: (id: string, _prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   deleteSemester: (id: string) => Promise<ActionResult>;
 }) {
+  const { dict } = useLanguage();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);

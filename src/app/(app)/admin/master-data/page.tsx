@@ -35,7 +35,6 @@ export default async function MasterDataPage() {
       </div>
 
       <DepartmentManagement
-        dict={dict}
         departments={departments}
         createDepartment={createDepartment}
         updateDepartment={updateDepartment}
@@ -43,7 +42,6 @@ export default async function MasterDataPage() {
       />
 
       <CourseManagement
-        dict={dict}
         courses={courses}
         createCourse={createCourse}
         updateCourse={updateCourse}
@@ -51,7 +49,6 @@ export default async function MasterDataPage() {
       />
 
       <RoomManagement
-        dict={dict}
         rooms={rooms}
         createRoom={createRoom}
         updateRoom={updateRoom}
@@ -59,7 +56,6 @@ export default async function MasterDataPage() {
       />
 
       <SemesterManagement
-        dict={dict}
         semesters={semesters.map((s) => ({
           id: s.id,
           name: s.name,

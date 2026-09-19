@@ -104,7 +104,6 @@ export default async function LeavePage() {
                     <DecisionButtons
                       onApprove={decideLeave.bind(null, l.id, "APPROVED")}
                       onReject={decideLeave.bind(null, l.id, "REJECTED")}
-                      dict={dict}
                     />
                   </td>
                 </tr>

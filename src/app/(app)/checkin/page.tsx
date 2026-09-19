@@ -36,7 +36,6 @@ export default async function CheckinPage() {
                   }
                 : null
             }
-            dict={dict}
           />
           <div className="mt-4 flex justify-center gap-6 text-sm text-subtle">
             <span>{dict.checkin.checkinShort}: {formatTime(attendance?.checkinAt, locale) ?? "—"}</span>
