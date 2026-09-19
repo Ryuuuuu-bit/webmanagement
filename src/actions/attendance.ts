@@ -15,7 +15,7 @@ function todayAtMidnight() {
 /** FR-4: check-in — must be inside a registered campus location (geofence). */
 export async function checkIn(lat: number, lng: number) {
   const session = await getServerSession(authOptions);
-  if (!session) return { ok: false, message: "กรุณาเข้าสู่ระบบ" };
+  if (!session?.user) return { ok: false, message: "กรุณาเข้าสู่ระบบ" };
 
   const within = await isWithinAnyCampus(lat, lng);
   if (!within) return { ok: false, message: "เช็คอินไม่สำเร็จ — อยู่นอกพื้นที่มหาวิทยาลัย" };
@@ -40,7 +40,7 @@ export async function checkIn(lat: number, lng: number) {
 /** FR-4: check-out — also must be inside a registered campus location. */
 export async function checkOut(lat: number, lng: number) {
   const session = await getServerSession(authOptions);
-  if (!session) return { ok: false, message: "กรุณาเข้าสู่ระบบ" };
+  if (!session?.user) return { ok: false, message: "กรุณาเข้าสู่ระบบ" };
 
   const date = todayAtMidnight();
   const existing = await prisma.attendance.findUnique({

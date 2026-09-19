@@ -8,6 +8,7 @@ export const config = {
     "/leave/:path*",
     "/attest/:path*",
     "/teachers/:path*",
+    "/lesson-plans/:path*",
     "/admin/:path*",
     "/change-password/:path*",
   ],

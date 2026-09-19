@@ -8,7 +8,7 @@ import { LeaveType, RequestStatus } from "@prisma/client";
 
 export async function requestLeave(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (!session) throw new Error("Unauthorized");
+  if (!session?.user) throw new Error("Unauthorized");
 
   await prisma.leaveRequest.create({
     data: {
@@ -27,7 +27,7 @@ export async function requestLeave(formData: FormData) {
 /** FR-8: Admin approves or rejects a leave request. */
 export async function decideLeave(id: string, decision: "APPROVED" | "REJECTED") {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session?.user || session.user.role !== "ADMIN") {
     throw new Error("Unauthorized");
   }
 

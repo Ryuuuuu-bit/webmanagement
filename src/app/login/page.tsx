@@ -17,6 +17,10 @@ export default function LoginPage() {
     setError(null);
     const res = await signIn("credentials", { email, password, redirect: false });
     setLoading(false);
+    if (res?.error === "TOO_MANY_ATTEMPTS") {
+      setError("พยายามเข้าสู่ระบบผิดหลายครั้งเกินไป กรุณาลองใหม่อีกครั้งภายใน 15 นาที");
+      return;
+    }
     if (res?.error) {
       setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
       return;

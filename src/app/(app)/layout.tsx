@@ -6,7 +6,9 @@ import Sidebar from "@/components/Sidebar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
-  if (!session) redirect("/login");
+  // session.user is stripped when the JWT is stale (password/role changed
+  // since it was issued) — treat that the same as no session at all.
+  if (!session?.user?.id) redirect("/login");
 
   // Admin-created accounts start with a temporary password — force a change
   // before letting the user reach any page in the app.

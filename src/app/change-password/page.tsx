@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { changeOwnPassword } from "@/actions/users";
 
 export default function ChangePasswordPage() {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
@@ -16,8 +15,10 @@ export default function ChangePasswordPage() {
       const res = await changeOwnPassword(null, formData);
       setResult(res);
       if (res.ok) {
-        router.push("/dashboard");
-        router.refresh();
+        // Changing the password bumps the account's session version, so this
+        // browser's own session is invalidated too — sign out cleanly and
+        // send them to log back in with the new password.
+        signOut({ callbackUrl: "/login" });
       }
     });
   }

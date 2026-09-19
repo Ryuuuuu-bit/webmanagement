@@ -10,7 +10,7 @@ import { Role } from "@prisma/client";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") throw new Error("Unauthorized");
+  if (!session?.user || session.user.role !== "ADMIN") throw new Error("Unauthorized");
   return session;
 }
 
@@ -93,7 +93,10 @@ export async function resetUserPassword(
 
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash, mustChangePassword: true },
+    // Bump tokenVersion so any active session this user has open right now
+    // is rejected on its next request, instead of staying valid until it
+    // naturally expires.
+    data: { passwordHash, mustChangePassword: true, tokenVersion: { increment: 1 } },
   });
 
   revalidatePath("/admin/users");
@@ -121,10 +124,47 @@ export async function updateUserRole(
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { ok: false, message: "ไม่พบผู้ใช้นี้" };
 
-  await prisma.user.update({ where: { id: userId }, data: { role } });
+  // Bump tokenVersion so the change takes effect immediately (forces
+  // re-login) instead of waiting for their current session to expire.
+  await prisma.user.update({ where: { id: userId }, data: { role, tokenVersion: { increment: 1 } } });
 
   revalidatePath("/admin/users");
   return { ok: true, message: `เปลี่ยนบทบาทของ ${user.name} เป็น ${role} แล้ว` };
+}
+
+/**
+ * Admin deletes a MEMBER account. Admins can never delete another admin
+ * account (or their own) — only a MEMBER can be removed this way, which
+ * avoids one admin locking another out or accidentally removing themselves.
+ * Deleting a user also removes their schedules/attendance/leave-and-attest
+ * requests (required relations that can't dangle); any requests they
+ * *approved* as an admin have that reference cleared instead of being deleted.
+ */
+export async function deleteUser(userId: string): Promise<{ ok: boolean; message: string }> {
+  const session = await requireAdmin();
+
+  if (userId === session.user.id) {
+    return { ok: false, message: "ไม่สามารถลบบัญชีของตัวเองได้" };
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return { ok: false, message: "ไม่พบผู้ใช้นี้" };
+  if (user.role === "ADMIN") {
+    return { ok: false, message: "ไม่สามารถลบบัญชี Admin ได้ (Admin ลบกันเองไม่ได้)" };
+  }
+
+  await prisma.$transaction([
+    prisma.schedule.deleteMany({ where: { teacherId: userId } }),
+    prisma.attendance.deleteMany({ where: { userId } }),
+    prisma.leaveRequest.updateMany({ where: { approverId: userId }, data: { approverId: null } }),
+    prisma.leaveRequest.deleteMany({ where: { requesterId: userId } }),
+    prisma.timeAttestation.updateMany({ where: { approverId: userId }, data: { approverId: null } }),
+    prisma.timeAttestation.deleteMany({ where: { requesterId: userId } }),
+    prisma.user.delete({ where: { id: userId } }),
+  ]);
+
+  revalidatePath("/admin/users");
+  return { ok: true, message: `ลบบัญชี ${user.name} และข้อมูลตารางสอน/เข้างาน/คำขอที่เกี่ยวข้องแล้ว` };
 }
 
 /** Self-service: the logged-in user sets their own new password (forced after admin creates/resets an account). */
@@ -133,7 +173,7 @@ export async function changeOwnPassword(
   formData: FormData
 ): Promise<{ ok: boolean; message: string }> {
   const session = await getServerSession(authOptions);
-  if (!session) return { ok: false, message: "กรุณาเข้าสู่ระบบใหม่" };
+  if (!session?.user) return { ok: false, message: "กรุณาเข้าสู่ระบบใหม่" };
 
   const newPassword = (formData.get("newPassword") as string) || "";
   const confirm = (formData.get("confirm") as string) || "";
@@ -148,7 +188,11 @@ export async function changeOwnPassword(
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await prisma.user.update({
     where: { id: session.user.id },
-    data: { passwordHash, mustChangePassword: false },
+    // Bump tokenVersion too: this JWT will pick up the new value at the next
+    // request since it's the token that changed password, so this session
+    // keeps working, but it invalidates any OTHER device's session for the
+    // same account (e.g. left logged in elsewhere).
+    data: { passwordHash, mustChangePassword: false, tokenVersion: { increment: 1 } },
   });
 
   return { ok: true, message: "เปลี่ยนรหัสผ่านสำเร็จ" };

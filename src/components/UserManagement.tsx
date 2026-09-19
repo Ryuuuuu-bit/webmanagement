@@ -20,6 +20,7 @@ export default function UserManagement({
   createUser,
   resetUserPassword,
   updateUserRole,
+  deleteUser,
 }: {
   users: UserRow[];
   departments: Dept[];
@@ -27,12 +28,14 @@ export default function UserManagement({
   createUser: (_prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   resetUserPassword: (userId: string) => Promise<ActionResult>;
   updateUserRole: (userId: string, role: "ADMIN" | "MEMBER") => Promise<{ ok: boolean; message: string }>;
+  deleteUser: (userId: string) => Promise<{ ok: boolean; message: string }>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);
   const [resetResult, setResetResult] = useState<{ userId: string } & ActionResult | null>(null);
   const [roleResult, setRoleResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
+  const [deleteResult, setDeleteResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
 
   function onCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -60,6 +63,15 @@ export default function UserManagement({
     startTransition(async () => {
       const res = await updateUserRole(userId, role);
       setRoleResult({ userId, ...res });
+    });
+  }
+
+  function onDelete(userId: string, name: string) {
+    if (!confirm(`ลบบัญชี "${name}" ใช่ไหม? จะลบตารางสอน/ประวัติเข้างาน/คำขอลาและรับรองเวลาของคนนี้ทั้งหมดด้วย และกู้คืนไม่ได้`)) return;
+    setCreateResult(null);
+    startTransition(async () => {
+      const res = await deleteUser(userId);
+      setDeleteResult({ userId, ...res });
     });
   }
 
@@ -148,13 +160,24 @@ export default function UserManagement({
                     )}
                   </td>
                   <td className="py-2">
-                    <button
-                      disabled={pending}
-                      onClick={() => onReset(u.id, u.name)}
-                      className="text-xs font-semibold text-brand-ink underline disabled:opacity-40"
-                    >
-                      รีเซ็ตรหัสผ่าน
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        disabled={pending}
+                        onClick={() => onReset(u.id, u.name)}
+                        className="text-xs font-semibold text-brand-ink underline disabled:opacity-40"
+                      >
+                        รีเซ็ตรหัสผ่าน
+                      </button>
+                      {u.role !== "ADMIN" && u.id !== currentUserId && (
+                        <button
+                          disabled={pending}
+                          onClick={() => onDelete(u.id, u.name)}
+                          className="text-xs font-semibold text-danger underline disabled:opacity-40"
+                        >
+                          ลบบัญชี
+                        </button>
+                      )}
+                    </div>
                     {resetResult?.userId === u.id && (
                       <div className={`mt-1 text-xs ${resetResult.ok ? "text-ok" : "text-danger"}`}>
                         {resetResult.message}
@@ -162,6 +185,9 @@ export default function UserManagement({
                           <div className="mt-1 font-mono text-sm font-bold tracking-wide text-black">{resetResult.tempPassword}</div>
                         )}
                       </div>
+                    )}
+                    {deleteResult?.userId === u.id && (
+                      <div className={`mt-1 text-xs ${deleteResult.ok ? "text-ok" : "text-danger"}`}>{deleteResult.message}</div>
                     )}
                   </td>
                 </tr>

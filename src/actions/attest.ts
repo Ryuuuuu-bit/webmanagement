@@ -9,7 +9,7 @@ import { AttestType, RequestStatus } from "@prisma/client";
 /** FR-13: request a manual time attestation for a day the teacher forgot to check in/out. */
 export async function requestAttestation(formData: FormData) {
   const session = await getServerSession(authOptions);
-  if (!session) throw new Error("Unauthorized");
+  if (!session?.user) throw new Error("Unauthorized");
 
   await prisma.timeAttestation.create({
     data: {
@@ -31,7 +31,7 @@ export async function requestAttestation(formData: FormData) {
  */
 export async function decideAttestation(id: string, decision: "APPROVED" | "REJECTED") {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session?.user || session.user.role !== "ADMIN") {
     throw new Error("Unauthorized");
   }
 
