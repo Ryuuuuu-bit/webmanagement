@@ -15,10 +15,14 @@ const ICON: Record<string, string> = {
     '<circle cx="8" cy="8.5" r="6"/><path d="M8 5.3V8.5L10.2 10" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.6 1.6h4.8" stroke-linecap="round"/>',
   leave:
     '<rect x="1.5" y="2.5" width="13" height="12" rx="1.6"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><line x1="5.7" y1="9" x2="10.3" y2="12" stroke-linecap="round"/><line x1="10.3" y1="9" x2="5.7" y2="12" stroke-linecap="round"/>',
+  lessonplans:
+    '<path d="M4 1.5h6l3 3v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1Z"/><path d="M10 1.5V4.5h3" stroke-linejoin="round"/><line x1="4.5" y1="8" x2="11.5" y2="8" stroke-linecap="round"/><line x1="4.5" y1="10.5" x2="11.5" y2="10.5" stroke-linecap="round"/><line x1="4.5" y1="13" x2="9" y2="13" stroke-linecap="round"/>',
   teachers:
     '<circle cx="5.6" cy="5.5" r="2.2"/><circle cx="11" cy="6" r="1.7"/><path d="M1.6 14c.4-2.6 2-4 4-4s3.6 1.4 4 4" stroke-linecap="round"/><path d="M10 10.4c1.7.2 2.9 1.4 3.2 3.6" stroke-linecap="round"/>',
   users:
     '<circle cx="8" cy="5" r="2.6"/><path d="M2.5 14c.6-3.4 2.6-5.2 5.5-5.2s4.9 1.8 5.5 5.2" stroke-linecap="round"/>',
+  locations:
+    '<path d="M8 14.5s5-4.6 5-8.4A5 5 0 0 0 3 6.1c0 3.8 5 8.4 5 8.4Z"/><circle cx="8" cy="6.2" r="1.8"/>',
 };
 
 export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
@@ -32,7 +36,9 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         ["/attest", "attest", "อนุมัติรับรองเวลา"],
         ["/leave", "leave", "อนุมัติการลา"],
         ["/teachers", "teachers", "รายชื่ออาจารย์"],
+        ["/lesson-plans", "lessonplans", "แผนการสอน"],
         ["/admin/users", "users", "จัดการผู้ใช้"],
+        ["/admin/locations", "locations", "จุดเช็คอิน-เอาต์"],
       ]
     : [
         ["/dashboard", "dashboard", "Dashboard"],
@@ -40,6 +46,7 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         ["/checkin", "checkin", "เช็คอิน-เช็คเอาต์"],
         ["/attest", "attest", "ขอรับรองเวลา"],
         ["/leave", "leave", "การลาของฉัน"],
+        ["/lesson-plans", "lessonplans", "ส่งแผนการสอน"],
       ];
 
   return (
