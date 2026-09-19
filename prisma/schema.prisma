@@ -129,7 +129,7 @@ model Schedule {
   room       Room     @relation(fields: [roomId], references: [id])
   semesterId String
   semester   Semester @relation(fields: [semesterId], references: [id])
-  dayOfWeek  Int // 0=Mon .. 4=Fri
+  dayOfWeek  Int // 0=Mon .. 6=Sun (Sat/Sun for extra/make-up classes)
   periodIndex Int // index into the standard period table
   startTime  String // "08:30"
   endTime    String // "10:20"

@@ -54,34 +54,36 @@ export default async function SchedulePage() {
         return (
           <div key={t.id} className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
             {isAdmin && <div className="mb-3 font-semibold">{t.name}</div>}
-            <div className="grid grid-cols-6 gap-2 text-xs">
-              <div />
-              {DAY_LABELS.map((d) => (
-                <div key={d} className="text-center font-semibold text-black/50">{d}</div>
-              ))}
-              {PERIOD_LABELS.map((p, pi) => (
-                <Fragment key={`row-${pi}`}>
-                  <div className="pt-2 font-mono text-[11px] text-black/40">{p}</div>
-                  {DAY_LABELS.map((_, di) => {
-                    const s = rows.find((r) => r.dayOfWeek === di && r.periodIndex === pi);
-                    return (
-                      <div key={`${pi}-${di}`} className={`min-h-[64px] rounded-lg border p-2 ${s ? "border-brand/30 bg-brand-soft" : "border-dashed border-black/10"}`}>
-                        {s && (
-                          <div className="flex h-full flex-col justify-between">
-                            <div>
-                              <div className="text-[11px] font-semibold text-brand-ink">{s.course!.code}</div>
-                              <div className="text-[10px] text-black/60">{s.room!.name}</div>
+            <div className="overflow-x-auto">
+              <div className="grid min-w-[760px] grid-cols-8 gap-2 text-xs">
+                <div />
+                {DAY_LABELS.map((d) => (
+                  <div key={d} className="text-center font-semibold text-black/50">{d}</div>
+                ))}
+                {PERIOD_LABELS.map((p, pi) => (
+                  <Fragment key={`row-${pi}`}>
+                    <div className="pt-2 font-mono text-[11px] text-black/40">{p}</div>
+                    {DAY_LABELS.map((_, di) => {
+                      const s = rows.find((r) => r.dayOfWeek === di && r.periodIndex === pi);
+                      return (
+                        <div key={`${pi}-${di}`} className={`min-h-[64px] rounded-lg border p-2 ${s ? "border-brand/30 bg-brand-soft" : "border-dashed border-black/10"}`}>
+                          {s && (
+                            <div className="flex h-full flex-col justify-between">
+                              <div>
+                                <div className="text-[11px] font-semibold text-brand-ink">{s.course!.code}</div>
+                                <div className="text-[10px] text-black/60">{s.room!.name}</div>
+                              </div>
+                              {(isAdmin || s.teacherId === session!.user.id) && (
+                                <DeleteButton action={deleteSchedule.bind(null, s.id)} />
+                              )}
                             </div>
-                            {(isAdmin || s.teacherId === session!.user.id) && (
-                              <DeleteButton action={deleteSchedule.bind(null, s.id)} />
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </Fragment>
-              ))}
+                          )}
+                        </div>
+                      );
+                    })}
+                  </Fragment>
+                ))}
+              </div>
             </div>
           </div>
         );

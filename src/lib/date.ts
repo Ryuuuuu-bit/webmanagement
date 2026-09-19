@@ -1,10 +1,12 @@
-export const DAY_LABELS = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์"];
+// Sat/Sun included so a teacher can be scheduled for extra/make-up classes
+// on weekends, not just the regular Mon-Fri timetable.
+export const DAY_LABELS = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"];
 export const PERIOD_LABELS = ["08:30–10:20", "10:30–12:20", "13:00–14:50", "15:00–16:50"];
 
-/** Maps JS getDay() (0=Sun..6=Sat) to our 0=Mon..4=Fri scale. Returns -1 on weekends. */
+/** Maps JS getDay() (0=Sun..6=Sat) to our 0=Mon..6=Sun scale used throughout the app. */
 export function toWeekdayIndex(date: Date) {
   const js = date.getDay();
-  const map = [-1, 0, 1, 2, 3, 4, -1];
+  const map = [6, 0, 1, 2, 3, 4, 5];
   return map[js];
 }
 
