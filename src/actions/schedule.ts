@@ -33,6 +33,7 @@ export async function createSchedule(formData: FormData) {
   const dayOfWeek = Number(formData.get("dayOfWeek"));
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
+  const note = ((formData.get("note") as string) || "").trim() || null;
 
   if (!TIME_RE.test(startTime) || !TIME_RE.test(endTime)) {
     return { ok: false, message: "กรอกเวลาเริ่ม-สิ้นสุดให้ถูกต้อง (HH:MM)" };
@@ -54,12 +55,29 @@ export async function createSchedule(formData: FormData) {
   }
 
   await prisma.schedule.create({
-    data: { teacherId, courseId, roomId, semesterId, dayOfWeek, startTime, endTime },
+    data: { teacherId, courseId, roomId, semesterId, dayOfWeek, startTime, endTime, note },
   });
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
   return { ok: true, message: "บันทึกตารางสอนแล้ว" };
+}
+
+/** Admin can edit any schedule's note; a member can only edit their own. */
+export async function updateScheduleNote(id: string, note: string): Promise<{ ok: boolean; message: string }> {
+  const session = await requireSession();
+  const isAdmin = session.user.role === "ADMIN";
+
+  const schedule = await prisma.schedule.findUnique({ where: { id } });
+  if (!schedule) return { ok: false, message: "ไม่พบตารางสอนนี้" };
+  if (!isAdmin && schedule.teacherId !== session.user.id) {
+    return { ok: false, message: "ไม่มีสิทธิ์แก้ไขตารางสอนนี้" };
+  }
+
+  await prisma.schedule.update({ where: { id }, data: { note: note.trim() || null } });
+  revalidatePath("/schedule");
+  revalidatePath("/dashboard");
+  return { ok: true, message: "บันทึกรายละเอียดแล้ว" };
 }
 
 /** Admin can delete any schedule slot; a member can only delete their own. */

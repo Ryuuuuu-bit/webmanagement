@@ -6,22 +6,46 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AttestType, RequestStatus } from "@prisma/client";
 
-/** FR-13: request a manual time attestation for a day the teacher forgot to check in/out. */
-export async function requestAttestation(formData: FormData) {
+const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+/**
+ * FR-13: request a manual time attestation for a day the teacher forgot to
+ * check in/out. "ลืมทั้งสองอย่าง" (forgot both) needs TWO times — a check-in
+ * and a check-out — not one, since those are two separate real-world events.
+ */
+export async function requestAttestation(formData: FormData): Promise<{ ok: boolean; message: string }> {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
+
+  const type = formData.get("type") as AttestType;
+  const time = (formData.get("time") as string) || "";
+  const time2 = (formData.get("time2") as string) || "";
+
+  if (!TIME_RE.test(time)) {
+    return { ok: false, message: type === "FORGOT_CHECKOUT" ? "กรอกเวลาเช็คเอาต์ให้ถูกต้อง (HH:MM)" : "กรอกเวลาเช็คอินให้ถูกต้อง (HH:MM)" };
+  }
+  if (type === "FORGOT_BOTH") {
+    if (!TIME_RE.test(time2)) {
+      return { ok: false, message: "กรอกเวลาเช็คเอาต์ให้ถูกต้อง (HH:MM)" };
+    }
+    if (time2 <= time) {
+      return { ok: false, message: "เวลาเช็คเอาต์ต้องอยู่หลังเวลาเช็คอิน" };
+    }
+  }
 
   await prisma.timeAttestation.create({
     data: {
       requesterId: session.user.id,
       date: new Date(formData.get("date") as string),
-      type: formData.get("type") as AttestType,
-      requestedTime: formData.get("time") as string,
+      type,
+      requestedTime: time,
+      requestedCheckoutTime: type === "FORGOT_BOTH" ? time2 : null,
       reason: formData.get("reason") as string,
     },
   });
 
   revalidatePath("/attest");
+  return { ok: true, message: "ส่งคำขอรับรองเวลาแล้ว" };
 }
 
 /**
@@ -43,18 +67,25 @@ export async function decideAttestation(id: string, decision: "APPROVED" | "REJE
   if (decision === "APPROVED") {
     const date = new Date(req.date);
     date.setHours(0, 0, 0, 0);
-    const [h, m] = req.requestedTime.split(":").map(Number);
-    const attestedAt = new Date(date);
-    attestedAt.setHours(h, m);
 
+    function atTime(hhmm: string) {
+      const [h, m] = hhmm.split(":").map(Number);
+      const d = new Date(date);
+      d.setHours(h, m);
+      return d;
+    }
+
+    // "ลืมทั้งสองอย่าง" (forgot both) has two distinct real times — check-in
+    // and check-out — recorded separately (requestedTime / requestedCheckoutTime),
+    // not the same moment applied to both.
     const data: Record<string, unknown> = {};
     if (req.type !== "FORGOT_CHECKOUT") {
-      data.checkinAt = attestedAt;
+      data.checkinAt = atTime(req.requestedTime);
       data.attestedCheckin = true;
       data.status = "ON_TIME";
     }
     if (req.type !== "FORGOT_CHECKIN") {
-      data.checkoutAt = attestedAt;
+      data.checkoutAt = atTime(req.type === "FORGOT_BOTH" ? req.requestedCheckoutTime! : req.requestedTime);
       data.attestedCheckout = true;
     }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { DAY_LABELS } from "@/lib/date";
+import { DAY_LABELS, formatDayTime } from "@/lib/date";
 
 type Option = { id: string; name?: string; code?: string; building?: string };
 type ScheduleRow = {
@@ -13,6 +13,7 @@ type ScheduleRow = {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+  note: string | null;
   course: { code: string; name: string };
   room: { name: string };
 };
@@ -24,7 +25,9 @@ const HOUR_HEIGHT = 52; // px
 const HOURS = Array.from({ length: GRID_END_HOUR - GRID_START_HOUR }, (_, i) => GRID_START_HOUR + i);
 
 // A small fixed palette, colors picked by a hash of the course id so the
-// same course always gets the same color across the whole calendar.
+// same course always gets the same color across the whole calendar. These
+// stay fixed regardless of light/dark theme — they're identity tags, not
+// surface colors.
 const PALETTE = [
   "#6264A7", // purple (MS-Teams-ish)
   "#C4314B", // red
@@ -53,8 +56,6 @@ function pad(n: number) {
 
 type Draft = { dayOfWeek: number; startTime: string; endTime: string } | null;
 
-const DARK_INPUT = "w-full rounded-lg border border-white/15 bg-[#1f1f1f] px-2.5 py-1.5 text-white";
-
 export default function ScheduleCalendar({
   schedules,
   teachers,
@@ -67,6 +68,7 @@ export default function ScheduleCalendar({
   currentUserId,
   isAdmin,
   createSchedule,
+  updateScheduleNote,
   deleteSchedule,
 }: {
   schedules: ScheduleRow[];
@@ -82,11 +84,15 @@ export default function ScheduleCalendar({
   currentUserId: string;
   isAdmin: boolean;
   createSchedule: (formData: FormData) => Promise<ActionResult>;
+  updateScheduleNote: (id: string, note: string) => Promise<ActionResult>;
   deleteSchedule: (id: string) => Promise<ActionResult>;
 }) {
   const [viewTeacherId, setViewTeacherId] = useState(selfTeacherId ?? teachers?.[0]?.id ?? "");
   const [draft, setDraft] = useState<Draft>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<ScheduleRow | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteError, setNoteError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const visible = useMemo(
@@ -106,6 +112,12 @@ export default function ScheduleCalendar({
     setDraft({ dayOfWeek, startTime: `${pad(hour)}:00`, endTime: `${pad(hour + 1)}:00` });
   }
 
+  function openDetail(s: ScheduleRow) {
+    setNoteError(null);
+    setNoteDraft(s.note ?? "");
+    setDetail(s);
+  }
+
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -121,28 +133,41 @@ export default function ScheduleCalendar({
     });
   }
 
+  function onSaveNote() {
+    if (!detail) return;
+    startTransition(async () => {
+      const res = await updateScheduleNote(detail.id, noteDraft);
+      if (res.ok) {
+        setDetail(null);
+      } else {
+        setNoteError(res.message);
+      }
+    });
+  }
+
   function onDelete(id: string) {
     if (!confirm("ลบตารางสอนนี้ใช่ไหม?")) return;
     startTransition(async () => {
       await deleteSchedule(id);
+      setDetail(null);
     });
   }
 
   return (
-    <div className="rounded-2xl bg-[#1f1f1f] p-4 text-white shadow-sm">
+    <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         {isAdmin ? (
           <select
             value={viewTeacherId}
             onChange={(e) => setViewTeacherId(e.target.value)}
-            className="rounded-lg border border-white/15 bg-[#2b2b2b] px-3 py-1.5 text-sm text-white"
+            className="input w-auto"
           >
             {teachers!.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
         ) : (
-          <div className="text-sm font-semibold text-white/70">ตารางสอนของฉัน</div>
+          <div className="text-sm font-semibold text-subtle">ตารางสอนของฉัน</div>
         )}
         <button
           onClick={openBlankModal}
@@ -157,16 +182,16 @@ export default function ScheduleCalendar({
           <div />
           {DAY_LABELS.map((d, i) => (
             <div key={d} className="pb-2 text-center">
-              <div className={`text-lg font-semibold ${i === todayIndex ? "text-warn" : "text-white/90"}`}>
+              <div className={`text-lg font-semibold ${i === todayIndex ? "text-warn" : ""}`}>
                 {weekDayNumbers[i]}
               </div>
-              <div className="text-[11px] text-white/40">{d}</div>
+              <div className="text-[11px] text-faint">{d}</div>
             </div>
           ))}
 
           <div className="relative" style={{ height: totalHeight }}>
             {HOURS.map((h) => (
-              <div key={h} className="absolute left-0 right-0 -translate-y-2 text-right text-[10px] text-white/40" style={{ top: (h - GRID_START_HOUR) * HOUR_HEIGHT }}>
+              <div key={h} className="absolute left-0 right-0 -translate-y-2 text-right text-[10px] text-faint" style={{ top: (h - GRID_START_HOUR) * HOUR_HEIGHT }}>
                 {pad(h)}:00
               </div>
             ))}
@@ -175,43 +200,37 @@ export default function ScheduleCalendar({
           {DAY_LABELS.map((_, dayIndex) => {
             const dayEvents = visible.filter((s) => s.dayOfWeek === dayIndex);
             return (
-              <div key={dayIndex} className="relative border-l border-white/5" style={{ height: totalHeight }}>
+              <div key={dayIndex} className="relative border-l border-line-soft" style={{ height: totalHeight }}>
                 {HOURS.map((h, hi) => (
                   <button
                     key={h}
                     type="button"
                     onClick={() => openCellModal(dayIndex, h)}
-                    className="absolute left-0 right-0 border-t border-white/5 transition-colors hover:bg-white/5"
+                    className="absolute left-0 right-0 border-t border-line-soft transition-colors hover:bg-line-soft"
                     style={{ top: hi * HOUR_HEIGHT, height: HOUR_HEIGHT }}
-                    aria-label={`เพิ่มตารางสอน ${DAY_LABELS[dayIndex]} ${pad(h)}:00`}
+                    aria-label={`เพิ่มตารางสอน${formatDayTime(dayIndex, `${pad(h)}:00`)}`}
                   />
                 ))}
                 {dayEvents.map((s) => {
                   const top = Math.max(0, ((toMinutes(s.startTime) - GRID_START_HOUR * 60) / 60) * HOUR_HEIGHT);
                   const height = Math.max(20, ((toMinutes(s.endTime) - toMinutes(s.startTime)) / 60) * HOUR_HEIGHT);
-                  const canDelete = isAdmin || s.teacherId === currentUserId;
+                  const canManage = isAdmin || s.teacherId === currentUserId;
                   return (
-                    <div
+                    <button
                       key={s.id}
-                      className="group absolute left-0.5 right-0.5 z-10 overflow-hidden rounded-md p-1.5 text-[11px] leading-tight shadow"
+                      type="button"
+                      onClick={() => openDetail(s)}
+                      className="group absolute left-0.5 right-0.5 z-10 overflow-hidden rounded-md p-1.5 text-left text-[11px] leading-tight text-white shadow"
                       style={{ top, height, backgroundColor: colorFor(s.courseId) }}
                     >
                       <div className="flex items-start justify-between gap-1">
                         <span className="font-semibold">{s.course.code}</span>
-                        {canDelete && (
-                          <button
-                            onClick={() => onDelete(s.id)}
-                            disabled={pending}
-                            className="hidden rounded bg-black/20 px-1 text-[10px] leading-none group-hover:block disabled:opacity-40"
-                            aria-label="ลบ"
-                          >
-                            ×
-                          </button>
-                        )}
+                        {s.note && <span className="text-[9px] leading-none opacity-80" title="มีรายละเอียด">📝</span>}
                       </div>
                       <div className="text-white/85">{s.startTime}–{s.endTime}</div>
                       <div className="truncate text-white/70">{s.room.name}</div>
-                    </div>
+                      {canManage && <span className="sr-only">แก้ไข/ลบได้</span>}
+                    </button>
                   );
                 })}
               </div>
@@ -222,15 +241,15 @@ export default function ScheduleCalendar({
 
       {draft && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-[#2b2b2b] p-5 text-white shadow-xl">
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-base font-bold">เพิ่มตารางสอน</h3>
-              <button onClick={() => setDraft(null)} className="text-white/50 hover:text-white">✕</button>
+              <button onClick={() => setDraft(null)} className="text-faint hover:text-subtle">✕</button>
             </div>
             <form onSubmit={onSubmit} className="flex flex-col gap-3 text-sm">
               {isAdmin ? (
                 <Field label="อาจารย์">
-                  <select value={viewTeacherId} onChange={(e) => setViewTeacherId(e.target.value)} className={DARK_INPUT}>
+                  <select value={viewTeacherId} onChange={(e) => setViewTeacherId(e.target.value)} className="input w-full">
                     {teachers!.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </Field>
@@ -238,39 +257,42 @@ export default function ScheduleCalendar({
                 <input type="hidden" name="teacherId" value={selfTeacherId} />
               )}
               <Field label="วิชา">
-                <select name="courseId" required defaultValue="" className={DARK_INPUT}>
+                <select name="courseId" required defaultValue="" className="input w-full">
                   <option value="" disabled>เลือกวิชา</option>
                   {courses.map((c) => <option key={c.id} value={c.id}>{c.code} {c.name}</option>)}
                 </select>
               </Field>
               <Field label="ห้อง">
-                <select name="roomId" required defaultValue="" className={DARK_INPUT}>
+                <select name="roomId" required defaultValue="" className="input w-full">
                   <option value="" disabled>เลือกห้อง</option>
                   {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </Field>
               <Field label="ภาคเรียน">
-                <select name="semesterId" required defaultValue="" className={DARK_INPUT}>
+                <select name="semesterId" required defaultValue="" className="input w-full">
                   <option value="" disabled>เลือกภาคเรียน</option>
                   {semesters.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </Field>
               <Field label="วัน">
-                <select name="dayOfWeek" required defaultValue={draft.dayOfWeek} className={DARK_INPUT}>
+                <select name="dayOfWeek" required defaultValue={draft.dayOfWeek} className="input w-full">
                   {DAY_LABELS.map((d, i) => <option key={d} value={i}>{d}</option>)}
                 </select>
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="เริ่ม">
-                  <input type="time" name="startTime" required defaultValue={draft.startTime} className={DARK_INPUT} />
+                  <input type="time" name="startTime" required defaultValue={draft.startTime} className="input w-full" />
                 </Field>
                 <Field label="สิ้นสุด">
-                  <input type="time" name="endTime" required defaultValue={draft.endTime} className={DARK_INPUT} />
+                  <input type="time" name="endTime" required defaultValue={draft.endTime} className="input w-full" />
                 </Field>
               </div>
-              {formError && <p className="text-xs text-red-400">{formError}</p>}
+              <Field label="รายละเอียด (ถ้ามี)">
+                <textarea name="note" rows={2} placeholder="เช่น หัวข้อที่จะสอน, สิ่งที่ต้องเตรียม" className="input w-full resize-none" />
+              </Field>
+              {formError && <p className="text-xs text-danger">{formError}</p>}
               <div className="mt-2 flex justify-end gap-2">
-                <button type="button" onClick={() => setDraft(null)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white/60 hover:text-white">
+                <button type="button" onClick={() => setDraft(null)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-muted hover:text-subtle">
                   ยกเลิก
                 </button>
                 <button type="submit" disabled={pending} className="rounded-lg bg-brand px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
@@ -281,6 +303,66 @@ export default function ScheduleCalendar({
           </div>
         </div>
       )}
+
+      {detail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-xl">
+            <div className="mb-1 flex items-start justify-between">
+              <div>
+                <h3 className="text-base font-bold">{detail.course.code} {detail.course.name}</h3>
+                <p className="text-xs text-muted">
+                  {formatDayTime(detail.dayOfWeek, detail.startTime, detail.endTime)} · {detail.room.name}
+                </p>
+              </div>
+              <button onClick={() => setDetail(null)} className="text-faint hover:text-subtle">✕</button>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-1.5 text-sm">
+              <span className="text-xs font-medium text-muted">รายละเอียด/บันทึก</span>
+              {isAdmin || detail.teacherId === currentUserId ? (
+                <textarea
+                  value={noteDraft}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                  rows={4}
+                  placeholder="เช่น หัวข้อที่จะสอน, สิ่งที่ต้องเตรียม"
+                  className="input w-full resize-none"
+                />
+              ) : (
+                <p className="rounded-lg border border-line-soft px-3 py-2 text-sm text-subtle">
+                  {detail.note || "ไม่มีรายละเอียดเพิ่มเติม"}
+                </p>
+              )}
+            </div>
+            {noteError && <p className="mt-2 text-xs text-danger">{noteError}</p>}
+
+            <div className="mt-4 flex items-center justify-between gap-2">
+              {(isAdmin || detail.teacherId === currentUserId) ? (
+                <button
+                  onClick={() => onDelete(detail.id)}
+                  disabled={pending}
+                  className="text-xs font-semibold text-danger disabled:opacity-40"
+                >
+                  ลบตารางสอนนี้
+                </button>
+              ) : <span />}
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setDetail(null)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-muted hover:text-subtle">
+                  ปิด
+                </button>
+                {(isAdmin || detail.teacherId === currentUserId) && (
+                  <button
+                    onClick={onSaveNote}
+                    disabled={pending}
+                    className="rounded-lg bg-brand px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                  >
+                    {pending ? "กำลังบันทึก..." : "บันทึก"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -288,7 +370,7 @@ export default function ScheduleCalendar({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs text-white/50">{label}</span>
+      <span className="text-xs text-muted">{label}</span>
       {children}
     </label>
   );

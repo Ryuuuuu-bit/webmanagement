@@ -134,6 +134,7 @@ model Schedule {
   // teacher's class can start/end at any time, e.g. "09:15"-"10:05".
   startTime  String // "HH:MM"
   endTime    String // "HH:MM"
+  note       String? // free-text detail about this class session
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -189,7 +190,8 @@ model TimeAttestation {
   requester     User          @relation("AttestRequester", fields: [requesterId], references: [id])
   date          DateTime
   type          AttestType
-  requestedTime String // "08:25"
+  requestedTime String // "08:25" — check-in time (or the single time, for a one-sided request)
+  requestedCheckoutTime String? // set only when type=FORGOT_BOTH — the check-out time
   reason        String
   status        RequestStatus @default(PENDING)
   approverId    String?

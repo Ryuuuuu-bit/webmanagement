@@ -4,13 +4,22 @@ import { prisma } from "@/lib/prisma";
 import { requestAttestation, decideAttestation } from "@/actions/attest";
 import { RequestBadge } from "@/components/StatusBadge";
 import DecisionButtons from "@/components/DecisionButtons";
-import { formatDate } from "@/lib/date";
+import AttestForm from "@/components/AttestForm";
+import { formatDate, formatTimeLabel } from "@/lib/date";
 
 const TYPE_LABEL: Record<string, string> = {
   FORGOT_CHECKIN: "ลืมเช็คอิน",
   FORGOT_CHECKOUT: "ลืมเช็คเอาต์",
   FORGOT_BOTH: "ลืมทั้งสองอย่าง",
 };
+
+/** "ลืมทั้งสองอย่าง" carries two distinct times (check-in/check-out); everything else is a single time. */
+function requestedTimeLabel(r: { type: string; requestedTime: string; requestedCheckoutTime: string | null }) {
+  if (r.type === "FORGOT_BOTH" && r.requestedCheckoutTime) {
+    return `เข้า ${formatTimeLabel(r.requestedTime)} / ออก ${formatTimeLabel(r.requestedCheckoutTime)}`;
+  }
+  return formatTimeLabel(r.requestedTime);
+}
 
 export default async function AttestPage() {
   const session = await getServerSession(authOptions);
@@ -30,25 +39,7 @@ export default async function AttestPage() {
             ใช้เมื่อลืมเช็คอินหรือเช็คเอาต์ในวันใดวันหนึ่ง — คำขอจะถูกส่งให้ Admin/Senior อนุมัติ
             และบันทึกแยกจากเวลาที่เช็คอินจริงผ่าน GPS (FR-13)
           </p>
-          <form action={requestAttestation} className="flex flex-col gap-3.5">
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
-              <Field label="วันที่"><input type="date" name="date" required className="input" /></Field>
-              <Field label="ประเภท">
-                <select name="type" className="input">
-                  <option value="FORGOT_CHECKIN">ลืมเช็คอิน</option>
-                  <option value="FORGOT_CHECKOUT">ลืมเช็คเอาต์</option>
-                  <option value="FORGOT_BOTH">ลืมทั้งสองอย่าง</option>
-                </select>
-              </Field>
-              <Field label="เวลาที่ขอรับรอง"><input type="time" name="time" required className="input" /></Field>
-            </div>
-            <Field label="เหตุผล">
-              <textarea name="reason" required className="input min-h-[70px]" placeholder="เช่น มือถือแบตหมด, สัญญาณ GPS ขัดข้อง" />
-            </Field>
-            <button type="submit" className="w-fit rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white">
-              ส่งคำขอรับรองเวลา
-            </button>
-          </form>
+          <AttestForm requestAttestation={requestAttestation} />
         </div>
 
         <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
@@ -67,7 +58,7 @@ export default async function AttestPage() {
                   <tr key={r.id} className="border-t border-black/5">
                     <td className="py-2">{formatDate(r.date)}</td>
                     <td className="py-2">{TYPE_LABEL[r.type]}</td>
-                    <td className="py-2">{r.requestedTime} น.</td>
+                    <td className="py-2">{requestedTimeLabel(r)}</td>
                     <td className="py-2">{r.reason}</td>
                     <td className="py-2"><RequestBadge status={r.status} /></td>
                   </tr>
@@ -104,7 +95,7 @@ export default async function AttestPage() {
                   <td className="py-2">{r.requester!.name}</td>
                   <td className="py-2">{formatDate(r.date)}</td>
                   <td className="py-2">{TYPE_LABEL[r.type]}</td>
-                  <td className="py-2">{r.requestedTime} น.</td>
+                  <td className="py-2">{requestedTimeLabel(r)}</td>
                   <td className="py-2">{r.reason}</td>
                   <td className="py-2">
                     <DecisionButtons
@@ -139,15 +130,6 @@ export default async function AttestPage() {
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium">{label}</label>
-      {children}
     </div>
   );
 }

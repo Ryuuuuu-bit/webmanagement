@@ -46,3 +46,18 @@ export function formatTime(d: Date | null | undefined) {
 export function formatDate(d: Date | string) {
   return new Date(d).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: BANGKOK_TZ });
 }
+
+/**
+ * Thai-style label for a recurring weekly day + time (schedule slots repeat
+ * by day-of-week, not a specific calendar date) — e.g. "วันอาทิตย์ 14:00 น."
+ * or, with an end time, "วันอาทิตย์ 14:00–15:00 น."
+ */
+export function formatDayTime(dayOfWeek: number, startTime: string, endTime?: string) {
+  const time = endTime ? `${startTime}–${endTime}` : startTime;
+  return `วัน${DAY_LABELS[dayOfWeek]} ${time} น.`;
+}
+
+/** Thai-style "HH:MM น." label for a plain time-of-day value. */
+export function formatTimeLabel(t: string) {
+  return `${t} น.`;
+}

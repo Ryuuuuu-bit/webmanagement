@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createSchedule, deleteSchedule } from "@/actions/schedule";
+import { createSchedule, deleteSchedule, updateScheduleNote } from "@/actions/schedule";
 import { getCurrentWeekDates, toWeekdayIndex } from "@/lib/date";
 import ScheduleCalendar from "@/components/ScheduleCalendar";
 
@@ -37,6 +37,7 @@ export default async function SchedulePage() {
           dayOfWeek: s.dayOfWeek,
           startTime: s.startTime,
           endTime: s.endTime,
+          note: s.note,
           course: { code: s.course!.code, name: s.course!.name },
           room: { name: s.room!.name },
         }))}
@@ -50,6 +51,7 @@ export default async function SchedulePage() {
         currentUserId={session!.user.id}
         isAdmin={isAdmin}
         createSchedule={createSchedule}
+        updateScheduleNote={updateScheduleNote}
         deleteSchedule={deleteSchedule}
       />
     </div>
