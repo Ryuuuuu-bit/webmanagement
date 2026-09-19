@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import LocationManagement from "@/components/LocationManagement";
-import { createLocation, updateLocation, deleteLocation } from "@/actions/locations";
+import { createLocation, updateLocation, deleteLocation, searchLocationCandidates } from "@/actions/locations";
 
 export default async function AdminLocationsPage() {
   const session = await getServerSession(authOptions);
@@ -17,6 +17,7 @@ export default async function AdminLocationsPage() {
       createLocation={createLocation}
       updateLocation={updateLocation}
       deleteLocation={deleteLocation}
+      searchLocationCandidates={searchLocationCandidates}
     />
   );
 }

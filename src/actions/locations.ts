@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { searchPlace, type PlaceCandidate } from "@/lib/geocode";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -71,4 +72,27 @@ export async function deleteLocation(id: string) {
   await requireAdmin();
   await prisma.campusLocation.delete({ where: { id } });
   revalidatePath("/admin/locations");
+}
+
+/**
+ * Place-name search backing the "search instead of copy-pasting lat/lng from
+ * Google Maps" flow in LocationManagement. Uses OpenStreetMap's free Nominatim
+ * API (see src/lib/geocode.ts) rather than Google Places, since this admin-only,
+ * low-volume lookup doesn't need a paid API key / Google Cloud billing account.
+ */
+export async function searchLocationCandidates(
+  query: string
+): Promise<{ ok: boolean; message?: string; results?: PlaceCandidate[] }> {
+  await requireAdmin();
+  const dict = getDictionary(getLocale());
+
+  const q = (query || "").trim();
+  if (q.length < 3) return { ok: false, message: dict.actions.locations.searchTooShort };
+
+  try {
+    const results = await searchPlace(q);
+    return { ok: true, results };
+  } catch {
+    return { ok: false, message: dict.actions.locations.searchFailed };
+  }
 }

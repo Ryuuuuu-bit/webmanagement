@@ -307,7 +307,7 @@ const th = {
   locations: {
     addTitle: "เพิ่มจุดเช็คอิน-เช็คเอาต์",
     addHint:
-      "พิกัดหาได้จาก Google Maps (คลิกขวาที่จุด แล้วคัดลอกตัวเลขละติจูด,ลองจิจูด) — อาจารย์ต้องอยู่ในรัศมีนี้ถึงจะเช็คอิน/เช็คเอาต์ได้",
+      "ค้นหาชื่อสถานที่ด้านล่างแล้วเลือกผลลัพธ์ เพื่อกรอกพิกัดให้อัตโนมัติ — หรือจะกรอกละติจูด/ลองจิจูดเองก็ได้ (หาได้จาก Google Maps โดยคลิกขวาที่จุดแล้วคัดลอกตัวเลข) — อาจารย์ต้องอยู่ในรัศมีนี้ถึงจะเช็คอิน/เช็คเอาต์ได้",
     namePlaceholder: "ชื่อจุด เช่น คณะวิศวกรรมศาสตร์",
     latitudePlaceholder: "ละติจูด เช่น 13.8486",
     longitudePlaceholder: "ลองจิจูด เช่น 100.5681",
@@ -318,6 +318,14 @@ const th = {
     radiusLabel: "รัศมี",
     metersShort: "ม.",
     deleteConfirm: (name: string) => `ลบจุดเช็คอิน "${name}" ใช่ไหม?`,
+    search: {
+      placeholder: "พิมพ์ชื่อสถานที่ เช่น มหาวิทยาลัยเกษตรศาสตร์ บางเขน",
+      button: "ค้นหา",
+      tooShort: "พิมพ์อย่างน้อย 3 ตัวอักษร",
+      noResults: "ไม่พบสถานที่ที่ค้นหา ลองพิมพ์คำอื่น หรือกรอกพิกัดเองด้านล่าง",
+      error: "ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง หรือกรอกพิกัดเอง",
+      attribution: "ค้นหาโดย OpenStreetMap (ฟรี ไม่มีค่าใช้จ่าย) — เลือกผลลัพธ์เพื่อกรอกพิกัดให้อัตโนมัติ",
+    },
   },
   status: {
     attendance: {
@@ -426,6 +434,8 @@ const th = {
       invalidRadius: "รัศมีต้องอยู่ระหว่าง 10 - 20,000 เมตร",
       created: (name: string) => `เพิ่มจุดเช็คอิน "${name}" แล้ว`,
       updated: (name: string) => `บันทึกจุดเช็คอิน "${name}" แล้ว`,
+      searchTooShort: "กรุณาพิมพ์อย่างน้อย 3 ตัวอักษร",
+      searchFailed: "ค้นหาสถานที่ไม่สำเร็จ กรุณาลองใหม่ หรือกรอกพิกัดเอง",
     },
     users: {
       fillRequired: "กรอกชื่อและอีเมลให้ครบ",
@@ -745,7 +755,7 @@ const en: typeof th = {
   locations: {
     addTitle: "Add Check-in/out Location",
     addHint:
-      "You can get coordinates from Google Maps (right-click a point, then copy the latitude/longitude) — faculty must be within this radius to check in/out.",
+      "Search for a place name below and pick a result to fill in the coordinates automatically — or enter latitude/longitude yourself (from Google Maps: right-click a point and copy the numbers). Faculty must be within this radius to check in/out.",
     namePlaceholder: "Location name, e.g. Faculty of Engineering",
     latitudePlaceholder: "Latitude, e.g. 13.8486",
     longitudePlaceholder: "Longitude, e.g. 100.5681",
@@ -756,6 +766,14 @@ const en: typeof th = {
     radiusLabel: "radius",
     metersShort: "m",
     deleteConfirm: (name: string) => `Delete check-in location "${name}"?`,
+    search: {
+      placeholder: "Type a place name, e.g. Kasetsart University Bang Khen",
+      button: "Search",
+      tooShort: "Type at least 3 characters",
+      noResults: "No places found — try a different search, or enter coordinates manually below",
+      error: "Search failed — try again, or enter coordinates manually",
+      attribution: "Search powered by OpenStreetMap (free, no cost) — pick a result to fill in the coordinates automatically",
+    },
   },
   status: {
     attendance: {
@@ -861,6 +879,8 @@ const en: typeof th = {
       invalidRadius: "Radius must be between 10 and 20,000 meters",
       created: (name: string) => `Added check-in location "${name}"`,
       updated: (name: string) => `Saved check-in location "${name}"`,
+      searchTooShort: "Please enter at least 3 characters",
+      searchFailed: "Place search failed — please try again or enter coordinates manually",
     },
     users: {
       fillRequired: "Enter both the name and email",
