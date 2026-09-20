@@ -259,6 +259,10 @@ model CampusLocation {
   latitude     Float
   longitude    Float
   radiusMeters Int    @default(150)
+  // Optional per-site working hours; null = use the AppSetting defaults.
+  workStart        String?
+  workEnd          String?
+  lateGraceMinutes Int?
   rooms        Room[]
   // Teachers permanently stationed at this site (see User.campusLocationId).
   teachers     User[]
@@ -321,6 +325,8 @@ model Attendance {
   checkinSelfieId  String?
   checkoutSelfieId String?
   flagSharedDevice Boolean @default(false)
+  // Checked out before the site's workEnd (shown to Admin; never blocks).
+  earlyCheckout    Boolean @default(false)
 
   @@unique([userId, date])
   @@index([date])
@@ -462,6 +468,12 @@ model AppSetting {
   deviceApprovalRequired  Boolean  @default(true)
   // Selfies older than this are deleted automatically.
   selfieRetentionDays     Int      @default(90)
+  // Default working hours ("HH:MM", Thai time) and how many minutes after
+  // workStart a check-in still counts as on time. A site can override all
+  // three (CampusLocation.workStart/...). See getWorkHours in src/lib/settings.ts.
+  workStart               String   @default("08:30")
+  workEnd                 String   @default("17:00")
+  lateGraceMinutes        Int      @default(0)
   // One-off maintenance scripts record the token they ran with here so a
   // container restart never re-runs them (see scripts/).
   seedToken               String?

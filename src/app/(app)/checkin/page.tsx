@@ -10,7 +10,7 @@ import DeleteRecordButton from "@/components/DeleteRecordButton";
 import EditAttendanceButton from "@/components/EditAttendanceButton";
 import Link from "next/link";
 import TableFilter from "@/components/TableFilter";
-import { getCheckinPolicy } from "@/lib/settings";
+import { getCheckinPolicy, getWorkHoursForUser } from "@/lib/settings";
 import type { CredentialState } from "@/components/CheckinClient";
 import { formatDate, formatTime, todayAtMidnight } from "@/lib/date";
 import { getExpectedSite, type ExpectedSiteResult } from "@/lib/geo";
@@ -40,13 +40,14 @@ export default async function CheckinPage() {
   const dict = getDictionary(locale);
 
   if (!isAdmin) {
-    const [attendance, site, credentials, policy] = await Promise.all([
+    const [attendance, site, credentials, policy, hours] = await Promise.all([
       prisma.attendance.findUnique({
         where: { userId_date: { userId: session.user.id, date } },
       }),
       getExpectedSite(session.user.id),
       listMyCredentials(),
       getCheckinPolicy(),
+      getWorkHoursForUser(session.user.id),
     ]);
     const credentialState: CredentialState = credentials.some((c) => !c.pending)
       ? "approved"
@@ -84,6 +85,10 @@ export default async function CheckinPage() {
           <h2 className="text-base font-bold">{dict.checkin.todaySiteTitle}</h2>
           <p className="mb-3 text-sm text-muted">{dict.checkin.todaySiteHint}</p>
           <SiteRow result={site} dict={dict} />
+          <p className="mt-1 text-sm text-subtle">
+            🕗 {dict.checkin.workHours(hours.start, hours.end)}
+            {hours.graceMinutes > 0 && <span className="ml-1 text-faint">{dict.checkin.graceNote(hours.graceMinutes)}</span>}
+          </p>
         </div>
 
         <div id="devices">
@@ -163,6 +168,7 @@ export default async function CheckinPage() {
                   </td>
                   <td className="py-2">
                     {formatTime(a?.checkoutAt, locale) ?? "—"} {a?.attestedCheckout && <span className="text-[10px] text-warn">{dict.checkin.attested}</span>}
+                    {a?.earlyCheckout && <span className="ml-1 badge bg-warn-soft text-warn" title={dict.checkin.earlyHint}>{dict.checkin.early}</span>}
                     <Method m={a?.checkoutMethod} />
                     <Thumb id={a?.checkoutSelfieId} />
                   </td>

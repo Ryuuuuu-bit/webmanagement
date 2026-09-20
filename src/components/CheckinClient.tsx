@@ -21,10 +21,9 @@ export type CredentialState = "none" | "pending" | "approved";
 
 /**
  * Check-in/out flow: GPS (prefetched) → selfie (if policy) → Face ID /
- * fingerprint (registered + approved device) → submit. With the biometric
- * policy on there is no password path at all; the buttons explain what's
- * missing (no device yet / device awaiting approval) instead. The password
- * prompt only exists for the policy-off case AND an account with no device.
+ * fingerprint (only when the biometric policy is on; registered + approved
+ * device) → submit. Policy off = no identity prompt at all. The tiles
+ * explain what's missing (no device yet / device awaiting approval).
  * See src/actions/attendance.ts for the server-side rules.
  */
 export default function CheckinClient({
@@ -47,15 +46,10 @@ export default function CheckinClient({
   // Selfie step state: which action is waiting for a photo.
   const [selfieFor, setSelfieFor] = useState<{ kind: ActionKind; lat: number; lng: number } | null>(null);
 
-  // Password path (policy off + no device only).
-  const [pendingAction, setPendingAction] = useState<{ kind: ActionKind; lat: number; lng: number; selfie: string | null } | null>(null);
-  const [password, setPassword] = useState("");
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordBusy, setPasswordBusy] = useState(false);
 
   const canCheckin = !attendance?.checkinAt;
   const canCheckout = !!attendance?.checkinAt && !attendance?.checkoutAt;
-  const busy = pending || locatingFallback || verifying || passwordBusy || !!pendingAction || !!selfieFor;
+  const busy = pending || locatingFallback || verifying || !!selfieFor;
 
   // The biometric policy blocks anyone without an approved device outright.
   const blockedReason: string | null =
@@ -85,39 +79,32 @@ export default function CheckinClient({
     });
   }
 
-  /** Biometric prompt (must run inside a user gesture), then submit. */
+  /** Biometric prompt (must run inside a user gesture) when the policy demands it; otherwise the session is enough. */
   async function verifyAndSubmit(kind: ActionKind, lat: number, lng: number, selfie: string | null) {
-    if (credentialState === "approved" && browserSupportsWebAuthn()) {
-      setVerifying(true);
-      try {
-        const optionsResult = await startWebauthnVerification();
-        if (optionsResult.kind === "ok") {
-          const assertion = await startAuthentication({ optionsJSON: optionsResult.options });
-          setVerifying(false);
-          submit(kind, lat, lng, { method: "webauthn", assertion }, selfie);
-          return;
-        }
-      } catch {
-        // Cancelled / failed prompt. Under the biometric policy that's the
-        // end of it — no password fallback — so say so and stop.
-      }
-      setVerifying(false);
-      if (policy.requireBiometricCheckin) {
-        setMessage({ ok: false, text: dict.checkin.biometricCancelled });
-        return;
-      }
+    if (!policy.requireBiometricCheckin) {
+      // Policy off: no extra prompt at all — being signed in (password or
+      // passkey) is the identity check. Selfie/GPS rules still applied above.
+      submit(kind, lat, lng, { method: "session" }, selfie);
+      return;
     }
-    if (policy.requireBiometricCheckin) {
+    if (credentialState !== "approved" || !browserSupportsWebAuthn()) {
       setMessage({ ok: false, text: blockedReason ?? dict.checkin.blockedNoDevice });
       return;
     }
-    if (credentialState !== "none") {
-      // Policy off but a device exists: it must be used — no password.
-      setMessage({ ok: false, text: dict.checkin.biometricCancelled });
-      return;
+    setVerifying(true);
+    try {
+      const optionsResult = await startWebauthnVerification();
+      if (optionsResult.kind === "ok") {
+        const assertion = await startAuthentication({ optionsJSON: optionsResult.options });
+        setVerifying(false);
+        submit(kind, lat, lng, { method: "webauthn", assertion }, selfie);
+        return;
+      }
+    } catch {
+      // Cancelled / failed prompt — under the biometric policy that's the end of it.
     }
-    setPasswordError(null);
-    setPendingAction({ kind, lat, lng, selfie });
+    setVerifying(false);
+    setMessage({ ok: false, text: dict.checkin.biometricCancelled });
   }
 
   function afterLocation(kind: ActionKind, lat: number, lng: number) {
@@ -164,25 +151,6 @@ export default function CheckinClient({
     setSelfieFor(null);
     // Same tap as "use this photo" — keeps the user gesture for WebAuthn.
     verifyAndSubmit(kind, lat, lng, dataUrl);
-  }
-
-  function onConfirmPassword() {
-    if (!pendingAction) return;
-    const { kind, lat, lng, selfie } = pendingAction;
-    const action = kind === "checkin" ? checkIn : checkOut;
-    setPasswordBusy(true);
-    setPasswordError(null);
-    startTransition(async () => {
-      const res = await action(lat, lng, { method: "password", password }, { deviceId: getDeviceId(), selfie });
-      setPasswordBusy(false);
-      if (res.ok) {
-        setPendingAction(null);
-        setPassword("");
-        setMessage({ ok: true, text: res.message });
-      } else {
-        setPasswordError(res.message);
-      }
-    });
   }
 
   const doneIn = !!attendance?.checkinAt;
@@ -261,42 +229,6 @@ export default function CheckinClient({
 
       {selfieFor && <SelfieCapture kind={selfieFor.kind} onConfirm={onSelfieConfirmed} onCancel={() => setSelfieFor(null)} />}
 
-      {pendingAction && (
-        <div className="mt-1 w-full max-w-xs rounded-xl border border-line-strong bg-surface p-4 text-left shadow-sm">
-          <p className="text-sm font-bold">{dict.checkin.passwordPromptTitle}</p>
-          <p className="mt-1 text-xs text-muted">{dict.checkin.passwordPromptHint}</p>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={dict.checkin.passwordFieldPlaceholder}
-            className="input mt-3 w-full"
-            disabled={passwordBusy}
-            autoFocus
-          />
-          {passwordError && <p className="mt-2 text-xs text-danger">{passwordError}</p>}
-          <div className="mt-3 flex justify-end gap-2">
-            <button
-              onClick={() => {
-                setPendingAction(null);
-                setPassword("");
-                setPasswordError(null);
-              }}
-              disabled={passwordBusy}
-              className="rounded-lg border border-line-strong px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
-            >
-              {dict.checkin.cancelButton}
-            </button>
-            <button
-              onClick={onConfirmPassword}
-              disabled={passwordBusy || !password}
-              className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
-            >
-              {passwordBusy ? dict.checkin.verifyingIdentity : dict.checkin.confirmButton}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

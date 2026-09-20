@@ -20,17 +20,30 @@ function parseLocationInput(formData: FormData) {
   const latitude = Number(formData.get("latitude"));
   const longitude = Number(formData.get("longitude"));
   const radiusMeters = Number(formData.get("radiusMeters"));
-  return { name, latitude, longitude, radiusMeters };
+  // Optional per-site working hours (blank = use the global defaults).
+  const workStart = ((formData.get("workStart") as string) || "").trim() || null;
+  const workEnd = ((formData.get("workEnd") as string) || "").trim() || null;
+  const graceRaw = ((formData.get("lateGraceMinutes") as string) || "").trim();
+  const lateGraceMinutes = graceRaw === "" ? null : Math.round(Number(graceRaw));
+  return { name, latitude, longitude, radiusMeters, workStart, workEnd, lateGraceMinutes };
 }
 
+const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
 function validateLocationInput(
-  { name, latitude, longitude, radiusMeters }: ReturnType<typeof parseLocationInput>,
+  { name, latitude, longitude, radiusMeters, workStart, workEnd, lateGraceMinutes }: ReturnType<typeof parseLocationInput>,
   dict: Dictionary
 ) {
   if (!name) return dict.actions.locations.fillName;
   if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return dict.actions.locations.invalidLatitude;
   if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return dict.actions.locations.invalidLongitude;
   if (!Number.isFinite(radiusMeters) || radiusMeters < 10 || radiusMeters > 20000) return dict.actions.locations.invalidRadius;
+  if ((workStart && !TIME_RE.test(workStart)) || (workEnd && !TIME_RE.test(workEnd)) || (workStart && workEnd && workEnd <= workStart)) {
+    return dict.actions.policy.invalidHours;
+  }
+  if (lateGraceMinutes !== null && (!Number.isFinite(lateGraceMinutes) || lateGraceMinutes < 0 || lateGraceMinutes > 180)) {
+    return dict.actions.policy.invalidGrace;
+  }
   return null;
 }
 

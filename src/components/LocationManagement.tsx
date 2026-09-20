@@ -16,7 +16,7 @@ const LocationPickerMap = dynamic(() => import("@/components/LocationPickerMap")
   loading: () => <div className="h-[260px] w-full animate-pulse rounded-xl border border-line bg-bg sm:h-[420px]" />,
 });
 
-type Loc = { id: string; name: string; latitude: number; longitude: number; radiusMeters: number };
+type Loc = { id: string; name: string; latitude: number; longitude: number; radiusMeters: number; workStart?: string | null; workEnd?: string | null; lateGraceMinutes?: number | null };
 type ActionResult = { ok: boolean; message: string };
 type SearchResult = { label: string; lat: number; lng: number };
 type SearchActionResult = { ok: boolean; message?: string; results?: SearchResult[] };
@@ -185,6 +185,7 @@ function LocationEditRow({
           <button type="button" onClick={onCancel} className="text-xs font-semibold text-muted">{dict.common.cancel}</button>
         </div>
       </div>
+      <HoursFields dict={dict} defaults={{ workStart: loc.workStart ?? "", workEnd: loc.workEnd ?? "", lateGraceMinutes: loc.lateGraceMinutes ?? null }} />
       {errorMessage && <p className="text-xs text-danger">{errorMessage}</p>}
     </form>
   );
@@ -310,6 +311,7 @@ export default function LocationManagement({
               className="input"
             />
           </div>
+          <HoursFields dict={dict} defaults={{ workStart: "", workEnd: "", lateGraceMinutes: null }} />
           <div className="flex items-center gap-3">
             <button type="submit" disabled={pending} className="w-fit rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
               {pending ? dict.common.saving : dict.locations.addButton}
@@ -353,6 +355,9 @@ export default function LocationManagement({
                     <span className="font-semibold">📍 {loc.name}</span>
                     <span className="ml-2 text-faint">
                       ({loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}) {dict.locations.radiusLabel} {loc.radiusMeters} {dict.locations.metersShort}
+                      {(loc.workStart || loc.workEnd || loc.lateGraceMinutes !== null) && (
+                        <span className="ml-2 text-brand-ink">🕗 {loc.workStart || "…"}–{loc.workEnd || "…"}{loc.lateGraceMinutes !== null && loc.lateGraceMinutes !== undefined ? ` (+${loc.lateGraceMinutes})` : ""}</span>
+                      )}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -390,6 +395,35 @@ export default function LocationManagement({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Optional per-site working hours; blank = the global defaults from Master Data. */
+function HoursFields({
+  dict,
+  defaults,
+}: {
+  dict: ReturnType<typeof useLanguage>["dict"];
+  defaults: { workStart: string; workEnd: string; lateGraceMinutes: number | null };
+}) {
+  const t = dict.locations;
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-lg bg-page px-3 py-2 text-xs">
+      <span className="text-muted">{t.hoursLabel}</span>
+      <label className="flex items-center gap-1.5">
+        {t.hoursStart}
+        <input type="time" name="workStart" defaultValue={defaults.workStart} className="input w-28" />
+      </label>
+      <label className="flex items-center gap-1.5">
+        {t.hoursEnd}
+        <input type="time" name="workEnd" defaultValue={defaults.workEnd} className="input w-28" />
+      </label>
+      <label className="flex items-center gap-1.5">
+        {t.hoursGrace}
+        <input type="number" name="lateGraceMinutes" min={0} max={180} defaultValue={defaults.lateGraceMinutes ?? ""} className="input w-20" placeholder="—" />
+      </label>
+      <span className="text-faint">{t.hoursHint}</span>
     </div>
   );
 }

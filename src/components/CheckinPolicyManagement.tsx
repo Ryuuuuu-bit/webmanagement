@@ -27,7 +27,8 @@ export default function CheckinPolicyManagement({
     });
   }
 
-  const Toggle = ({ field, label, hint }: { field: keyof Omit<CheckinPolicy, "selfieRetentionDays">; label: string; hint: string }) => (
+  type BoolField = "requireBiometricCheckin" | "requireSelfieCheckin" | "deviceApprovalRequired";
+  const Toggle = ({ field, label, hint }: { field: BoolField; label: string; hint: string }) => (
     <label className="flex cursor-pointer items-start justify-between gap-4 border-t border-line-soft py-3 first:border-t-0 first:pt-0">
       <span>
         <span className="block text-sm font-medium">{label}</span>
@@ -70,6 +71,27 @@ export default function CheckinPolicyManagement({
             />
             <span className="text-xs text-faint">{t.days}</span>
           </span>
+        </div>
+        <div className="flex flex-col gap-2 border-t border-line-soft py-3">
+          <span>
+            <span className="block text-sm font-medium">{t.hoursLabel}</span>
+            <span className="block text-xs text-muted">{t.hoursHint}</span>
+          </span>
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <label className="flex items-center gap-1.5">
+              {t.workStart}
+              <input type="time" value={draft.workStart} onChange={(e) => setDraft((d) => ({ ...d, workStart: e.target.value }))} className="input w-28" />
+            </label>
+            <label className="flex items-center gap-1.5">
+              {t.workEnd}
+              <input type="time" value={draft.workEnd} onChange={(e) => setDraft((d) => ({ ...d, workEnd: e.target.value }))} className="input w-28" />
+            </label>
+            <label className="flex items-center gap-1.5">
+              {t.grace}
+              <input type="number" min={0} max={180} value={draft.lateGraceMinutes} onChange={(e) => setDraft((d) => ({ ...d, lateGraceMinutes: Number(e.target.value) }))} className="input w-20" />
+              <span className="text-faint">{t.minutes}</span>
+            </label>
+          </div>
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">

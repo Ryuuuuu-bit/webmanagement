@@ -1,6 +1,5 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
@@ -9,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getExpectedSite, isWithinSite } from "@/lib/geo";
 import { todayAtMidnight } from "@/lib/date";
 import { verifyAssertion } from "@/lib/webauthn";
-import { getCheckinPolicy } from "@/lib/settings";
+import { atTimeOfDay, getCheckinPolicy, getWorkHoursForUser } from "@/lib/settings";
 import { logAudit } from "@/lib/audit";
 import { notifyAdmins } from "@/lib/notify";
 import { getClientIp } from "@/lib/security";
@@ -19,18 +18,16 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 // Anti "buddy punching" (ฝากเช็คอิน/เช็คเอาต์แทนกัน): being logged in and
 // standing in the right spot isn't proof that the person tapping the button
 // is the account owner — a shared phone or a known password lets someone
-// check a colleague in/out. Every check-in/out therefore requires a fresh
-// identity check. With the (default) biometric policy on, ONLY a registered
-// and Admin-approved device's Face ID / fingerprint is accepted — there is
-// no password path at all, since a password is exactly what a colleague can
-// be told. With the policy off, a password is accepted only for accounts
-// that have no registered device (having one means you must use it).
-// On top of that, the selfie policy stores a photo of whoever tapped, and
-// the same browser installation being used for two different teachers on
-// one day is flagged for Admin. See src/components/CheckinClient.tsx.
+// check a colleague in/out. With the (default) biometric policy ON, every
+// check-in/out therefore requires a fresh Face ID / fingerprint from a
+// registered, Admin-approved device — no password path, since a password is
+// exactly what a colleague can be told. With the policy OFF the signed-in
+// session itself is enough ("session" method — no extra prompt; client
+// decision, the switch means exactly what it says). The selfie policy and
+// shared-device detection still apply either way. See CheckinClient.tsx.
 export type IdentityVerification =
   | { method: "webauthn"; assertion: AuthenticationResponseJSON }
-  | { method: "password"; password: string };
+  | { method: "session" };
 
 export type CheckinExtras = {
   /** Random id kept in this browser's localStorage (see CheckinClient). */
@@ -54,15 +51,9 @@ async function verifyIdentity(userId: string, verification: IdentityVerification
     return (await verifyAssertion(userId, verification.assertion)) ? null : { ok: false, message: dict.actions.checkin.identityFailed };
   }
 
-  // Password path — only when the biometric policy is off AND the account
-  // has no device (approved or pending) to use instead.
+  // "session": accepted only while the biometric policy is off.
   if (policy.requireBiometricCheckin) {
     return { ok: false, message: pending > 0 ? dict.actions.checkin.devicePending : dict.actions.checkin.noDevice };
-  }
-  if (approved > 0 || pending > 0) return { ok: false, message: dict.actions.checkin.mustUseDevice };
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
-  if (!user || !(await bcrypt.compare(verification.password, user.passwordHash))) {
-    return { ok: false, message: dict.actions.checkin.identityFailed };
   }
   return null;
 }
@@ -150,8 +141,9 @@ export async function checkIn(lat: number, lng: number, verification: IdentityVe
 
   const date = todayAtMidnight();
   const now = new Date();
-  const cutoff = new Date(date);
-  cutoff.setHours(8, 30, 0, 0);
+  // Late = after the site's (or global) start time plus the grace window.
+  const hours = await getWorkHoursForUser(userId);
+  const cutoff = new Date(atTimeOfDay(date, hours.start).getTime() + hours.graceMinutes * 60_000);
   const status = now <= cutoff ? "ON_TIME" : "LATE";
   const shared = await detectSharedDevice(userId, date, extras.deviceId, ip);
 
@@ -198,6 +190,8 @@ export async function checkOut(lat: number, lng: number, verification: IdentityV
   if ("ok" in selfie) return selfie;
 
   const now = new Date();
+  const hours = await getWorkHoursForUser(userId);
+  const earlyCheckout = now < atTimeOfDay(date, hours.end);
   const shared = await detectSharedDevice(userId, date, extras.deviceId, ip);
   await prisma.attendance.update({
     where: { userId_date: { userId, date } },
@@ -208,11 +202,12 @@ export async function checkOut(lat: number, lng: number, verification: IdentityV
       checkoutMethod: verification.method,
       checkoutDeviceId: extras.deviceId,
       checkoutSelfieId: selfie.id,
+      earlyCheckout,
       ...(shared ? { flagSharedDevice: true } : {}),
     },
   });
 
   revalidatePath("/checkin");
   revalidatePath("/dashboard");
-  return { ok: true, message: dict.actions.checkin.outSuccess };
+  return { ok: true, message: earlyCheckout ? dict.actions.checkin.outSuccessEarly(hours.end) : dict.actions.checkin.outSuccess };
 }
