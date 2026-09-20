@@ -392,6 +392,8 @@ const th = {
     sharedDevice: "เครื่องซ้ำ",
     sharedDeviceHint: "มือถือเครื่องเดียวกันถูกใช้เช็คอิน/เช็คเอาต์ให้อาจารย์มากกว่า 1 คนในวันนี้ — ตรวจสอบรูปถ่ายและสอบถามเจ้าตัว",
     legend: "🔒 = ยืนยันด้วย Face ID/ลายนิ้วมือ · 🔑 = ยืนยันด้วยรหัสผ่าน · รูปย่อ = รูปหน้าตอนกด (กดเพื่อดูขนาดเต็ม) · ⚠ เครื่องซ้ำ = มือถือเครื่องเดียวใช้กับหลายบัญชี",
+    historyLink: "ประวัติ",
+    deleteHint: "ปุ่ม “ลบ” ลบรายการเช็คอิน-เอาต์ของวันนี้ (รวมรูปเซลฟี่) — กู้คืนไม่ได้ และถูกบันทึกในประวัติความปลอดภัย",
     selfie: {
       titleIn: "ถ่ายรูปยืนยันตัวตนก่อนเช็คอิน",
       titleOut: "ถ่ายรูปยืนยันตัวตนก่อนเช็คเอาต์",
@@ -1295,6 +1297,8 @@ const en: typeof th = {
     sharedDevice: "Shared device",
     sharedDeviceHint: "The same phone was used to check in/out more than one teacher today — review the selfies and ask them",
     legend: "🔒 = Face ID / fingerprint · 🔑 = password · thumbnail = selfie at the moment of tapping (click for full size) · ⚠ Shared device = one phone used for several accounts",
+    historyLink: "History",
+    deleteHint: "“Delete” removes today's check-in/out row (including selfies) — cannot be undone and is written to the security log",
     selfie: {
       titleIn: "Take a selfie to check in",
       titleOut: "Take a selfie to check out",

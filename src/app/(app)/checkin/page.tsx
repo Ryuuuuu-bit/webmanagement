@@ -6,9 +6,11 @@ import WebauthnManager from "@/components/WebauthnManager";
 import InstallPrompt from "@/components/InstallPrompt";
 import { listMyCredentials, listPendingCredentials, decidePendingCredential } from "@/actions/webauthn";
 import PendingDevicesPanel from "@/components/PendingDevicesPanel";
+import DeleteRecordButton from "@/components/DeleteRecordButton";
+import Link from "next/link";
 import { getCheckinPolicy } from "@/lib/settings";
 import type { CredentialState } from "@/components/CheckinClient";
-import { formatTime, todayAtMidnight } from "@/lib/date";
+import { formatDate, formatTime, todayAtMidnight } from "@/lib/date";
 import { getExpectedSite, type ExpectedSiteResult } from "@/lib/geo";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary, type Dictionary } from "@/lib/i18n/dictionaries";
@@ -125,6 +127,7 @@ export default async function CheckinPage() {
               <th className="pb-2">{dict.dashboard.admin.colStatus}</th>
               <th className="pb-2">{dict.checkin.colCheckin}</th>
               <th className="pb-2">{dict.checkin.colCheckout}</th>
+              <th className="pb-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -158,6 +161,15 @@ export default async function CheckinPage() {
                     <Method m={a?.checkoutMethod} />
                     <Thumb id={a?.checkoutSelfieId} />
                   </td>
+                  <td className="py-2 text-right">
+                    <span className="inline-flex items-center gap-2">
+                      <Link href={`/admin/users/${t.id}/history`} className="whitespace-nowrap text-[11px] font-medium text-brand-ink hover:underline">
+                        {dict.checkin.historyLink}
+                      </Link>
+                      {/* Admin can wipe today's row (a wrong tap, a test) right here — same action + audit as the history page. */}
+                      {a && <DeleteRecordButton kind="attendance" id={a.id} label={`${t.name} · ${formatDate(date, locale)}`} />}
+                    </span>
+                  </td>
                 </tr>
               );
             })}
@@ -165,6 +177,7 @@ export default async function CheckinPage() {
         </table>
       </div>
       <p className="mt-3 text-[11px] text-faint">{dict.checkin.legend}</p>
+      <p className="mt-1 text-[11px] text-faint">{dict.checkin.deleteHint}</p>
     </div>
     </div>
   );
