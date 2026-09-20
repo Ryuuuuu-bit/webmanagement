@@ -41,6 +41,7 @@ export async function createUser(
   const email = (formData.get("email") as string || "").trim().toLowerCase();
   const role = (formData.get("role") as string || "MEMBER") as Role;
   const departmentId = (formData.get("departmentId") as string) || null;
+  const campusLocationId = (formData.get("campusLocationId") as string) || null;
 
   if (!name || !email) {
     return { ok: false, message: dict.actions.users.fillRequired };
@@ -67,6 +68,7 @@ export async function createUser(
       passwordHash,
       role,
       departmentId: departmentId || undefined,
+      campusLocationId: campusLocationId || undefined,
       mustChangePassword: true,
     },
   });
@@ -135,6 +137,39 @@ export async function updateUserRole(
 
   revalidatePath("/admin/users");
   return { ok: true, message: dict.actions.users.roleChanged(user.name, role) };
+}
+
+/**
+ * Admin assigns (or clears) the one site this teacher is permanently
+ * stationed at — the sole input to check-in/out validation (see
+ * getExpectedSite in src/lib/geo.ts). Pass null to unassign (blocks that
+ * teacher's check-in/out until a site is set again).
+ */
+export async function updateUserSite(
+  userId: string,
+  campusLocationId: string | null
+): Promise<{ ok: boolean; message: string }> {
+  await requireAdmin();
+  const dict = getDictionary(getLocale());
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return { ok: false, message: dict.actions.users.notFound };
+
+  if (campusLocationId) {
+    const site = await prisma.campusLocation.findUnique({ where: { id: campusLocationId } });
+    if (!site) return { ok: false, message: dict.actions.users.invalidSite };
+    await prisma.user.update({ where: { id: userId }, data: { campusLocationId } });
+    revalidatePath("/admin/users");
+    revalidatePath("/teachers");
+    revalidatePath("/checkin");
+    return { ok: true, message: dict.actions.users.siteChanged(user.name, site.name) };
+  }
+
+  await prisma.user.update({ where: { id: userId }, data: { campusLocationId: null } });
+  revalidatePath("/admin/users");
+  revalidatePath("/teachers");
+  revalidatePath("/checkin");
+  return { ok: true, message: dict.actions.users.siteCleared(user.name) };
 }
 
 /**

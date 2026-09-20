@@ -10,23 +10,20 @@ import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 
 /**
- * FR-4 / site-per-teacher: check-in must happen at the site tied to *this
- * teacher's own schedule for today* — see getExpectedSite in src/lib/geo.ts
- * for why (each teacher can be scheduled at a different campus, so "inside
- * any registered location" is no longer the right check).
+ * FR-4 / site-per-teacher: check-in must happen at *this teacher's own
+ * assigned site* — see getExpectedSite in src/lib/geo.ts (each teacher is
+ * permanently stationed at one site, so "inside any registered location" is
+ * not the right check).
  */
 export async function checkIn(lat: number, lng: number) {
   const session = await getServerSession(authOptions);
   const dict = getDictionary(getLocale());
   if (!session?.user) return { ok: false, message: dict.actions.pleaseSignIn };
 
-  const expected = await getExpectedSite(session.user.id, "checkin");
-  if (expected.kind === "no_schedule") return { ok: false, message: dict.actions.checkin.noScheduleToday };
-  if (expected.kind === "no_location") {
-    return { ok: false, message: dict.actions.checkin.roomNoLocation(expected.room.name) };
-  }
-  if (!isWithinSite(lat, lng, expected.site.campusLocation)) {
-    return { ok: false, message: dict.actions.checkin.wrongSiteIn(expected.site.campusLocation.name) };
+  const expected = await getExpectedSite(session.user.id);
+  if (expected.kind === "no_site") return { ok: false, message: dict.actions.checkin.noSiteAssigned };
+  if (!isWithinSite(lat, lng, expected.site)) {
+    return { ok: false, message: dict.actions.checkin.wrongSiteIn(expected.site.name) };
   }
 
   const date = todayAtMidnight();
@@ -46,7 +43,7 @@ export async function checkIn(lat: number, lng: number) {
   return { ok: true, message: status === "LATE" ? dict.actions.checkin.inSuccessLate : dict.actions.checkin.inSuccessOnTime };
 }
 
-/** FR-4 / site-per-teacher: check-out — same per-teacher site check as check-in, but resolved against today's *last* class (see getExpectedSite). */
+/** FR-4 / site-per-teacher: check-out — same per-teacher assigned-site check as check-in (see getExpectedSite). */
 export async function checkOut(lat: number, lng: number) {
   const session = await getServerSession(authOptions);
   const dict = getDictionary(getLocale());
@@ -59,13 +56,10 @@ export async function checkOut(lat: number, lng: number) {
   if (!existing?.checkinAt) return { ok: false, message: dict.actions.checkin.notCheckedInYet };
   if (existing.checkoutAt) return { ok: false, message: dict.actions.checkin.alreadyCheckedOut };
 
-  const expected = await getExpectedSite(session.user.id, "checkout");
-  if (expected.kind === "no_schedule") return { ok: false, message: dict.actions.checkin.noScheduleToday };
-  if (expected.kind === "no_location") {
-    return { ok: false, message: dict.actions.checkin.roomNoLocation(expected.room.name) };
-  }
-  if (!isWithinSite(lat, lng, expected.site.campusLocation)) {
-    return { ok: false, message: dict.actions.checkin.wrongSiteOut(expected.site.campusLocation.name) };
+  const expected = await getExpectedSite(session.user.id);
+  if (expected.kind === "no_site") return { ok: false, message: dict.actions.checkin.noSiteAssigned };
+  if (!isWithinSite(lat, lng, expected.site)) {
+    return { ok: false, message: dict.actions.checkin.wrongSiteOut(expected.site.name) };
   }
 
   const now = new Date();

@@ -8,20 +8,16 @@ import { getExpectedSite, type ExpectedSiteResult } from "@/lib/geo";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary, type Dictionary } from "@/lib/i18n/dictionaries";
 
-/** Renders one row of "your site today" — same three outcomes the check-in/out server actions themselves branch on (see getExpectedSite), so what a teacher sees here always matches what actually happens when they tap the button. */
-function SiteRow({ label, result, dict }: { label: string; result: ExpectedSiteResult; dict: Dictionary }) {
-  if (result.kind === "no_schedule") {
-    return <p className="text-sm text-danger">{dict.actions.checkin.noScheduleToday}</p>;
-  }
-  if (result.kind === "no_location") {
-    return <p className="text-sm text-danger">{dict.actions.checkin.roomNoLocation(result.room.name)}</p>;
+/** Renders the teacher's assigned site — same two outcomes the check-in/out server actions themselves branch on (see getExpectedSite), so what a teacher sees here always matches what actually happens when they tap the button. */
+function SiteRow({ result, dict }: { result: ExpectedSiteResult; dict: Dictionary }) {
+  if (result.kind === "no_site") {
+    return <p className="text-sm text-danger">{dict.actions.checkin.noSiteAssigned}</p>;
   }
   return (
     <p className="text-sm">
-      <span className="font-medium">{label}:</span>{" "}
-      📍 {result.site.campusLocation.name}
+      📍 <span className="font-medium">{result.site.name}</span>
       <span className="ml-1 text-faint">
-        ({result.site.room.name}, {result.site.course.code})
+        ({dict.locations.radiusLabel} {result.site.radiusMeters} {dict.locations.metersShort})
       </span>
     </p>
   );
@@ -35,12 +31,11 @@ export default async function CheckinPage() {
   const dict = getDictionary(locale);
 
   if (!isAdmin) {
-    const [attendance, checkinSite, checkoutSite] = await Promise.all([
+    const [attendance, site] = await Promise.all([
       prisma.attendance.findUnique({
         where: { userId_date: { userId: session!.user.id, date } },
       }),
-      getExpectedSite(session!.user.id, "checkin"),
-      getExpectedSite(session!.user.id, "checkout"),
+      getExpectedSite(session!.user.id),
     ]);
 
     return (
@@ -69,17 +64,14 @@ export default async function CheckinPage() {
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
           <h2 className="text-base font-bold">{dict.checkin.todaySiteTitle}</h2>
           <p className="mb-3 text-sm text-muted">{dict.checkin.todaySiteHint}</p>
-          <div className="flex flex-col gap-2">
-            <SiteRow label={dict.checkin.checkinSiteLabel} result={checkinSite} dict={dict} />
-            <SiteRow label={dict.checkin.checkoutSiteLabel} result={checkoutSite} dict={dict} />
-          </div>
+          <SiteRow result={site} dict={dict} />
         </div>
       </div>
     );
   }
 
   const [teachers, attendances] = await Promise.all([
-    prisma.user.findMany({ where: { role: "MEMBER" }, include: { department: true } }),
+    prisma.user.findMany({ where: { role: "MEMBER" }, include: { department: true, campusLocation: true } }),
     prisma.attendance.findMany({ where: { date } }),
   ]);
   const byUser = new Map(attendances.map((a) => [a.userId, a]));
@@ -93,6 +85,7 @@ export default async function CheckinPage() {
           <thead>
             <tr className="text-left text-xs uppercase text-faint">
               <th className="pb-2">{dict.dashboard.admin.colTeacher}</th>
+              <th className="pb-2">{dict.teachers.colSite}</th>
               <th className="pb-2">{dict.dashboard.admin.colStatus}</th>
               <th className="pb-2">{dict.checkin.colCheckin}</th>
               <th className="pb-2">{dict.checkin.colCheckout}</th>
@@ -104,6 +97,13 @@ export default async function CheckinPage() {
               return (
                 <tr key={t.id} className="border-t border-line-soft">
                   <td className="py-2">{t.name}</td>
+                  <td className="py-2">
+                    {t.campusLocation ? (
+                      <>📍 {t.campusLocation.name}</>
+                    ) : (
+                      <span className="text-faint">{dict.teachers.siteUnset}</span>
+                    )}
+                  </td>
                   <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} dict={dict} /></td>
                   <td className="py-2">
                     {formatTime(a?.checkinAt, locale) ?? "—"} {a?.attestedCheckin && <span className="text-[10px] text-warn">{dict.checkin.attested}</span>}

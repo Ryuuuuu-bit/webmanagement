@@ -9,26 +9,32 @@ type UserRow = {
   email: string;
   role: string;
   department?: { name: string } | null;
+  campusLocation?: { id: string; name: string } | null;
   mustChangePassword: boolean;
 };
 type Dept = { id: string; name: string };
+type Site = { id: string; name: string };
 type ActionResult = { ok: boolean; message: string; tempPassword?: string };
 
 export default function UserManagement({
   users,
   departments,
+  campusLocations,
   currentUserId,
   createUser,
   resetUserPassword,
   updateUserRole,
+  updateUserSite,
   deleteUser,
 }: {
   users: UserRow[];
   departments: Dept[];
+  campusLocations: Site[];
   currentUserId: string;
   createUser: (_prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   resetUserPassword: (userId: string) => Promise<ActionResult>;
   updateUserRole: (userId: string, role: "ADMIN" | "MEMBER") => Promise<{ ok: boolean; message: string }>;
+  updateUserSite: (userId: string, campusLocationId: string | null) => Promise<{ ok: boolean; message: string }>;
   deleteUser: (userId: string) => Promise<{ ok: boolean; message: string }>;
 }) {
   const { dict } = useLanguage();
@@ -37,6 +43,7 @@ export default function UserManagement({
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);
   const [resetResult, setResetResult] = useState<{ userId: string } & ActionResult | null>(null);
   const [roleResult, setRoleResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
+  const [siteResult, setSiteResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
   const [deleteResult, setDeleteResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
 
   function onCreate(e: React.FormEvent<HTMLFormElement>) {
@@ -68,6 +75,14 @@ export default function UserManagement({
     });
   }
 
+  function onSiteChange(userId: string, name: string, campusLocationId: string) {
+    setCreateResult(null);
+    startTransition(async () => {
+      const res = await updateUserSite(userId, campusLocationId || null);
+      setSiteResult({ userId, ...res });
+    });
+  }
+
   function onDelete(userId: string, name: string) {
     if (!confirm(dict.users.deleteConfirm(name))) return;
     setCreateResult(null);
@@ -85,13 +100,19 @@ export default function UserManagement({
           {dict.users.addHint}
         </p>
         <form ref={formRef} onSubmit={onCreate} className="mt-4 flex flex-col gap-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-5">
             <input name="name" required placeholder={dict.users.namePlaceholder} className="input" />
             <input name="email" type="email" required placeholder={dict.users.emailPlaceholder} className="input" />
             <select name="departmentId" className="input" defaultValue="">
               <option value="">{dict.users.departmentUnset}</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+            <select name="campusLocationId" className="input" defaultValue="">
+              <option value="">{dict.users.siteUnset}</option>
+              {campusLocations.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
             <select name="role" className="input" defaultValue="MEMBER">
@@ -125,6 +146,7 @@ export default function UserManagement({
                 <th className="pb-2">{dict.users.colName}</th>
                 <th className="pb-2">{dict.users.colEmail}</th>
                 <th className="pb-2">{dict.users.colDepartment}</th>
+                <th className="pb-2">{dict.users.colSite}</th>
                 <th className="pb-2">{dict.users.colRole}</th>
                 <th className="pb-2">{dict.users.colPasswordStatus}</th>
                 <th className="pb-2"></th>
@@ -136,6 +158,22 @@ export default function UserManagement({
                   <td className="py-2">{u.name}</td>
                   <td className="py-2 text-muted">{u.email}</td>
                   <td className="py-2">{u.department?.name ?? "—"}</td>
+                  <td className="py-2">
+                    <select
+                      disabled={pending}
+                      value={u.campusLocation?.id ?? ""}
+                      onChange={(e) => onSiteChange(u.id, u.name, e.target.value)}
+                      className="rounded-lg border border-line-strong bg-surface px-2 py-1 text-xs text-ink disabled:opacity-40"
+                    >
+                      <option value="">{dict.users.siteUnset}</option>
+                      {campusLocations.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                    {siteResult?.userId === u.id && (
+                      <div className={`mt-1 text-xs ${siteResult.ok ? "text-ok" : "text-danger"}`}>{siteResult.message}</div>
+                    )}
+                  </td>
                   <td className="py-2">
                     {u.id === currentUserId ? (
                       <span className="badge bg-info-soft text-info">{u.role} ({dict.common.you})</span>

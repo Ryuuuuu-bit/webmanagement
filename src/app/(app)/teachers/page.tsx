@@ -15,7 +15,11 @@ export default async function TeachersPage() {
   const dict = getDictionary(locale);
   const date = todayAtMidnight();
   const [teachers, attendances] = await Promise.all([
-    prisma.user.findMany({ where: { role: "MEMBER" }, include: { department: true }, orderBy: { name: "asc" } }),
+    prisma.user.findMany({
+      where: { role: "MEMBER" },
+      include: { department: true, campusLocation: true },
+      orderBy: { name: "asc" },
+    }),
     prisma.attendance.findMany({ where: { date } }),
   ]);
   const byUser = new Map(attendances.map((a) => [a.userId, a]));
@@ -27,7 +31,7 @@ export default async function TeachersPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-faint">
-              <th className="pb-2">{dict.teachers.colName}</th><th className="pb-2">{dict.teachers.colEmail}</th><th className="pb-2">{dict.teachers.colDepartment}</th><th className="pb-2">{dict.teachers.colRole}</th><th className="pb-2">{dict.teachers.colStatusToday}</th>
+              <th className="pb-2">{dict.teachers.colName}</th><th className="pb-2">{dict.teachers.colEmail}</th><th className="pb-2">{dict.teachers.colDepartment}</th><th className="pb-2">{dict.teachers.colSite}</th><th className="pb-2">{dict.teachers.colRole}</th><th className="pb-2">{dict.teachers.colStatusToday}</th>
             </tr>
           </thead>
           <tbody>
@@ -36,6 +40,9 @@ export default async function TeachersPage() {
                 <td className="py-2">{t.name}</td>
                 <td className="py-2 text-muted">{t.email}</td>
                 <td className="py-2">{t.department?.name ?? "—"}</td>
+                <td className="py-2">
+                  {t.campusLocation ? `📍 ${t.campusLocation.name}` : <span className="text-faint">{dict.teachers.siteUnset}</span>}
+                </td>
                 <td className="py-2"><span className="badge bg-info-soft text-info">{t.role}</span></td>
                 <td className="py-2"><AttendanceBadge status={byUser.get(t.id)?.status ?? "PENDING"} dict={dict} /></td>
               </tr>

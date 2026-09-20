@@ -68,6 +68,16 @@ model User {
   role          Role      @default(MEMBER)
   departmentId  String?
   department    Department? @relation(fields: [departmentId], references: [id])
+  // The one site this teacher is permanently stationed at (client concept:
+  // "ประจำ" — the system now spans many organizations'/campuses' sites, each
+  // teacher assigned to exactly one). This is the sole source of truth for
+  // check-in/out validation (see getExpectedSite in src/lib/geo.ts) — it
+  // replaced the earlier per-day, schedule/room-derived site lookup, which
+  // required full course/room data entry and didn't fit a teacher simply
+  // stationed at one site. Nullable so existing/new teachers keep working
+  // (check-in/out blocked with a clear message) until Admin assigns one.
+  campusLocationId String?
+  campusLocation   CampusLocation? @relation(fields: [campusLocationId], references: [id])
   // Admin-created accounts (no self-registration): true right after an admin
   // creates or resets the account, until the user sets their own password.
   mustChangePassword Boolean @default(false)
@@ -126,6 +136,8 @@ model CampusLocation {
   longitude    Float
   radiusMeters Int    @default(150)
   rooms        Room[]
+  // Teachers permanently stationed at this site (see User.campusLocationId).
+  teachers     User[]
 }
 
 model Schedule {
