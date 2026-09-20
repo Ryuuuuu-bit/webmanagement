@@ -35,7 +35,9 @@ export type AuditAction =
   | "DEVICE_APPROVED"
   | "DEVICE_REJECTED"
   | "SHARED_DEVICE_DETECTED"
-  | "POLICY_CHANGED";
+  | "POLICY_CHANGED"
+  | "PROFILE_EDITED"
+  | "RECORD_DELETED";
 
 export async function logAudit(entry: {
   action: AuditAction;

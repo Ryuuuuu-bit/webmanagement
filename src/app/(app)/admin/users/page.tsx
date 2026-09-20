@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import UserManagement from "@/components/UserManagement";
-import { createUser, resetUserPassword, updateUserRole, updateUserSite, deleteUser, setUserActive, updateUsername } from "@/actions/users";
+import { createUser, resetUserPassword, updateUserRole, updateUserSite, deleteUser, setUserActive, updateUsername, updateUserProfile } from "@/actions/users";
 import { adminClearWebauthnCredentials } from "@/actions/webauthn";
 import { createEnrollmentLink } from "@/actions/enrollment";
 import { sendPasswordSetupEmail } from "@/actions/passwordReset";
@@ -26,7 +26,7 @@ export default async function AdminUsersPage() {
         username: u.username,
         email: u.email,
         role: u.role,
-        department: u.department ? { name: u.department.name } : null,
+        department: u.department ? { id: u.department.id, name: u.department.name } : null,
         campusLocation: u.campusLocation ? { id: u.campusLocation.id, name: u.campusLocation.name } : null,
         mustChangePassword: u.mustChangePassword,
         tempPasswordExpiresAt: u.tempPasswordExpiresAt?.toISOString() ?? null,
@@ -46,6 +46,7 @@ export default async function AdminUsersPage() {
       createEnrollmentLink={createEnrollmentLink}
       updateUsername={updateUsername}
       sendPasswordSetupEmail={sendPasswordSetupEmail}
+      updateUserProfile={updateUserProfile}
       emailConfigured={isEmailConfigured()}
     />
   );

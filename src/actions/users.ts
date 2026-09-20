@@ -349,3 +349,58 @@ export async function setUserActive(userId: string, active: boolean): Promise<{ 
   revalidatePath("/checkin");
   return { ok: true, message: active ? dict.actions.users.reactivated(user.name) : dict.actions.users.suspended(user.name) };
 }
+
+/**
+ * Admin edits everything on a member's profile in one go (client request:
+ * "admin แก้ไขข้อมูลส่วนตัวของ member ได้ทั้งหมด"): display name, sign-in
+ * username, recovery email and department. Role and assigned site keep their
+ * own actions (they trigger re-login / notifications). Every field is
+ * validated like createUser; only fields that actually changed are written
+ * and audited.
+ */
+export async function updateUserProfile(
+  userId: string,
+  input: { name: string; username: string; email: string; departmentId: string | null }
+): Promise<{ ok: boolean; message: string }> {
+  const session = await requireAdmin();
+  const dict = getDictionary(getLocale());
+
+  const name = (input.name || "").trim();
+  const username = normalizeUsername(input.username || "");
+  const email = (input.email || "").trim().toLowerCase();
+  const departmentId = input.departmentId || null;
+
+  if (!name || !email || !username) return { ok: false, message: dict.actions.users.fillRequired };
+  if (!USERNAME_RE.test(username)) return { ok: false, message: dict.actions.users.invalidUsername };
+  if (!/^\S+@\S+\.\S+$/.test(email)) return { ok: false, message: dict.actions.users.invalidEmail };
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return { ok: false, message: dict.actions.users.notFound };
+
+  if (email !== user.email) {
+    const taken = await prisma.user.findUnique({ where: { email } });
+    if (taken) return { ok: false, message: dict.actions.users.emailExists };
+  }
+  if (username !== user.username) {
+    const taken = await prisma.user.findUnique({ where: { username } });
+    if (taken) return { ok: false, message: dict.actions.users.usernameExists };
+  }
+  if (departmentId) {
+    const dept = await prisma.department.findUnique({ where: { id: departmentId } });
+    if (!dept) return { ok: false, message: dict.actions.users.invalidDepartment };
+  }
+
+  const changes: string[] = [];
+  if (name !== user.name) changes.push(`name: ${user.name} → ${name}`);
+  if (username !== user.username) changes.push(`username: ${user.username ?? "—"} → ${username}`);
+  if (email !== user.email) changes.push(`email: ${user.email} → ${email}`);
+  if (departmentId !== user.departmentId) changes.push(`department: ${user.departmentId ?? "—"} → ${departmentId ?? "—"}`);
+  if (changes.length === 0) return { ok: true, message: dict.actions.users.profileUnchanged };
+
+  await prisma.user.update({ where: { id: userId }, data: { name, username, email, departmentId } });
+  await logAudit({ action: "PROFILE_EDITED", actorId: session.user.id, targetUserId: userId, ip: getClientIp(), detail: changes.join("; ") });
+
+  revalidatePath("/admin/users");
+  revalidatePath("/teachers");
+  return { ok: true, message: dict.actions.users.profileSaved(name) };
+}

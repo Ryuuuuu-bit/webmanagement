@@ -22,6 +22,9 @@
 - **ความปลอดภัยบัญชี** — ล็อกชั่วคราวหลัง login ผิดหลายครั้ง (ต่อบัญชีและต่อ IP), นโยบายรหัสผ่าน (ความยาว, ไม่ซ้ำ
   รหัสยอดนิยม, ไม่ใช้อีเมล/username), ระงับบัญชีชั่วคราวแทนการลบ, "ออกจากระบบทุกอุปกรณ์", และ
   **ประวัติความปลอดภัย (Audit Log)** บันทึกทุกการเข้าสู่ระบบและการเปลี่ยนแปลงบัญชี
+- **Admin จัดการข้อมูลอาจารย์ได้ครบ** — แก้ชื่อ/ชื่อผู้ใช้/อีเมล/ภาควิชา (ปุ่ม "แก้ไขข้อมูล"), เปลี่ยนบทบาทและ site ประจำ,
+  และเปิดหน้า "ประวัติ / ลบรายการ" ของแต่ละคนเพื่อลบประวัติเช็คอิน คำขอลา คำขอรับรองเวลา หรือแผนการสอนที่ผิดพลาด
+  ได้ทีละรายการหรือทั้งหมวด (ทุกการลบบันทึกในประวัติความปลอดภัย)
 - **สองภาษา (TH/EN)** และ **Light/Dark mode** สลับได้ตั้งแต่หน้า login และทุกหน้าสาธารณะ
 
 ### ตารางสอนและงานประจำวัน
@@ -137,7 +140,8 @@ src/actions/*.ts            Server Actions ของแต่ละโมดู�
 src/app/api/                Route Handlers: อัปโหลดแผนการสอน, รูปเซลฟี่, การแจ้งเตือน (polling)
 src/app/login, /enroll, /reset-password, /change-password   หน้าสาธารณะ/ก่อนเข้าแอป
 src/app/(app)/*             หน้าหลังล็อกอินแยกตามเมนู (dashboard, schedule, checkin, attest, leave, lesson-plans,
-                            teachers, notifications, admin/users, admin/locations, admin/master-data, admin/audit)
+                            teachers, notifications, admin/users, admin/users/[id]/history, admin/locations,
+                            admin/master-data, admin/audit)
 src/components/*            UI components ที่ใช้ร่วมกัน (ScheduleCalendar, CheckinClient, SelfieCapture, UserManagement,
                             NotificationProvider/Bell/List, ...)
 ```

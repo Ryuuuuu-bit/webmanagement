@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useLanguage } from "@/components/LanguageProvider";
 import { formatDate, formatTime } from "@/lib/date";
 import type { EnrollmentLink } from "@/actions/enrollment";
@@ -11,7 +12,7 @@ type UserRow = {
   username: string | null;
   email: string;
   role: string;
-  department?: { name: string } | null;
+  department?: { id: string; name: string } | null;
   campusLocation?: { id: string; name: string } | null;
   mustChangePassword: boolean;
   tempPasswordExpiresAt: string | null;
@@ -37,6 +38,7 @@ export default function UserManagement({
   createEnrollmentLink,
   updateUsername,
   sendPasswordSetupEmail,
+  updateUserProfile,
   emailConfigured,
 }: {
   users: UserRow[];
@@ -53,6 +55,10 @@ export default function UserManagement({
   createEnrollmentLink: (userId: string) => Promise<{ ok: true; link: EnrollmentLink; message: string } | { ok: false; message: string }>;
   updateUsername: (userId: string, username: string) => Promise<{ ok: boolean; message: string }>;
   sendPasswordSetupEmail: (userId: string) => Promise<{ ok: boolean; message: string }>;
+  updateUserProfile: (
+    userId: string,
+    input: { name: string; username: string; email: string; departmentId: string | null }
+  ) => Promise<{ ok: boolean; message: string }>;
   /** Whether RESEND_API_KEY is set on the server — controls the "email setup link" button. */
   emailConfigured: boolean;
 }) {
@@ -72,6 +78,31 @@ export default function UserManagement({
   const [usernameEdit, setUsernameEdit] = useState<{ userId: string; value: string } | null>(null);
   const [usernameResult, setUsernameResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
   const [emailResult, setEmailResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
+  // Edit-details modal (name / username / email / department in one form).
+  const [editing, setEditing] = useState<{ userId: string; name: string; username: string; email: string; departmentId: string } | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editResult, setEditResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
+
+  function openEdit(u: UserRow) {
+    setEditError(null);
+    setEditing({ userId: u.id, name: u.name, username: u.username ?? "", email: u.email, departmentId: u.department?.id ?? "" });
+  }
+
+  function onSaveProfile(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    const { userId, name, username, email, departmentId } = editing;
+    setEditError(null);
+    startTransition(async () => {
+      const res = await updateUserProfile(userId, { name, username, email, departmentId: departmentId || null });
+      if (res.ok) {
+        setEditing(null);
+        setEditResult({ userId, ...res });
+      } else {
+        setEditError(res.message);
+      }
+    });
+  }
 
   function onCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -369,6 +400,12 @@ export default function UserManagement({
 
                 {/* actions */}
                 <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line-soft pt-3">
+                  <button disabled={pending} onClick={() => openEdit(u)} className={btn}>
+                    {dict.users.editButton}
+                  </button>
+                  <Link href={`/admin/users/${u.id}/history`} className={btn}>
+                    {dict.users.historyButton}
+                  </Link>
                   <button disabled={pending} onClick={() => onReset(u.id, u.name)} className={btn}>
                     {dict.users.resetPassword}
                   </button>
@@ -423,11 +460,73 @@ export default function UserManagement({
                 {emailResult?.userId === u.id && (
                   <div className={`mt-2 text-xs ${emailResult.ok ? "text-ok" : "text-danger"}`}>{emailResult.message}</div>
                 )}
+                {editResult?.userId === u.id && (
+                  <div className={`mt-2 text-xs ${editResult.ok ? "text-ok" : "text-danger"}`}>{editResult.message}</div>
+                )}
               </li>
             );
           })}
         </ul>
       </div>
+
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setEditing(null)}>
+          <form
+            onSubmit={onSaveProfile}
+            className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold">{dict.users.editTitle}</h3>
+                <p className="text-xs text-muted">{dict.users.editHint}</p>
+              </div>
+              <button type="button" onClick={() => setEditing(null)} className="text-faint hover:text-subtle">✕</button>
+            </div>
+            <div className="flex flex-col gap-3">
+              <label className="flex flex-col gap-1 text-xs text-faint">
+                {dict.users.editName}
+                <input required value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className="input text-sm text-ink" />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-faint">
+                {dict.users.editUsername}
+                <input
+                  required
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  pattern="[A-Za-z0-9._-]{3,32}"
+                  title={dict.users.usernameRule}
+                  value={editing.username}
+                  onChange={(e) => setEditing({ ...editing, username: e.target.value })}
+                  className="input font-mono text-sm text-ink"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-faint">
+                {dict.users.editEmail}
+                <input required type="email" value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} className="input text-sm text-ink" />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-faint">
+                {dict.users.editDepartment}
+                <select value={editing.departmentId} onChange={(e) => setEditing({ ...editing, departmentId: e.target.value })} className="input text-sm text-ink">
+                  <option value="">{dict.users.departmentUnset}</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {editError && <p className="mt-3 text-sm text-danger">{editError}</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setEditing(null)} className="rounded-lg border border-line px-3 py-2 text-sm font-medium text-subtle">
+                {dict.common.cancel}
+              </button>
+              <button type="submit" disabled={pending} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                {pending ? dict.common.saving : dict.common.save}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {enrollment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setEnrollment(null)}>
