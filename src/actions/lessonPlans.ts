@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { saveLessonPlan } from "@/lib/lessonPlans";
+import { notifyUser } from "@/lib/notify";
 
 /**
  * FR-6: teacher submits/resubmits their lesson plan for a course they teach.
@@ -42,7 +43,7 @@ export async function reviewLessonPlan(
     return { ok: false, message: dict.actions.lessonPlans.needsNote };
   }
 
-  await prisma.lessonPlan.update({
+  const plan = await prisma.lessonPlan.update({
     where: { id },
     data: {
       status: decision,
@@ -50,7 +51,15 @@ export async function reviewLessonPlan(
       reviewNote: trimmedNote || null,
       decidedAt: new Date(),
     },
+    include: { course: { select: { code: true, name: true } }, reviewer: { select: { name: true } } },
   });
+
+  await notifyUser(
+    plan.teacherId,
+    "LESSON_PLAN_REVIEWED",
+    { decision, courseCode: plan.course?.code ?? "-", courseName: plan.course?.name ?? "-", note: trimmedNote || null, reviewerName: plan.reviewer?.name ?? session.user.name ?? "-" },
+    "/lesson-plans"
+  );
 
   revalidatePath("/lesson-plans");
   return { ok: true, message: decision === "APPROVED" ? dict.actions.lessonPlans.approved : dict.actions.lessonPlans.sentBack };

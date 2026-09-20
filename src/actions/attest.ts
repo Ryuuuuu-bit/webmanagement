@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { AttestType, RequestStatus } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import { notifyAdmins, notifyUser } from "@/lib/notify";
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -39,7 +40,7 @@ export async function requestAttestation(formData: FormData): Promise<{ ok: bool
     }
   }
 
-  await prisma.timeAttestation.create({
+  const created = await prisma.timeAttestation.create({
     data: {
       requesterId: session.user.id,
       date: new Date(formData.get("date") as string),
@@ -49,6 +50,19 @@ export async function requestAttestation(formData: FormData): Promise<{ ok: bool
       reason: formData.get("reason") as string,
     },
   });
+
+  const requester = await prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true } });
+  await notifyAdmins(
+    "ATTEST_REQUESTED",
+    {
+      requesterName: requester?.name ?? session.user.name ?? "-",
+      type,
+      date: created.date.toISOString(),
+      time: type === "FORGOT_BOTH" ? `${time}–${time2}` : time,
+    },
+    "/attest",
+    { excludeUserId: session.user.id }
+  );
 
   revalidatePath("/attest");
   return { ok: true, message: dict.actions.attest.submitted };
@@ -68,7 +82,15 @@ export async function decideAttestation(id: string, decision: "APPROVED" | "REJE
   const req = await prisma.timeAttestation.update({
     where: { id },
     data: { status: decision as RequestStatus, approverId: session.user.id, decidedAt: new Date() },
+    include: { approver: { select: { name: true } } },
   });
+
+  await notifyUser(
+    req.requesterId,
+    "ATTEST_DECIDED",
+    { decision, type: req.type, date: req.date.toISOString(), approverName: req.approver?.name ?? session.user.name ?? "-" },
+    "/attest"
+  );
 
   if (decision === "APPROVED") {
     const date = new Date(req.date);

@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Sidebar from "@/components/Sidebar";
+import NotificationProvider from "@/components/NotificationProvider";
+import { countUnread } from "@/lib/notify";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -19,11 +21,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (current?.mustChangePassword) redirect("/change-password");
 
   const isAdmin = session.user.role === "ADMIN";
+  // Seed the bell badge server-side so it's right on first paint; the
+  // provider then keeps it current by polling.
+  const initialUnread = await countUnread(session.user.id).catch(() => 0);
 
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row">
-      <Sidebar isAdmin={isAdmin} userName={current?.name ?? session.user.name ?? session.user.email ?? "-"} />
-      <div className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6">{children}</div>
-    </div>
+    <NotificationProvider initialUnread={initialUnread}>
+      <div className="flex min-h-screen flex-col lg:flex-row">
+        <Sidebar isAdmin={isAdmin} userName={current?.name ?? session.user.name ?? session.user.email ?? "-"} />
+        <div className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6">{children}</div>
+      </div>
+    </NotificationProvider>
   );
 }

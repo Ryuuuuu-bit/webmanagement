@@ -9,6 +9,7 @@ import { buildRegistrationOptions, finishRegistration as finishRegistrationLib, 
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { logAudit } from "@/lib/audit";
+import { notifyAdmins, notifyUser } from "@/lib/notify";
 import { getClientIp } from "@/lib/security";
 import { getCheckinPolicy } from "@/lib/settings";
 
@@ -108,6 +109,10 @@ export async function finishWebauthnRegistration(
     ip: getClientIp(),
     detail: `${label.trim() || "-"}${pending ? " (pending approval)" : viaEnrollment ? " (via enrollment QR)" : ""}`,
   });
+  if (pending) {
+    const who = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+    await notifyAdmins("DEVICE_PENDING", { userName: who?.name ?? "-", label: label.trim() || null }, "/checkin");
+  }
   revalidatePath("/checkin");
   return { ok: true, message: pending ? dict.actions.webauthn.registeredPending : dict.actions.webauthn.registered };
 }
@@ -192,6 +197,7 @@ export async function decidePendingCredential(credentialDbId: string, approve: b
     ip: getClientIp(),
     detail: row.label,
   });
+  await notifyUser(row.userId, "DEVICE_DECIDED", { approved: approve, label: row.label }, "/checkin");
   revalidatePath("/checkin");
   revalidatePath("/admin/users");
   return { ok: true, message: approve ? dict.actions.webauthn.deviceApproved(row.user.name) : dict.actions.webauthn.deviceRejected(row.user.name) };

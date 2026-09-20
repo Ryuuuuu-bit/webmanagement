@@ -11,6 +11,7 @@ import { todayAtMidnight } from "@/lib/date";
 import { verifyAssertion } from "@/lib/webauthn";
 import { getCheckinPolicy } from "@/lib/settings";
 import { logAudit } from "@/lib/audit";
+import { notifyAdmins } from "@/lib/notify";
 import { getClientIp } from "@/lib/security";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
@@ -109,6 +110,16 @@ async function detectSharedDevice(userId: string, date: Date, deviceId: string |
     ip,
     detail: `same device as ${others.map((o) => o.userId).join(", ")}`,
   });
+  const people = await prisma.user.findMany({
+    where: { id: { in: [userId, ...others.map((o) => o.userId)] } },
+    select: { id: true, name: true },
+  });
+  const nameOf = (id: string) => people.find((p) => p.id === id)?.name ?? "-";
+  await notifyAdmins(
+    "SHARED_DEVICE_DETECTED",
+    { userName: nameOf(userId), otherNames: Array.from(new Set(others.map((o) => nameOf(o.userId)))).join(", "), date: date.toISOString() },
+    "/checkin"
+  );
   return true;
 }
 

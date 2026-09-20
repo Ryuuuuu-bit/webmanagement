@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import { notifyAdmins } from "@/lib/notify";
 
 export const LESSON_PLAN_MAX_SIZE = 8 * 1024 * 1024; // 8MB
 const ALLOWED_TYPES = new Set([
@@ -28,8 +29,9 @@ export async function saveLessonPlan(userId: string, courseId: string | null, fi
     return { ok: false, message: dict.actions.lessonPlans.unsupportedType };
   }
 
-  const teaches = await prisma.schedule.findFirst({ where: { teacherId: userId, courseId } });
+  const teaches = await prisma.schedule.findFirst({ where: { teacherId: userId, courseId }, include: { course: true, teacher: { select: { name: true } } } });
   if (!teaches) return { ok: false, message: dict.actions.lessonPlans.notYourCourse };
+  const previous = await prisma.lessonPlan.findUnique({ where: { teacherId_courseId: { teacherId: userId, courseId } }, select: { status: true } });
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const mimeType = file.type || "application/octet-stream";
@@ -48,5 +50,17 @@ export async function saveLessonPlan(userId: string, courseId: string | null, fi
       submittedAt: new Date(),
     },
   });
+
+  await notifyAdmins(
+    "LESSON_PLAN_SUBMITTED",
+    {
+      teacherName: teaches.teacher?.name ?? "-",
+      courseCode: teaches.course?.code ?? "-",
+      courseName: teaches.course?.name ?? "-",
+      resubmit: previous?.status === "NEEDS_REVISION",
+    },
+    "/lesson-plans",
+    { excludeUserId: userId }
+  );
   return { ok: true, message: dict.actions.lessonPlans.submitted };
 }

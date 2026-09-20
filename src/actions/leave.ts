@@ -8,6 +8,7 @@ import { LeaveType, RequestStatus } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { countLeaveDays, getLeaveQuotaMap, getLeaveUsedDays } from "@/lib/leaveQuota";
+import { notifyAdmins, notifyUser } from "@/lib/notify";
 
 export async function requestLeave(formData: FormData): Promise<{ ok: boolean; message: string }> {
   const session = await getServerSession(authOptions);
@@ -44,11 +45,23 @@ export async function requestLeave(formData: FormData): Promise<{ ok: boolean; m
     },
   });
 
+  const usedAfter = usedBefore + days;
+  const overQuota = quota > 0 && usedAfter > quota;
+
+  // Tell every Admin there's something to approve (the requester's name is
+  // read fresh in case it was edited since their session was issued).
+  const requester = await prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true } });
+  await notifyAdmins(
+    "LEAVE_REQUESTED",
+    { requesterName: requester?.name ?? session.user.name ?? "-", type, from: startDate.toISOString(), to: endDate.toISOString(), days, overQuota },
+    "/leave",
+    { excludeUserId: session.user.id }
+  );
+
   revalidatePath("/leave");
   revalidatePath("/dashboard");
 
-  const usedAfter = usedBefore + days;
-  if (quota > 0 && usedAfter > quota) {
+  if (overQuota) {
     return { ok: true, message: dict.actions.leave.submittedOverQuota(usedAfter, quota) };
   }
   return { ok: true, message: dict.actions.leave.submitted };
@@ -61,10 +74,19 @@ export async function decideLeave(id: string, decision: "APPROVED" | "REJECTED")
     throw new Error("Unauthorized");
   }
 
-  await prisma.leaveRequest.update({
+  const updated = await prisma.leaveRequest.update({
     where: { id },
     data: { status: decision as RequestStatus, approverId: session.user.id, decidedAt: new Date() },
+    include: { approver: { select: { name: true } } },
   });
+
+  // Tell the requester how it went.
+  await notifyUser(
+    updated.requesterId,
+    "LEAVE_DECIDED",
+    { decision, type: updated.type, from: updated.startDate.toISOString(), to: updated.endDate.toISOString(), approverName: updated.approver?.name ?? session.user.name ?? "-" },
+    "/leave"
+  );
 
   revalidatePath("/leave");
   revalidatePath("/dashboard");

@@ -99,3 +99,9 @@ body {
 :where(.overflow-x-auto) > table {
   min-width: 560px;
 }
+
+/* Notification toast entrance (NotificationProvider). */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

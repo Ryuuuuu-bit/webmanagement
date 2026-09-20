@@ -9,6 +9,16 @@ export type Locale = "th" | "en";
 export const LOCALES: Locale[] = ["th", "en"];
 export const DEFAULT_LOCALE: Locale = "th";
 
+// Notification rows store raw facts (names, dates, decision) and are
+// rendered here in the reader's language — see src/lib/notify.ts.
+type NotifParams = Record<string, string | number | boolean | null>;
+type NotifHelpers = {
+  date: (v: NotifParams[string]) => string;
+  leaveType: (v: NotifParams[string]) => string;
+  attestType: (v: NotifParams[string]) => string;
+  dayName: (v: NotifParams[string]) => string;
+};
+
 const th = {
   common: {
     add: "เพิ่ม",
@@ -57,6 +67,77 @@ const th = {
       users: "จัดการผู้ใช้",
       locations: "จุดเช็คอิน-เอาต์",
       audit: "ประวัติความปลอดภัย",
+    },
+  },
+  notifications: {
+    title: "การแจ้งเตือน",
+    bell: "การแจ้งเตือน",
+    empty: "ยังไม่มีการแจ้งเตือน",
+    markAllRead: "อ่านทั้งหมดแล้ว",
+    viewAll: "ดูทั้งหมด",
+    unread: (n: number) => `ยังไม่ได้อ่าน ${n} รายการ`,
+    newToast: (n: number) => (n === 1 ? "มีการแจ้งเตือนใหม่ 1 รายการ" : `มีการแจ้งเตือนใหม่ ${n} รายการ`),
+    open: "เปิดดู",
+    justNow: "เมื่อสักครู่",
+    minutesAgo: (n: number) => `${n} นาทีที่แล้ว`,
+    hoursAgo: (n: number) => `${n} ชั่วโมงที่แล้ว`,
+    daysAgo: (n: number) => `${n} วันที่แล้ว`,
+    genericTitle: "มีการแจ้งเตือนใหม่",
+    approved: "อนุมัติแล้ว",
+    rejected: "ไม่อนุมัติ",
+    kinds: {
+      LEAVE_REQUESTED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `${p.requesterName} ขอ${h.leaveType(p.type)}`,
+        body: `${h.date(p.from)} – ${h.date(p.to)} (${p.days} วัน)${p.overQuota ? " ⚠ เกินโควต้า" : ""} — รออนุมัติ`,
+      }),
+      LEAVE_DECIDED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `คำขอ${h.leaveType(p.type)}ของคุณ${p.decision === "APPROVED" ? "ได้รับการอนุมัติแล้ว" : "ไม่ได้รับการอนุมัติ"}`,
+        body: `${h.date(p.from)} – ${h.date(p.to)} · โดย ${p.approverName}`,
+      }),
+      ATTEST_REQUESTED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `${p.requesterName} ขอรับรองเวลา (${h.attestType(p.type)})`,
+        body: `วันที่ ${h.date(p.date)} เวลา ${p.time} — รออนุมัติ`,
+      }),
+      ATTEST_DECIDED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `คำขอรับรองเวลาของคุณ${p.decision === "APPROVED" ? "ได้รับการอนุมัติแล้ว" : "ไม่ได้รับการอนุมัติ"}`,
+        body: `วันที่ ${h.date(p.date)} (${h.attestType(p.type)}) · โดย ${p.approverName}`,
+      }),
+      LESSON_PLAN_SUBMITTED: (p: NotifParams) => ({
+        title: `${p.teacherName} ส่งแผนการสอน ${p.courseCode}`,
+        body: `${p.courseName}${p.resubmit ? " (ส่งใหม่หลังแก้ไข)" : ""} — รอตรวจ`,
+      }),
+      LESSON_PLAN_REVIEWED: (p: NotifParams) => ({
+        title: p.decision === "APPROVED" ? `แผนการสอน ${p.courseCode} ได้รับการอนุมัติแล้ว` : `แผนการสอน ${p.courseCode} ถูกส่งกลับให้แก้ไข`,
+        body: `${p.courseName}${p.note ? ` · หมายเหตุ: ${p.note}` : ""} · โดย ${p.reviewerName}`,
+      }),
+      DEVICE_PENDING: (p: NotifParams) => ({
+        title: `${p.userName} ลงทะเบียนอุปกรณ์ใหม่ — รออนุมัติ`,
+        body: p.label ? `อุปกรณ์: ${p.label}` : "ไปที่หน้าเช็คอิน-เอาต์เพื่ออนุมัติ",
+      }),
+      DEVICE_DECIDED: (p: NotifParams) => ({
+        title: p.approved ? "อุปกรณ์ของคุณได้รับการอนุมัติแล้ว" : "อุปกรณ์ของคุณไม่ได้รับการอนุมัติ",
+        body: p.approved ? "ตอนนี้ใช้เช็คอิน-เอาต์ได้แล้ว" : "กรุณาลงทะเบียนใหม่หรือติดต่อผู้ดูแลระบบ",
+      }),
+      SHARED_DEVICE_DETECTED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `⚠ พบการใช้อุปกรณ์เดียวกันเช็คอินแทนกัน`,
+        body: `${p.userName} ใช้อุปกรณ์เดียวกับ ${p.otherNames} ในวันที่ ${h.date(p.date)}`,
+      }),
+      SCHEDULE_ASSIGNED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `เพิ่มคาบสอน ${p.courseCode} ในตารางของคุณ`,
+        body: `${h.dayName(p.dayOfWeek)} ${p.startTime}–${p.endTime} น. · ห้อง ${p.roomName} · ${p.semesterName}`,
+      }),
+      SCHEDULE_REMOVED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `ลบคาบสอน ${p.courseCode} ออกจากตารางของคุณ`,
+        body: `${h.dayName(p.dayOfWeek)} ${p.startTime}–${p.endTime} น. · ${p.semesterName}`,
+      }),
+      ROLE_CHANGED: (p: NotifParams) => ({
+        title: "สิทธิ์การใช้งานของคุณถูกเปลี่ยน",
+        body: p.role === "ADMIN" ? "คุณเป็นผู้ดูแลระบบแล้ว — กรุณาเข้าสู่ระบบใหม่" : "คุณเป็นอาจารย์ผู้สอน — กรุณาเข้าสู่ระบบใหม่",
+      }),
+      SITE_ASSIGNED: (p: NotifParams) => ({
+        title: "จุดเช็คอิน-เอาต์ประจำของคุณถูกเปลี่ยน",
+        body: p.siteName ? `ประจำที่: ${p.siteName}` : "ยังไม่ได้กำหนดจุดประจำ — ติดต่อผู้ดูแลระบบ",
+      }),
     },
   },
   theme: {
@@ -847,6 +928,77 @@ const en: typeof th = {
       users: "Manage Users",
       locations: "Check-in Locations",
       audit: "Security Log",
+    },
+  },
+  notifications: {
+    title: "Notifications",
+    bell: "Notifications",
+    empty: "No notifications yet",
+    markAllRead: "Mark all as read",
+    viewAll: "View all",
+    unread: (n: number) => `${n} unread`,
+    newToast: (n: number) => (n === 1 ? "1 new notification" : `${n} new notifications`),
+    open: "Open",
+    justNow: "Just now",
+    minutesAgo: (n: number) => `${n} min ago`,
+    hoursAgo: (n: number) => `${n} h ago`,
+    daysAgo: (n: number) => `${n} d ago`,
+    genericTitle: "New notification",
+    approved: "Approved",
+    rejected: "Rejected",
+    kinds: {
+      LEAVE_REQUESTED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `${p.requesterName} requested ${h.leaveType(p.type)}`,
+        body: `${h.date(p.from)} – ${h.date(p.to)} (${p.days} day${Number(p.days) === 1 ? "" : "s"})${p.overQuota ? " ⚠ over quota" : ""} — awaiting approval`,
+      }),
+      LEAVE_DECIDED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `Your ${h.leaveType(p.type)} request was ${p.decision === "APPROVED" ? "approved" : "rejected"}`,
+        body: `${h.date(p.from)} – ${h.date(p.to)} · by ${p.approverName}`,
+      }),
+      ATTEST_REQUESTED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `${p.requesterName} requested a time attestation (${h.attestType(p.type)})`,
+        body: `${h.date(p.date)} at ${p.time} — awaiting approval`,
+      }),
+      ATTEST_DECIDED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `Your time attestation was ${p.decision === "APPROVED" ? "approved" : "rejected"}`,
+        body: `${h.date(p.date)} (${h.attestType(p.type)}) · by ${p.approverName}`,
+      }),
+      LESSON_PLAN_SUBMITTED: (p: NotifParams) => ({
+        title: `${p.teacherName} submitted a lesson plan for ${p.courseCode}`,
+        body: `${p.courseName}${p.resubmit ? " (resubmitted after revision)" : ""} — awaiting review`,
+      }),
+      LESSON_PLAN_REVIEWED: (p: NotifParams) => ({
+        title: p.decision === "APPROVED" ? `Lesson plan ${p.courseCode} approved` : `Lesson plan ${p.courseCode} sent back for revision`,
+        body: `${p.courseName}${p.note ? ` · Note: ${p.note}` : ""} · by ${p.reviewerName}`,
+      }),
+      DEVICE_PENDING: (p: NotifParams) => ({
+        title: `${p.userName} registered a new device — awaiting approval`,
+        body: p.label ? `Device: ${p.label}` : "Open the Check-in/out page to approve it",
+      }),
+      DEVICE_DECIDED: (p: NotifParams) => ({
+        title: p.approved ? "Your device was approved" : "Your device was rejected",
+        body: p.approved ? "You can check in/out with it now" : "Please register again or contact your administrator",
+      }),
+      SHARED_DEVICE_DETECTED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `⚠ Same device used to check in for two people`,
+        body: `${p.userName} used the same device as ${p.otherNames} on ${h.date(p.date)}`,
+      }),
+      SCHEDULE_ASSIGNED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `${p.courseCode} was added to your timetable`,
+        body: `${h.dayName(p.dayOfWeek)} ${p.startTime}–${p.endTime} · Room ${p.roomName} · ${p.semesterName}`,
+      }),
+      SCHEDULE_REMOVED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `${p.courseCode} was removed from your timetable`,
+        body: `${h.dayName(p.dayOfWeek)} ${p.startTime}–${p.endTime} · ${p.semesterName}`,
+      }),
+      ROLE_CHANGED: (p: NotifParams) => ({
+        title: "Your role was changed",
+        body: p.role === "ADMIN" ? "You are now an Administrator — please sign in again" : "You are now an Instructor — please sign in again",
+      }),
+      SITE_ASSIGNED: (p: NotifParams) => ({
+        title: "Your assigned check-in site was changed",
+        body: p.siteName ? `Stationed at: ${p.siteName}` : "No site assigned yet — contact your administrator",
+      }),
     },
   },
   theme: {

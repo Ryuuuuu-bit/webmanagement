@@ -7,6 +7,7 @@ import { signOut } from "next-auth/react";
 import ThemeToggle from "./ThemeToggle";
 import LanguageToggle from "./LanguageToggle";
 import { useLanguage } from "./LanguageProvider";
+import NotificationBell from "./NotificationBell";
 
 const ICON: Record<string, string> = {
   dashboard:
@@ -69,6 +70,7 @@ function SidebarContent({
 
       <div className="px-2 pb-1.5 pt-3 text-[11px] font-semibold uppercase tracking-wide text-faint">{dict.sidebar.menu}</div>
       <nav className="flex flex-col gap-0.5">
+        <NotificationBell variant="nav" onNavigate={onNavigate} />
         {items.map(([href, icon, label]) => {
           const active = pathname === href;
           return (
@@ -159,6 +161,8 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
           </div>
           <div className="text-sm font-bold leading-tight">{dict.appName}</div>
         </div>
+        <div className="flex items-center gap-2">
+        <NotificationBell variant="icon" />
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -171,6 +175,7 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
             <line x1="2" y1="13.5" x2="16" y2="13.5" />
           </svg>
         </button>
+        </div>
       </header>
 
       {/* Phone/tablet slide-over drawer with the same nav content. */}

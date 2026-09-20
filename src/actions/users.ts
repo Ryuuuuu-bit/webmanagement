@@ -10,6 +10,7 @@ import { Role } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { logAudit } from "@/lib/audit";
+import { notifyUser } from "@/lib/notify";
 import { checkPasswordPolicy, getClientIp, normalizeUsername, USERNAME_RE } from "@/lib/security";
 
 // A temporary password (account created / reset by Admin) is only good for
@@ -159,6 +160,7 @@ export async function updateUserRole(
   // re-login) instead of waiting for their current session to expire.
   await prisma.user.update({ where: { id: userId }, data: { role, tokenVersion: { increment: 1 } } });
   await logAudit({ action: "ROLE_CHANGED", actorId: session.user.id, targetUserId: userId, ip: getClientIp(), detail: `${user.role} → ${role}` });
+  await notifyUser(userId, "ROLE_CHANGED", { role }, "/dashboard");
 
   revalidatePath("/admin/users");
   return { ok: true, message: dict.actions.users.roleChanged(user.name, role) };
@@ -184,6 +186,7 @@ export async function updateUserSite(
     const site = await prisma.campusLocation.findUnique({ where: { id: campusLocationId } });
     if (!site) return { ok: false, message: dict.actions.users.invalidSite };
     await prisma.user.update({ where: { id: userId }, data: { campusLocationId } });
+    if (user.campusLocationId !== campusLocationId) await notifyUser(userId, "SITE_ASSIGNED", { siteName: site.name }, "/checkin");
     revalidatePath("/admin/users");
     revalidatePath("/teachers");
     revalidatePath("/checkin");
@@ -191,6 +194,7 @@ export async function updateUserSite(
   }
 
   await prisma.user.update({ where: { id: userId }, data: { campusLocationId: null } });
+  if (user.campusLocationId) await notifyUser(userId, "SITE_ASSIGNED", { siteName: null }, "/checkin");
   revalidatePath("/admin/users");
   revalidatePath("/teachers");
   revalidatePath("/checkin");

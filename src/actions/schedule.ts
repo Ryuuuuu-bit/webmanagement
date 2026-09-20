@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import { notifyUser } from "@/lib/notify";
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -60,9 +61,20 @@ export async function createSchedule(formData: FormData) {
     return { ok: false, message: dict.actions.schedule.conflict(who, conflict.startTime, conflict.endTime) };
   }
 
-  await prisma.schedule.create({
+  const created = await prisma.schedule.create({
     data: { teacherId, courseId, roomId, semesterId, dayOfWeek, startTime, endTime, note },
+    include: { course: true, room: true, semester: true },
   });
+
+  // Admin put a class on someone else's timetable — let that teacher know.
+  if (isAdmin && teacherId !== session.user.id) {
+    await notifyUser(
+      teacherId,
+      "SCHEDULE_ASSIGNED",
+      { courseCode: created.course!.code, courseName: created.course!.name, roomName: created.room!.name, semesterName: created.semester!.name, dayOfWeek, startTime, endTime },
+      "/schedule"
+    );
+  }
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
@@ -100,7 +112,15 @@ export async function deleteSchedule(id: string): Promise<{ ok: boolean; message
     }
   }
 
-  await prisma.schedule.delete({ where: { id } });
+  const removed = await prisma.schedule.delete({ where: { id }, include: { course: true, semester: true } });
+  if (isAdmin && removed.teacherId !== session.user.id) {
+    await notifyUser(
+      removed.teacherId,
+      "SCHEDULE_REMOVED",
+      { courseCode: removed.course!.code, semesterName: removed.semester!.name, dayOfWeek: removed.dayOfWeek, startTime: removed.startTime, endTime: removed.endTime },
+      "/schedule"
+    );
+  }
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
   return { ok: true, message: dict.actions.schedule.deleted };
