@@ -205,6 +205,22 @@ model LeaveRequest {
   createdAt   DateTime      @default(now())
 }
 
+// Annual leave quota per leave type (in days), editable by Admin in Master
+// Data. Applies uniformly to every employee (not per-person) — the client
+// wanted one shared number per type, not individual overrides. Resets every
+// calendar year (Jan 1 – Dec 31), so "used" is computed from LeaveRequest
+// rows filtered to the current year rather than stored here. Not blocking:
+// a request over quota still goes through, just flagged as a warning to the
+// requester and the approving Admin (src/lib/leaveQuota.ts). 0 means
+// "unlimited" — no day cap enforced/shown for that type. A row missing here
+// falls back to the statutory-minimum defaults in src/lib/leaveQuota.ts
+// until Admin sets an explicit value.
+model LeaveQuota {
+  type        LeaveType @id
+  daysPerYear Int
+  updatedAt   DateTime  @updatedAt
+}
+
 // FR-13: time attestation request + approval workflow
 model TimeAttestation {
   id            String        @id @default(cuid())

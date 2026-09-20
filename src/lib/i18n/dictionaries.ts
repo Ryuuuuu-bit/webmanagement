@@ -232,6 +232,14 @@ const th = {
       MILITARY: "ลารับราชการทหาร",
       TRAINING: "ลาฝึกอบรม",
     },
+    quotaTitle: "โควต้าวันลาของฉัน (ปีนี้)",
+    quotaHint: "นับรวมคำขอที่รออนุมัติและอนุมัติแล้วในปีปฏิทินนี้ — ขอเกินโควต้าได้ ระบบจะแจ้งเตือนไว้ให้ทั้งคุณและผู้ดูแลระบบ",
+    quotaColType: "ประเภท",
+    quotaColUsed: "ใช้ไปแล้ว",
+    quotaColQuota: "โควต้า/ปี",
+    quotaColRemaining: "คงเหลือ",
+    quotaUnlimited: "ไม่จำกัด",
+    overQuotaNote: (used: number, quota: number) => `⚠ เกินโควต้า (ใช้ไป ${used} จาก ${quota} วัน)`,
   },
   lessonPlans: {
     adminTitle: "แผนการสอนของอาจารย์ทั้งหมด",
@@ -301,6 +309,11 @@ const th = {
       namePlaceholder: "ชื่อภาคเรียน เช่น 2/2569",
       empty: "ยังไม่มีภาคเรียน",
       deleteConfirm: (label: string) => `ลบภาคเรียน "${label}" ใช่ไหม?`,
+    },
+    leaveQuota: {
+      title: "โควต้าวันลาต่อปี",
+      hint: "จำนวนวันลาสูงสุดต่อปีปฏิทิน (1 ม.ค. – 31 ธ.ค.) แยกตามประเภท ค่าเริ่มต้นอ้างอิงจากพระราชบัญญัติคุ้มครองแรงงาน ปรับได้ตามนโยบายองค์กร — ใส่ 0 หมายถึงไม่จำกัดจำนวนวัน",
+      unit: "วัน/ปี",
     },
   },
   users: {
@@ -398,6 +411,18 @@ const th = {
       invalidCheckoutTime: "กรอกเวลาเช็คเอาต์ให้ถูกต้อง (HH:MM)",
       checkoutBeforeCheckin: "เวลาเช็คเอาต์ต้องอยู่หลังเวลาเช็คอิน",
       submitted: "ส่งคำขอรับรองเวลาแล้ว",
+    },
+    leave: {
+      invalidDates: "กรอกวันที่เริ่ม-สิ้นสุดให้ถูกต้อง",
+      endBeforeStart: "วันที่สิ้นสุดต้องอยู่หลังหรือเท่ากับวันที่เริ่มต้น",
+      submitted: "ส่งคำขอลาแล้ว",
+      submittedOverQuota: (used: number, quota: number) =>
+        `ส่งคำขอลาแล้ว — แต่เกินโควต้าที่กำหนดไว้ (ใช้ไปแล้ว ${used} จาก ${quota} วันในปีนี้) ผู้ดูแลระบบจะเห็นการแจ้งเตือนนี้ตอนพิจารณาอนุมัติ ยังส่งคำขอได้ตามปกติ`,
+    },
+    leaveQuota: {
+      invalidDays: "จำนวนวันต้องเป็นเลขจำนวนเต็มตั้งแต่ 0 ขึ้นไป",
+      updated: (typeLabel: string, days: number) =>
+        days === 0 ? `ตั้งโควต้า "${typeLabel}" เป็นไม่จำกัดแล้ว` : `ตั้งโควต้า "${typeLabel}" เป็น ${days} วัน/ปีแล้ว`,
     },
     checkin: {
       identityFailed: "ยืนยันตัวตนไม่สำเร็จ — กรุณาลองใหม่อีกครั้ง",
@@ -720,6 +745,14 @@ const en: typeof th = {
       MILITARY: "Military Service Leave",
       TRAINING: "Training Leave",
     },
+    quotaTitle: "My Leave Quota (This Year)",
+    quotaHint: "Counts requests pending and approved this calendar year — you can still request more than your quota; both you and Admin will see a warning",
+    quotaColType: "Type",
+    quotaColUsed: "Used",
+    quotaColQuota: "Quota/Year",
+    quotaColRemaining: "Remaining",
+    quotaUnlimited: "Unlimited",
+    overQuotaNote: (used: number, quota: number) => `⚠ Over quota (used ${used} of ${quota} days)`,
   },
   lessonPlans: {
     adminTitle: "All Faculty Lesson Plans",
@@ -789,6 +822,11 @@ const en: typeof th = {
       namePlaceholder: "Semester name, e.g. 2/2569",
       empty: "No semesters yet",
       deleteConfirm: (label: string) => `Delete semester "${label}"?`,
+    },
+    leaveQuota: {
+      title: "Annual Leave Quota",
+      hint: "Maximum leave days per calendar year (Jan 1 – Dec 31), per type. Defaults follow the Thai Labor Protection Act; adjust to your organization's policy — 0 means unlimited days.",
+      unit: "days/year",
     },
   },
   users: {
@@ -883,6 +921,18 @@ const en: typeof th = {
       invalidCheckoutTime: "Enter a valid check-out time (HH:MM)",
       checkoutBeforeCheckin: "Check-out time must be after the check-in time",
       submitted: "Attestation request submitted",
+    },
+    leave: {
+      invalidDates: "Enter a valid start and end date",
+      endBeforeStart: "The end date must be on or after the start date",
+      submitted: "Leave request submitted",
+      submittedOverQuota: (used: number, quota: number) =>
+        `Leave request submitted — but this exceeds your quota (used ${used} of ${quota} days this year). Admin will see this warning when deciding. The request still went through as normal.`,
+    },
+    leaveQuota: {
+      invalidDays: "Days must be a whole number of 0 or more",
+      updated: (typeLabel: string, days: number) =>
+        days === 0 ? `Set "${typeLabel}" quota to unlimited` : `Set "${typeLabel}" quota to ${days} days/year`,
     },
     checkin: {
       identityFailed: "Identity verification failed — please try again",

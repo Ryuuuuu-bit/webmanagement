@@ -6,10 +6,13 @@ import DepartmentManagement from "@/components/DepartmentManagement";
 import CourseManagement from "@/components/CourseManagement";
 import RoomManagement from "@/components/RoomManagement";
 import SemesterManagement from "@/components/SemesterManagement";
+import LeaveQuotaManagement from "@/components/LeaveQuotaManagement";
 import { createDepartment, updateDepartment, deleteDepartment } from "@/actions/departments";
 import { createCourse, updateCourse, deleteCourse } from "@/actions/courses";
 import { createRoom, updateRoom, deleteRoom } from "@/actions/rooms";
 import { createSemester, updateSemester, deleteSemester } from "@/actions/semesters";
+import { updateLeaveQuota } from "@/actions/leaveQuota";
+import { getLeaveQuotaMap, LEAVE_TYPES } from "@/lib/leaveQuota";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 
@@ -20,12 +23,13 @@ export default async function MasterDataPage() {
   const locale = getLocale();
   const dict = getDictionary(locale);
 
-  const [departments, courses, rooms, semesters, locations] = await Promise.all([
+  const [departments, courses, rooms, semesters, locations, leaveQuotaMap] = await Promise.all([
     prisma.department.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { users: true } } } }),
     prisma.course.findMany({ orderBy: { code: "asc" } }),
     prisma.room.findMany({ orderBy: { name: "asc" }, include: { campusLocation: true } }),
     prisma.semester.findMany({ orderBy: { startDate: "desc" } }),
     prisma.campusLocation.findMany({ orderBy: { name: "asc" } }),
+    getLeaveQuotaMap(),
   ]);
 
   return (
@@ -73,6 +77,11 @@ export default async function MasterDataPage() {
         createSemester={createSemester}
         updateSemester={updateSemester}
         deleteSemester={deleteSemester}
+      />
+
+      <LeaveQuotaManagement
+        quotas={LEAVE_TYPES.map((type) => ({ type, daysPerYear: leaveQuotaMap[type] }))}
+        updateLeaveQuota={updateLeaveQuota}
       />
     </div>
   );
