@@ -44,7 +44,7 @@ export default function LessonPlanReviewRow({
   const status = STATUS_LABEL[plan.status];
 
   return (
-    <tr className="border-t border-line-soft align-top">
+    <tr data-status={plan.status} className="border-t border-line-soft align-top">
       <td className="py-2">{plan.teacher.name}</td>
       <td className="py-2">{plan.course.code} {plan.course.name}</td>
       <td className="py-2">

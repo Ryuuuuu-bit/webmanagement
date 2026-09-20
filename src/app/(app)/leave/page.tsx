@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { decideLeave } from "@/actions/leave";
 import CancelLeaveButton from "@/components/CancelLeaveButton";
+import TableFilter from "@/components/TableFilter";
 import { RequestBadge } from "@/components/StatusBadge";
 import DecisionButtons from "@/components/DecisionButtons";
 import LeaveForm from "@/components/LeaveForm";
@@ -54,11 +55,13 @@ export default async function LeavePage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-          <h2 className="text-base font-bold">{dict.leave.myHistoryTitle}</h2>
+        <div id="leave-mine" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+          <h2 className="mb-3 text-base font-bold">{dict.leave.myHistoryTitle}</h2>
           {mine.length === 0 ? (
             <p className="mt-2 text-sm text-muted">{dict.leave.noHistory}</p>
           ) : (
+            <>
+            <TableFilter targetId="leave-mine" selects={[{ attr: "status", label: dict.filter.status, options: Object.entries(dict.status.request).map(([value, label]) => ({ value, label })) }]} dateRange />
             <div className="overflow-x-auto">
               <table className="mt-3 w-full text-sm">
                 <thead>
@@ -68,7 +71,7 @@ export default async function LeavePage() {
                 </thead>
                 <tbody>
                   {mine.map((l) => (
-                    <tr key={l.id} className="border-t border-line-soft">
+                    <tr key={l.id} data-status={l.status} data-date={l.startDate.toISOString().slice(0, 10)} className="border-t border-line-soft">
                       <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
                       <td className="py-2">{dateRange(l)}</td>
                       <td className="py-2">
@@ -82,6 +85,7 @@ export default async function LeavePage() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       </div>
@@ -108,11 +112,13 @@ export default async function LeavePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="text-base font-bold">{dict.leave.pendingTitle}</h2>
+      <div id="leave-pending" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+        <h2 className="mb-3 text-base font-bold">{dict.leave.pendingTitle}</h2>
         {pending.length === 0 ? (
           <p className="mt-2 text-sm text-muted">{dict.leave.noPending}</p>
         ) : (
+          <>
+          <TableFilter targetId="leave-pending" dateRange />
           <div className="overflow-x-auto">
             <table className="mt-3 w-full text-sm">
               <thead>
@@ -122,7 +128,7 @@ export default async function LeavePage() {
               </thead>
               <tbody>
                 {pending.map((l) => (
-                  <tr key={l.id} className="border-t border-line-soft">
+                  <tr key={l.id} data-date={l.startDate.toISOString().slice(0, 10)} className="border-t border-line-soft">
                     <td className="py-2">{l.requester!.name}</td>
                     <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
                     <td className="py-2">{dateRange(l)}</td>
@@ -146,11 +152,13 @@ export default async function LeavePage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="text-base font-bold">{dict.leave.decidedTitle}</h2>
+      <div id="leave-done" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+        <h2 className="mb-3 text-base font-bold">{dict.leave.decidedTitle}</h2>
+        <TableFilter targetId="leave-done" selects={[{ attr: "status", label: dict.filter.status, options: Object.entries(dict.status.request).map(([value, label]) => ({ value, label })) }]} dateRange />
         <div className="overflow-x-auto">
           <table className="mt-3 w-full text-sm">
             <thead>
@@ -160,7 +168,7 @@ export default async function LeavePage() {
             </thead>
             <tbody>
               {done.map((l) => (
-                <tr key={l.id} className="border-t border-line-soft">
+                <tr key={l.id} data-status={l.status} data-date={l.startDate.toISOString().slice(0, 10)} className="border-t border-line-soft">
                   <td className="py-2">{l.requester!.name}</td>
                   <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
                   <td className="py-2">{dateRange(l)}</td>

@@ -36,7 +36,7 @@ export default function CheckinClient({
   credentialState: CredentialState;
   policy: CheckinPolicy;
 }) {
-  const { dict } = useLanguage();
+  const { dict, locale } = useLanguage();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
@@ -185,23 +185,59 @@ export default function CheckinClient({
     });
   }
 
+  const doneIn = !!attendance?.checkinAt;
+  const doneOut = !!attendance?.checkoutAt;
+  const timeOf = (iso: string | null | undefined) =>
+    iso ? new Date(iso).toLocaleTimeString(locale === "en" ? "en-US" : "th-TH", { hour: "2-digit", minute: "2-digit", hour12: locale === "en", timeZone: "Asia/Bangkok" }) : null;
+
+  // Two big tap targets. The one that's "next" is filled and gently pulses;
+  // a finished step turns into a quiet receipt with its time; the other is
+  // outlined and waits. Disabled states keep their shape (no layout jump).
+  const tile = (kind: ActionKind) => {
+    const isIn = kind === "checkin";
+    const done = isIn ? doneIn : doneOut;
+    const enabled = !busy && !blockedReason && (isIn ? canCheckin : canCheckout);
+    const next = enabled;
+    const label = isIn ? dict.checkin.checkinButton : dict.checkin.checkoutButton;
+    const sub = done
+      ? `${dict.checkin.tileDone} ${timeOf(isIn ? attendance?.checkinAt : attendance?.checkoutAt) ?? ""}`
+      : blockedReason
+        ? dict.checkin.tileBlocked
+        : busy
+          ? dict.checkin.tileBusy
+          : next
+            ? dict.checkin.tileTap
+            : dict.checkin.tileWaitOut;
+    const base = "relative flex flex-col items-center justify-center gap-1.5 rounded-2xl px-3 py-5 text-center transition-all duration-150 select-none";
+    const look = done
+      ? "border border-ok bg-ok-soft text-ok"
+      : next
+        ? isIn
+          ? "text-white shadow-lg active:scale-[0.97]"
+          : "text-white shadow-lg active:scale-[0.97]"
+        : "border border-line bg-surface text-faint";
+    const style: React.CSSProperties | undefined = !done && next
+      ? isIn
+        ? { background: "linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-ink) 100%)" }
+        : { background: "linear-gradient(135deg, #d97706 0%, #b45309 100%)" }
+      : undefined;
+    return (
+      <button type="button" onClick={() => run(kind)} disabled={!enabled} className={`${base} ${look} disabled:cursor-not-allowed`} style={style} aria-label={label}>
+        {next && <span className="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-white/30 animate-[pulseRing_2s_ease-out_infinite]" aria-hidden />}
+        <span className={`flex h-12 w-12 items-center justify-center rounded-full ${done ? "bg-ok text-white" : next ? "bg-white/20" : "bg-line-soft"}`}>
+          {done ? <CheckIcon /> : isIn ? <EnterIcon /> : <ExitIcon />}
+        </span>
+        <span className="text-base font-bold leading-tight">{label}</span>
+        <span className={`text-[11px] leading-tight ${done ? "opacity-90" : next ? "text-white/85" : ""}`}>{sub}</span>
+      </button>
+    );
+  };
+
   return (
     <div className="flex flex-col items-center gap-3 text-center">
-      <div className="flex gap-3">
-        <button
-          onClick={() => run("checkin")}
-          disabled={busy || !canCheckin || !!blockedReason}
-          className="rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
-        >
-          📍 {dict.checkin.checkinButton}
-        </button>
-        <button
-          onClick={() => run("checkout")}
-          disabled={busy || !canCheckout || !!blockedReason}
-          className="rounded-lg border border-line-strong px-4 py-2.5 text-sm font-semibold disabled:opacity-40"
-        >
-          🚪 {dict.checkin.checkoutButton}
-        </button>
+      <div className="grid w-full max-w-sm grid-cols-2 gap-3">
+        {tile("checkin")}
+        {tile("checkout")}
       </div>
 
       {blockedReason && (
@@ -262,5 +298,31 @@ export default function CheckinClient({
         </div>
       )}
     </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+function EnterIcon() {
+  return (
+    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+      <path d="M4 12h11" />
+      <path d="M11 8l4 4-4 4" />
+    </svg>
+  );
+}
+function ExitIcon() {
+  return (
+    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" />
+      <path d="M20 12H9" />
+      <path d="M16 8l4 4-4 4" />
+    </svg>
   );
 }

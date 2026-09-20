@@ -4,6 +4,7 @@ import { requestAttestation, decideAttestation } from "@/actions/attest";
 import { RequestBadge } from "@/components/StatusBadge";
 import DecisionButtons from "@/components/DecisionButtons";
 import AttestForm from "@/components/AttestForm";
+import TableFilter from "@/components/TableFilter";
 import { formatDate, formatTimeLabel } from "@/lib/date";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary, type Dictionary, type Locale } from "@/lib/i18n/dictionaries";
@@ -80,11 +81,13 @@ export default async function AttestPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="text-base font-bold">{dict.attest.pendingTitle}</h2>
+      <div id="attest-pending" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+        <h2 className="mb-3 text-base font-bold">{dict.attest.pendingTitle}</h2>
         {pending.length === 0 ? (
           <p className="mt-2 text-sm text-muted">{dict.attest.noPending}</p>
         ) : (
+          <>
+          <TableFilter targetId="attest-pending" dateRange />
           <div className="overflow-x-auto">
             <table className="mt-3 w-full text-sm">
               <thead>
@@ -94,7 +97,7 @@ export default async function AttestPage() {
               </thead>
               <tbody>
                 {pending.map((r) => (
-                  <tr key={r.id} className="border-t border-line-soft">
+                  <tr key={r.id} data-date={r.date.toISOString().slice(0, 10)} className="border-t border-line-soft">
                     <td className="py-2">{r.requester!.name}</td>
                     <td className="py-2">{formatDate(r.date, locale)}</td>
                     <td className="py-2">{dict.attest.types[r.type as keyof typeof dict.attest.types]}</td>
@@ -111,11 +114,13 @@ export default async function AttestPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="text-base font-bold">{dict.attest.decidedTitle}</h2>
+      <div id="attest-done" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+        <h2 className="mb-3 text-base font-bold">{dict.attest.decidedTitle}</h2>
+        <TableFilter targetId="attest-done" selects={[{ attr: "status", label: dict.filter.status, options: Object.entries(dict.status.request).map(([value, label]) => ({ value, label })) }]} dateRange />
         <div className="overflow-x-auto">
           <table className="mt-3 w-full text-sm">
             <thead>
@@ -125,7 +130,7 @@ export default async function AttestPage() {
             </thead>
             <tbody>
               {done.map((r) => (
-                <tr key={r.id} className="border-t border-line-soft">
+                <tr key={r.id} data-status={r.status} data-date={r.date.toISOString().slice(0, 10)} className="border-t border-line-soft">
                   <td className="py-2">{r.requester!.name}</td>
                   <td className="py-2">{formatDate(r.date, locale)}</td>
                   <td className="py-2">{dict.attest.types[r.type as keyof typeof dict.attest.types]}</td>

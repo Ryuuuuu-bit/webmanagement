@@ -9,6 +9,7 @@ import PendingDevicesPanel from "@/components/PendingDevicesPanel";
 import DeleteRecordButton from "@/components/DeleteRecordButton";
 import EditAttendanceButton from "@/components/EditAttendanceButton";
 import Link from "next/link";
+import TableFilter from "@/components/TableFilter";
 import { getCheckinPolicy } from "@/lib/settings";
 import type { CredentialState } from "@/components/CheckinClient";
 import { formatDate, formatTime, todayAtMidnight } from "@/lib/date";
@@ -118,9 +119,10 @@ export default async function CheckinPage() {
   return (
     <div className="flex flex-col gap-6">
     <PendingDevicesPanel initial={pendingDevices} decide={decidePendingCredential} />
-    <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+    <div id="checkin-overview" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <h2 className="text-base font-bold">{dict.checkin.overviewTitle}</h2>
       <p className="mb-3 text-sm text-muted">{dict.checkin.overviewHint}</p>
+      <TableFilter targetId="checkin-overview" selects={[{ attr: "status", label: dict.filter.status, options: Object.entries(dict.status.attendance).map(([value, label]) => ({ value, label })) }]} />
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -137,7 +139,7 @@ export default async function CheckinPage() {
             {teachers.map((t) => {
               const a = byUser.get(t.id);
               return (
-                <tr key={t.id} className="border-t border-line-soft">
+                <tr key={t.id} data-status={a?.status ?? "PENDING"} className="border-t border-line-soft">
                   <td className="py-2">
                     {t.name}
                     {a?.flagSharedDevice && (

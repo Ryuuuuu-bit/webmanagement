@@ -5,6 +5,7 @@ import { AttendanceBadge } from "@/components/StatusBadge";
 import { todayAtMidnight } from "@/lib/date";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import TableFilter from "@/components/TableFilter";
 
 export default async function TeachersPage() {
   const session = await requireUser();
@@ -24,9 +25,10 @@ export default async function TeachersPage() {
   const byUser = new Map(attendances.map((a) => [a.userId, a]));
 
   return (
-    <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-      <h2 className="text-base font-bold">{dict.teachers.title}</h2>
-      <div className="mt-3 overflow-x-auto">
+    <div id="teachers-table" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+      <h2 className="mb-3 text-base font-bold">{dict.teachers.title}</h2>
+      <TableFilter targetId="teachers-table" selects={[{ attr: "status", label: dict.filter.status, options: Object.entries(dict.status.attendance).map(([value, label]) => ({ value, label })) }]} />
+      <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-faint">
@@ -35,7 +37,7 @@ export default async function TeachersPage() {
           </thead>
           <tbody>
             {teachers.map((t) => (
-              <tr key={t.id} className="border-t border-line-soft">
+              <tr key={t.id} data-status={byUser.get(t.id)?.status ?? "PENDING"} className="border-t border-line-soft">
                 <td className="py-2">{t.name}</td>
                 <td className="py-2 text-muted">{t.email}</td>
                 <td className="py-2">{t.department?.name ?? "—"}</td>

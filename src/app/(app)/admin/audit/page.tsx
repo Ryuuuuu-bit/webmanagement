@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { formatDate, formatTime } from "@/lib/date";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import TableFilter from "@/components/TableFilter";
+import Link from "next/link";
 
 const PAGE_SIZE = 200;
 
@@ -14,13 +16,16 @@ type AuditRow = { id: string; at: Date; action: string; actorId: string | null; 
  * failures/lockouts, password and passkey events, account changes — newest
  * first. Read-only; the app never deletes audit rows.
  */
-export default async function AdminAuditPage() {
+export default async function AdminAuditPage({ searchParams }: { searchParams?: { limit?: string } }) {
   const session = await requireUser();
   if (session.user.role !== "ADMIN") redirect("/dashboard");
   const locale = getLocale();
   const dict = getDictionary(locale);
 
-  const rows: AuditRow[] = await prisma.auditLog.findMany({ orderBy: { at: "desc" }, take: PAGE_SIZE });
+  const limit = Math.min(2000, Math.max(50, Number(searchParams?.limit) || PAGE_SIZE));
+  const rows: AuditRow[] = await prisma.auditLog.findMany({ orderBy: { at: "desc" }, take: limit });
+  const dayKey = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  const actionOptions = Object.entries(dict.audit.actions).map(([value, label]) => ({ value, label }));
   const ids = Array.from(new Set(rows.flatMap((r: AuditRow) => [r.actorId, r.targetUserId]).filter((x: string | null): x is string => !!x)));
   const users = ids.length ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : [];
   const nameOf = new Map(users.map((u) => [u.id, u.name]));
@@ -35,9 +40,17 @@ export default async function AdminAuditPage() {
     <div className="flex flex-col gap-5">
       <div>
         <h1 className="text-lg font-bold">{dict.audit.title}</h1>
-        <p className="mt-1 text-sm text-muted">{dict.audit.hint(PAGE_SIZE)}</p>
+        <p className="mt-1 text-sm text-muted">
+          {dict.audit.hint(limit)}
+          {limit < 2000 && (
+            <Link href={`/admin/audit?limit=${limit >= 1000 ? 2000 : 1000}`} className="ml-2 text-brand-ink hover:underline">
+              {dict.audit.showMore(limit >= 1000 ? 2000 : 1000)}
+            </Link>
+          )}
+        </p>
       </div>
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+      <div id="audit-table" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+        <TableFilter targetId="audit-table" selects={[{ attr: "action", label: dict.filter.event, options: actionOptions }]} dateRange />
         {rows.length === 0 ? (
           <p className="text-sm text-muted">{dict.audit.empty}</p>
         ) : (
@@ -63,7 +76,7 @@ export default async function AdminAuditPage() {
                       ? "bg-info-soft text-info"
                       : "bg-ok-soft text-ok";
                   return (
-                    <tr key={r.id} className="border-t border-line-soft align-top">
+                    <tr key={r.id} data-action={r.action} data-date={dayKey(r.at)} className="border-t border-line-soft align-top">
                       <td className="whitespace-nowrap py-2 pr-3 text-xs text-muted">
                         {formatDate(r.at, locale)} {formatTime(r.at, locale)}
                       </td>

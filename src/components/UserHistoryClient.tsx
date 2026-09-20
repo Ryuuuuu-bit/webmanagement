@@ -7,6 +7,7 @@ import { AttendanceBadge, RequestBadge } from "./StatusBadge";
 import { formatDate, formatTime, formatTimeLabel } from "@/lib/date";
 import type { RecordKind } from "@/actions/records";
 import EditAttendanceButton from "./EditAttendanceButton";
+import TableFilter from "./TableFilter";
 
 type AttendanceRow = {
   id: string;
@@ -77,7 +78,7 @@ export default function UserHistoryClient({
   // Plain render helper (not a nested component) so React doesn't remount
   // the tables on every state change.
   const Section = ({ kind, count, children }: { kind: RecordKind; count: number; children: React.ReactNode }) => (
-    <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+    <section id={`history-${kind}`} className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-bold">
           {t.sections[kind]} <span className="ml-1 text-xs font-normal text-faint">{t.count(count)}</span>
@@ -87,7 +88,14 @@ export default function UserHistoryClient({
         </button>
       </div>
       {result?.kind === kind && <p className={`mb-2 text-xs ${result.ok ? "text-ok" : "text-danger"}`}>{result.message}</p>}
-      {count === 0 ? <p className="text-sm text-muted">{t.empty}</p> : <div className="overflow-x-auto">{children}</div>}
+      {count === 0 ? (
+        <p className="text-sm text-muted">{t.empty}</p>
+      ) : (
+        <>
+          <TableFilter targetId={`history-${kind}`} dateRange />
+          <div className="overflow-x-auto">{children}</div>
+        </>
+      )}
     </section>
   );
 
@@ -111,7 +119,7 @@ export default function UserHistoryClient({
           </thead>
           <tbody>
             {attendance.map((a) => (
-              <tr key={a.id} className="border-t border-line-soft">
+              <tr key={a.id} data-date={a.date.slice(0, 10)} className="border-t border-line-soft">
                 <td className={td}>{formatDate(a.date, locale)}</td>
                 <td className={td}>
                   {formatTime(a.checkinAt ? new Date(a.checkinAt) : null, locale) ?? "—"}
@@ -158,7 +166,7 @@ export default function UserHistoryClient({
           </thead>
           <tbody>
             {leave.map((l) => (
-              <tr key={l.id} className="border-t border-line-soft">
+              <tr key={l.id} data-date={l.startDate.slice(0, 10)} className="border-t border-line-soft">
                 <td className={td}>{(dict.leave.types as Record<string, string>)[l.type] ?? l.type}</td>
                 <td className={td}>{formatDate(l.startDate, locale)} – {formatDate(l.endDate, locale)}</td>
                 <td className={`${td} max-w-[240px] truncate`} title={l.reason}>{l.reason}</td>
@@ -186,7 +194,7 @@ export default function UserHistoryClient({
           </thead>
           <tbody>
             {attest.map((a) => (
-              <tr key={a.id} className="border-t border-line-soft">
+              <tr key={a.id} data-date={a.date.slice(0, 10)} className="border-t border-line-soft">
                 <td className={td}>{formatDate(a.date, locale)}</td>
                 <td className={td}>{(dict.attest.types as Record<string, string>)[a.type] ?? a.type}</td>
                 <td className={td}>
@@ -217,7 +225,7 @@ export default function UserHistoryClient({
           </thead>
           <tbody>
             {lessonPlans.map((p) => (
-              <tr key={p.id} className="border-t border-line-soft">
+              <tr key={p.id} data-date={p.submittedAt.slice(0, 10)} className="border-t border-line-soft">
                 <td className={td}>{p.courseCode} <span className="text-muted">{p.courseName}</span></td>
                 <td className={`${td} max-w-[240px] truncate`} title={p.fileName}>
                   {p.fileName} <span className="text-[11px] text-faint">({(p.fileSize / 1024 / 1024).toFixed(1)} MB)</span>

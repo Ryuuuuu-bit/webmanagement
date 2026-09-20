@@ -5,6 +5,7 @@ import LessonPlanUploadForm from "@/components/LessonPlanUploadForm";
 import LessonPlanReviewRow from "@/components/LessonPlanReviewRow";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import TableFilter from "@/components/TableFilter";
 
 export default async function LessonPlansPage() {
   const session = await requireUser();
@@ -26,7 +27,9 @@ export default async function LessonPlansPage() {
         {plans.length === 0 ? (
           <p className="mt-6 text-sm text-faint">{dict.lessonPlans.noneSubmitted}</p>
         ) : (
-          <div className="mt-4 overflow-x-auto">
+          <div id="lesson-plans-table" className="mt-4">
+          <TableFilter targetId="lesson-plans-table" selects={[{ attr: "status", label: dict.filter.status, options: Object.entries(dict.history.lessonStatus).map(([value, label]) => ({ value, label })) }]} />
+          <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-wide text-faint">
@@ -56,6 +59,7 @@ export default async function LessonPlansPage() {
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
         )}
       </div>

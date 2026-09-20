@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import TableFilter from "./TableFilter";
 import { useLanguage } from "@/components/LanguageProvider";
 import { formatDate, formatTime } from "@/lib/date";
 import type { EnrollmentLink } from "@/actions/enrollment";
@@ -297,11 +298,19 @@ export default function UserManagement({
         </div>
         {/* Card list instead of a 9-column table: reads the same on a phone
             and a laptop, and nothing gets crushed into vertical word-wrap. */}
-        <ul className="mt-3 flex flex-col gap-3">
+        <div className="mt-3" id="users-list">
+        <TableFilter
+          targetId="users-list"
+          selects={[
+            { attr: "role", label: dict.filter.role, options: [{ value: "ADMIN", label: "ADMIN" }, { value: "MEMBER", label: "MEMBER" }] },
+            { attr: "active", label: dict.filter.status, options: [{ value: "1", label: dict.users.passwordNormal }, { value: "0", label: dict.users.statusSuspended }] },
+          ]}
+        />
+        <ul className="flex flex-col gap-3">
           {users.map((u) => {
             const btn = "whitespace-nowrap rounded-lg border border-line px-2.5 py-1 text-xs font-semibold text-brand-ink hover:bg-line-soft disabled:opacity-40";
             return (
-              <li key={u.id} className={`rounded-xl border border-line-soft bg-page p-4 ${u.isActive ? "" : "opacity-60"}`}>
+              <li key={u.id} data-row data-role={u.role} data-active={u.isActive ? "1" : "0"} className={`rounded-xl border border-line-soft bg-page p-4 ${u.isActive ? "" : "opacity-60"}`}>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   {/* identity */}
                   <div className="min-w-0 flex-1">
@@ -472,6 +481,7 @@ export default function UserManagement({
             );
           })}
         </ul>
+        </div>
       </div>
 
       {editing && (

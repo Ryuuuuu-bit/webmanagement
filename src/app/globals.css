@@ -105,3 +105,10 @@ body {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Soft breathing ring on the "next" check-in/out tile (CheckinClient). */
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 rgb(255 255 255 / 0.35); }
+  70% { box-shadow: 0 0 0 10px rgb(255 255 255 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(255 255 255 / 0); }
+}

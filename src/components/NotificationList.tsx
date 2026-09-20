@@ -6,6 +6,7 @@ import { useLanguage } from "./LanguageProvider";
 import { BellIcon, useNotifications, type NotificationItem } from "./NotificationProvider";
 import { markAllNotificationsRead } from "@/actions/notifications";
 import PushToggle from "./PushToggle";
+import TableFilter from "./TableFilter";
 
 const KIND_TONE: Record<string, string> = {
   LEAVE_REQUESTED: "bg-info-soft text-info",
@@ -57,7 +58,12 @@ export default function NotificationList({ initialItems }: { initialItems: Notif
 
       <PushToggle />
 
-      <div className="rounded-2xl border border-line bg-surface shadow-sm">
+      {items.length > 0 && (
+        <div className="px-1">
+          <TableFilter targetId="notification-list" />
+        </div>
+      )}
+      <div id="notification-list" className="rounded-2xl border border-line bg-surface shadow-sm">
         {items.length === 0 ? (
           <div className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-line-soft text-faint">
@@ -90,7 +96,7 @@ export default function NotificationList({ initialItems }: { initialItems: Notif
                 </div>
               );
               return (
-                <li key={n.id} style={isNew ? { background: "color-mix(in srgb, var(--color-brand) 6%, transparent)" } : undefined}>
+                <li key={n.id} data-row style={isNew ? { background: "color-mix(in srgb, var(--color-brand) 6%, transparent)" } : undefined}>
                   {n.href ? (
                     <Link href={n.href} className="block hover:bg-line-soft">
                       {inner}
