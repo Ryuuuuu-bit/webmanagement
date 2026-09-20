@@ -43,7 +43,7 @@ export default async function DashboardPage() {
             <p className="text-sm text-muted">{d.noClassToday}</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-0 text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase text-faint">
                     <th className="pb-2">{d.colPeriod}</th>

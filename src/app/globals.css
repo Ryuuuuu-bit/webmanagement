@@ -86,3 +86,16 @@ body {
 .input {
   @apply rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand;
 }
+
+/*
+ * Data tables live inside an `overflow-x-auto` wrapper. Column headers,
+ * badges, buttons, selects and times must never be crushed into vertical
+ * word-wrap when the viewport is narrow — the wrapper scrolls instead.
+ */
+:where(.overflow-x-auto) > table :where(th, .badge, button, select, a) {
+  white-space: nowrap;
+}
+/* :where() keeps specificity at zero so a small table can opt out with `min-w-0`. */
+:where(.overflow-x-auto) > table {
+  min-width: 560px;
+}

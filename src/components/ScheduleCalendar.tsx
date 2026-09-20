@@ -433,7 +433,7 @@ export default function ScheduleCalendar({
 
         <div className="ml-auto flex items-center gap-2">
           {isAdmin && (
-            <select value={viewTeacherId} onChange={(e) => setViewTeacherId(e.target.value)} className="input h-8 w-auto max-w-[180px] py-0 text-xs">
+            <select value={viewTeacherId} onChange={(e) => setViewTeacherId(e.target.value)} className="input w-auto max-w-[240px] truncate py-1.5 text-sm">
               {teachers!.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}

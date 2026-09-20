@@ -43,7 +43,7 @@ export default function LeaveForm({
         <h3 className="text-sm font-bold">{dict.leave.quotaTitle}</h3>
         <p className="mt-0.5 text-xs text-muted">{dict.leave.quotaHint}</p>
         <div className="mt-2 overflow-x-auto rounded-lg border border-line-soft">
-          <table className="w-full text-xs">
+          <table className="w-full min-w-0 text-xs">
             <thead>
               <tr className="text-left uppercase text-faint">
                 <th className="px-3 py-2">{dict.leave.quotaColType}</th>

@@ -191,7 +191,7 @@ export default function UserManagement({
         <span className="badge bg-warn-soft text-warn">{dict.users.passwordPendingReset}</span>
       );
     }
-    return <span className="text-faint">{dict.users.passwordNormal}</span>;
+    return <span className="badge bg-ok-soft text-ok">{dict.users.passwordNormal}</span>;
   }
 
   function lastLogin(u: UserRow) {
@@ -259,177 +259,174 @@ export default function UserManagement({
       </div>
 
       <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="text-base font-bold">{dict.users.allUsersTitle}</h2>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase text-faint">
-                <th className="pb-2">{dict.users.colName}</th>
-                <th className="pb-2">{dict.users.colUsername}</th>
-                <th className="pb-2">{dict.users.colEmail}</th>
-                <th className="pb-2">{dict.users.colDepartment}</th>
-                <th className="pb-2">{dict.users.colSite}</th>
-                <th className="pb-2">{dict.users.colRole}</th>
-                <th className="pb-2">{dict.users.colStatus}</th>
-                <th className="pb-2">{dict.users.colLastLogin}</th>
-                <th className="pb-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className={`border-t border-line-soft align-top ${u.isActive ? "" : "opacity-60"}`}>
-                  <td className="py-2 font-medium">{u.name}</td>
-                  <td className="py-2">
-                    {usernameEdit?.userId === u.id ? (
-                      <div className="flex items-center gap-1">
-                        <input
-                          value={usernameEdit.value}
-                          onChange={(e) => setUsernameEdit({ userId: u.id, value: e.target.value })}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") onSaveUsername();
-                            if (e.key === "Escape") setUsernameEdit(null);
-                          }}
-                          autoFocus
-                          autoCapitalize="none"
-                          spellCheck={false}
-                          className="input w-36 px-2 py-1 text-xs"
-                        />
-                        <button disabled={pending} onClick={onSaveUsername} className="rounded bg-brand px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-40">
-                          {dict.common.save}
-                        </button>
-                        <button onClick={() => setUsernameEdit(null)} className="px-1 text-[11px] text-muted">
-                          {dict.common.cancel}
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setUsernameEdit({ userId: u.id, value: u.username ?? "" })}
-                        title={dict.common.edit}
-                        className="font-mono text-xs text-ink underline decoration-dotted underline-offset-2 hover:text-brand-ink"
-                      >
-                        {u.username ?? <span className="text-danger">{dict.users.usernameMissing}</span>}
-                      </button>
-                    )}
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-bold">{dict.users.allUsersTitle}</h2>
+          <span className="text-xs text-faint">{dict.users.countLabel(users.length)}</span>
+        </div>
+        {/* Card list instead of a 9-column table: reads the same on a phone
+            and a laptop, and nothing gets crushed into vertical word-wrap. */}
+        <ul className="mt-3 flex flex-col gap-3">
+          {users.map((u) => {
+            const btn = "whitespace-nowrap rounded-lg border border-line px-2.5 py-1 text-xs font-semibold text-brand-ink hover:bg-line-soft disabled:opacity-40";
+            return (
+              <li key={u.id} className={`rounded-xl border border-line-soft bg-page p-4 ${u.isActive ? "" : "opacity-60"}`}>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  {/* identity */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold">{u.name}</span>
+                      {u.id === currentUserId ? (
+                        <span className="badge bg-info-soft text-info">{u.role} ({dict.common.you})</span>
+                      ) : (
+                        <span className={`badge ${u.role === "ADMIN" ? "bg-info-soft text-info" : "bg-line-soft text-subtle"}`}>{u.role}</span>
+                      )}
+                      {statusBadge(u)}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-faint">{dict.users.colUsername}:</span>
+                        {usernameEdit?.userId === u.id ? (
+                          <span className="inline-flex items-center gap-1">
+                            <input
+                              value={usernameEdit.value}
+                              onChange={(e) => setUsernameEdit({ userId: u.id, value: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") onSaveUsername();
+                                if (e.key === "Escape") setUsernameEdit(null);
+                              }}
+                              autoFocus
+                              autoCapitalize="none"
+                              spellCheck={false}
+                              className="input w-36 px-2 py-0.5 text-xs"
+                            />
+                            <button disabled={pending} onClick={onSaveUsername} className="rounded bg-brand px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-40">
+                              {dict.common.save}
+                            </button>
+                            <button onClick={() => setUsernameEdit(null)} className="px-1 text-[11px] text-muted">
+                              {dict.common.cancel}
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setUsernameEdit({ userId: u.id, value: u.username ?? "" })}
+                            title={dict.common.edit}
+                            className="font-mono text-ink underline decoration-dotted underline-offset-2 hover:text-brand-ink"
+                          >
+                            {u.username ?? <span className="text-danger">{dict.users.usernameMissing}</span>}
+                          </button>
+                        )}
+                      </span>
+                      <span className="break-all">{u.email}</span>
+                      <span>{u.department?.name ?? <span className="text-faint">{dict.users.departmentUnset}</span>}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-faint">{dict.users.colLastLogin}:</span>
+                        {lastLogin(u)}
+                      </span>
+                    </div>
                     {usernameResult?.userId === u.id && (
                       <div className={`mt-1 text-xs ${usernameResult.ok ? "text-ok" : "text-danger"}`}>{usernameResult.message}</div>
                     )}
-                  </td>
-                  <td className="py-2 text-muted">{u.email}</td>
-                  <td className="py-2">{u.department?.name ?? "—"}</td>
-                  <td className="py-2">
-                    <select
-                      disabled={pending}
-                      value={u.campusLocation?.id ?? ""}
-                      onChange={(e) => onSiteChange(u.id, u.name, e.target.value)}
-                      className="rounded-lg border border-line-strong bg-surface px-2 py-1 text-xs text-ink disabled:opacity-40"
-                    >
-                      <option value="">{dict.users.siteUnset}</option>
-                      {campusLocations.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                    {siteResult?.userId === u.id && (
-                      <div className={`mt-1 text-xs ${siteResult.ok ? "text-ok" : "text-danger"}`}>{siteResult.message}</div>
-                    )}
-                  </td>
-                  <td className="py-2">
-                    {u.id === currentUserId ? (
-                      <span className="badge bg-info-soft text-info">{u.role} ({dict.common.you})</span>
-                    ) : (
+                  </div>
+
+                  {/* site + role controls */}
+                  <div className="flex flex-wrap items-center gap-2 lg:flex-none">
+                    <label className="flex items-center gap-1 text-xs text-faint">
+                      {dict.users.colSite}
                       <select
                         disabled={pending}
-                        value={u.role}
-                        onChange={(e) => onRoleChange(u.id, u.name, e.target.value as "ADMIN" | "MEMBER")}
-                        className="rounded-lg border border-line-strong bg-surface px-2 py-1 text-xs text-ink disabled:opacity-40"
+                        value={u.campusLocation?.id ?? ""}
+                        onChange={(e) => onSiteChange(u.id, u.name, e.target.value)}
+                        className="max-w-[200px] rounded-lg border border-line-strong bg-surface px-2 py-1 text-xs text-ink disabled:opacity-40"
                       >
-                        <option value="MEMBER">MEMBER</option>
-                        <option value="ADMIN">ADMIN</option>
+                        <option value="">{dict.users.siteUnset}</option>
+                        {campusLocations.map((s) => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
                       </select>
-                    )}
-                    {roleResult?.userId === u.id && (
-                      <div className={`mt-1 text-xs ${roleResult.ok ? "text-ok" : "text-danger"}`}>{roleResult.message}</div>
-                    )}
-                  </td>
-                  <td className="py-2">{statusBadge(u)}</td>
-                  <td className="py-2">{lastLogin(u)}</td>
-                  <td className="py-2">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        disabled={pending}
-                        onClick={() => onReset(u.id, u.name)}
-                        className="text-xs font-semibold text-brand-ink underline disabled:opacity-40"
-                      >
-                        {dict.users.resetPassword}
-                      </button>
-                      <button
-                        disabled={pending || !u.isActive}
-                        onClick={() => onEnrollment(u)}
-                        className="text-xs font-semibold text-brand-ink underline disabled:opacity-40"
-                      >
-                        {dict.users.enrollmentButton}
-                      </button>
-                      {emailConfigured && (
-                        <button
-                          disabled={pending || !u.isActive}
-                          onClick={() => onSendSetupEmail(u)}
-                          className="text-xs font-semibold text-brand-ink underline disabled:opacity-40"
-                        >
-                          {dict.users.sendSetupEmailButton}
-                        </button>
-                      )}
-                      <button
-                        disabled={pending}
-                        onClick={() => onClearWebauthn(u.id, u.name)}
-                        className="text-xs font-semibold text-brand-ink underline disabled:opacity-40"
-                      >
-                        {dict.users.clearWebauthnButton}
-                      </button>
-                      {u.id !== currentUserId && (u.role !== "ADMIN" || !u.isActive) && (
-                        <button
+                    </label>
+                    {u.id !== currentUserId && (
+                      <label className="flex items-center gap-1 text-xs text-faint">
+                        {dict.users.colRole}
+                        <select
                           disabled={pending}
-                          onClick={() => onToggleActive(u)}
-                          className={`text-xs font-semibold underline disabled:opacity-40 ${u.isActive ? "text-warn" : "text-ok"}`}
+                          value={u.role}
+                          onChange={(e) => onRoleChange(u.id, u.name, e.target.value as "ADMIN" | "MEMBER")}
+                          className="rounded-lg border border-line-strong bg-surface px-2 py-1 text-xs text-ink disabled:opacity-40"
                         >
-                          {u.isActive ? dict.users.suspendButton : dict.users.reactivateButton}
-                        </button>
-                      )}
-                      {u.role !== "ADMIN" && u.id !== currentUserId && (
-                        <button
-                          disabled={pending}
-                          onClick={() => onDelete(u.id, u.name)}
-                          className="text-xs font-semibold text-danger underline disabled:opacity-40"
-                        >
-                          {dict.users.deleteAccount}
-                        </button>
-                      )}
-                    </div>
-                    {resetResult?.userId === u.id && (
-                      <div className={`mt-1 text-xs ${resetResult.ok ? "text-ok" : "text-danger"}`}>
-                        {resetResult.message}
-                        {resetResult.tempPassword && (
-                          <div className="mt-1 font-mono text-sm font-bold tracking-wide text-ink">{resetResult.tempPassword}</div>
-                        )}
-                      </div>
+                          <option value="MEMBER">MEMBER</option>
+                          <option value="ADMIN">ADMIN</option>
+                        </select>
+                      </label>
                     )}
-                    {webauthnResult?.userId === u.id && (
-                      <div className={`mt-1 text-xs ${webauthnResult.ok ? "text-ok" : "text-danger"}`}>{webauthnResult.message}</div>
+                  </div>
+                </div>
+                {siteResult?.userId === u.id && (
+                  <div className={`mt-1 text-xs ${siteResult.ok ? "text-ok" : "text-danger"}`}>{siteResult.message}</div>
+                )}
+                {roleResult?.userId === u.id && (
+                  <div className={`mt-1 text-xs ${roleResult.ok ? "text-ok" : "text-danger"}`}>{roleResult.message}</div>
+                )}
+
+                {/* actions */}
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line-soft pt-3">
+                  <button disabled={pending} onClick={() => onReset(u.id, u.name)} className={btn}>
+                    {dict.users.resetPassword}
+                  </button>
+                  <button disabled={pending || !u.isActive} onClick={() => onEnrollment(u)} className={btn}>
+                    {dict.users.enrollmentButton}
+                  </button>
+                  {emailConfigured && (
+                    <button disabled={pending || !u.isActive} onClick={() => onSendSetupEmail(u)} className={btn}>
+                      {dict.users.sendSetupEmailButton}
+                    </button>
+                  )}
+                  <button disabled={pending} onClick={() => onClearWebauthn(u.id, u.name)} className={btn}>
+                    {dict.users.clearWebauthnButton}
+                  </button>
+                  {u.id !== currentUserId && (u.role !== "ADMIN" || !u.isActive) && (
+                    <button
+                      disabled={pending}
+                      onClick={() => onToggleActive(u)}
+                      className={`whitespace-nowrap rounded-lg border px-2.5 py-1 text-xs font-semibold hover:bg-line-soft disabled:opacity-40 ${u.isActive ? "border-warn text-warn" : "border-ok text-ok"}`}
+                    >
+                      {u.isActive ? dict.users.suspendButton : dict.users.reactivateButton}
+                    </button>
+                  )}
+                  {u.role !== "ADMIN" && u.id !== currentUserId && (
+                    <button
+                      disabled={pending}
+                      onClick={() => onDelete(u.id, u.name)}
+                      className="ml-auto whitespace-nowrap rounded-lg border border-danger px-2.5 py-1 text-xs font-semibold text-danger hover:bg-danger-soft disabled:opacity-40"
+                    >
+                      {dict.users.deleteAccount}
+                    </button>
+                  )}
+                </div>
+                {resetResult?.userId === u.id && (
+                  <div className={`mt-2 text-xs ${resetResult.ok ? "text-ok" : "text-danger"}`}>
+                    {resetResult.message}
+                    {resetResult.tempPassword && (
+                      <div className="mt-1 font-mono text-sm font-bold tracking-wide text-ink">{resetResult.tempPassword}</div>
                     )}
-                    {deleteResult?.userId === u.id && (
-                      <div className={`mt-1 text-xs ${deleteResult.ok ? "text-ok" : "text-danger"}`}>{deleteResult.message}</div>
-                    )}
-                    {activeResult?.userId === u.id && (
-                      <div className={`mt-1 text-xs ${activeResult.ok ? "text-ok" : "text-danger"}`}>{activeResult.message}</div>
-                    )}
-                    {enrollError?.userId === u.id && <div className="mt-1 text-xs text-danger">{enrollError.message}</div>}
-                    {emailResult?.userId === u.id && (
-                      <div className={`mt-1 text-xs ${emailResult.ok ? "text-ok" : "text-danger"}`}>{emailResult.message}</div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                )}
+                {webauthnResult?.userId === u.id && (
+                  <div className={`mt-2 text-xs ${webauthnResult.ok ? "text-ok" : "text-danger"}`}>{webauthnResult.message}</div>
+                )}
+                {deleteResult?.userId === u.id && (
+                  <div className={`mt-2 text-xs ${deleteResult.ok ? "text-ok" : "text-danger"}`}>{deleteResult.message}</div>
+                )}
+                {activeResult?.userId === u.id && (
+                  <div className={`mt-2 text-xs ${activeResult.ok ? "text-ok" : "text-danger"}`}>{activeResult.message}</div>
+                )}
+                {enrollError?.userId === u.id && <div className="mt-2 text-xs text-danger">{enrollError.message}</div>}
+                {emailResult?.userId === u.id && (
+                  <div className={`mt-2 text-xs ${emailResult.ok ? "text-ok" : "text-danger"}`}>{emailResult.message}</div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </div>
 
       {enrollment && (
