@@ -31,7 +31,11 @@ export type AuditAction =
   | "ENROLLED"
   | "PASSKEY_REGISTERED"
   | "PASSKEY_REMOVED"
-  | "PASSKEYS_CLEARED_BY_ADMIN";
+  | "PASSKEYS_CLEARED_BY_ADMIN"
+  | "DEVICE_APPROVED"
+  | "DEVICE_REJECTED"
+  | "SHARED_DEVICE_DETECTED"
+  | "POLICY_CHANGED";
 
 export async function logAudit(entry: {
   action: AuditAction;

@@ -96,8 +96,9 @@ export async function buildRegistrationOptions(userId: string) {
 export async function finishRegistration(
   userId: string,
   response: RegistrationResponseJSON,
-  label: string | null
-): Promise<{ ok: true } | { ok: false; reason: "challenge_expired" | "verify_failed" }> {
+  label: string | null,
+  opts: { pending: boolean; approvedById?: string | null } = { pending: false }
+): Promise<{ ok: true; credentialDbId: string } | { ok: false; reason: "challenge_expired" | "verify_failed" }> {
   const { rpID, origin } = getRpIdAndOrigin();
   const expectedChallenge = await takeChallenge(userId);
   if (!expectedChallenge) return { ok: false, reason: "challenge_expired" };
@@ -118,7 +119,7 @@ export async function finishRegistration(
   }
 
   const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
-  await prisma.webauthnCredential.create({
+  const row = await prisma.webauthnCredential.create({
     data: {
       userId,
       credentialId: credential.id,
@@ -128,16 +129,21 @@ export async function finishRegistration(
       backedUp: credentialBackedUp,
       transports: credential.transports?.join(",") ?? null,
       label,
+      pending: opts.pending,
+      approvedById: opts.pending ? null : opts.approvedById ?? null,
+      approvedAt: opts.pending ? null : new Date(),
     },
   });
-  return { ok: true };
+  return { ok: true, credentialDbId: row.id };
 }
 
 export async function buildAuthenticationOptions(
   userId: string
 ): Promise<{ kind: "no_credential" } | { kind: "ok"; options: Awaited<ReturnType<typeof generateAuthenticationOptions>> }> {
   const { rpID } = getRpIdAndOrigin();
-  const creds = await prisma.webauthnCredential.findMany({ where: { userId } });
+  // Pending (not yet Admin-approved) devices are deliberately excluded —
+  // they can't be used to prove identity until approved.
+  const creds = await prisma.webauthnCredential.findMany({ where: { userId, pending: false } });
   if (creds.length === 0) return { kind: "no_credential" };
 
   const options = await generateAuthenticationOptions({
@@ -165,7 +171,7 @@ export async function verifyAssertion(userId: string, response: AuthenticationRe
   if (!expectedChallenge) return false;
 
   const stored = await prisma.webauthnCredential.findUnique({ where: { credentialId: response.id } });
-  if (!stored || stored.userId !== userId) return false;
+  if (!stored || stored.userId !== userId || stored.pending) return false;
 
   const credential: SimpleWebAuthnCredential = {
     id: stored.credentialId,
@@ -241,7 +247,7 @@ export async function verifyLoginAssertion(
   if (!expectedChallenge) return null;
 
   const stored = await prisma.webauthnCredential.findUnique({ where: { credentialId: response.id } });
-  if (!stored) return null;
+  if (!stored || stored.pending) return null;
 
   const credential: SimpleWebAuthnCredential = {
     id: stored.credentialId,

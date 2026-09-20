@@ -21,7 +21,13 @@ import { rememberPasskeyHint } from "@/lib/passkeyHint";
  * itself falls back to a password prompt for anyone with nothing
  * registered here yet, or on a device that can't do platform biometrics.
  */
-export default function WebauthnManager({ initialCredentials }: { initialCredentials: WebauthnCredentialRow[] }) {
+export default function WebauthnManager({
+  initialCredentials,
+  approvalRequired,
+}: {
+  initialCredentials: WebauthnCredentialRow[];
+  approvalRequired: boolean;
+}) {
   const { dict, locale } = useLanguage();
   const [credentials, setCredentials] = useState(initialCredentials);
   const [label, setLabel] = useState("");
@@ -50,10 +56,11 @@ export default function WebauthnManager({ initialCredentials }: { initialCredent
       } else {
         setError(res.message);
       }
-    } catch {
-      // Prompt cancelled, or no platform authenticator set up on this
-      // device at all.
-      setError(dict.actions.webauthn.verifyFailed);
+    } catch (err) {
+      // A server-side refusal (device limit) carries its own message;
+      // otherwise the prompt was cancelled / no platform authenticator.
+      const msg = err instanceof Error && err.message && !/Error:|NotAllowed/i.test(err.message) ? err.message : dict.actions.webauthn.verifyFailed;
+      setError(msg);
     } finally {
       setBusy(false);
     }
@@ -75,6 +82,7 @@ export default function WebauthnManager({ initialCredentials }: { initialCredent
     <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <h2 className="text-base font-bold">{dict.checkin.deviceSectionTitle}</h2>
       <p className="mt-1 text-sm text-muted">{dict.checkin.deviceSectionHint}</p>
+      <p className="mt-1 text-xs text-faint">{approvalRequired ? dict.checkin.deviceRuleApproval : dict.checkin.deviceRuleNoApproval}</p>
 
       {credentials.length === 0 ? (
         <p className="mt-3 text-sm text-faint">{dict.checkin.noDevices}</p>
@@ -83,7 +91,10 @@ export default function WebauthnManager({ initialCredentials }: { initialCredent
           {credentials.map((c) => (
             <li key={c.id} className="flex items-center justify-between rounded-lg border border-line-soft px-3 py-2 text-sm">
               <div>
-                <p className="font-medium">{c.label || dict.checkin.unnamedDevice}</p>
+                <p className="font-medium">
+                  {c.label || dict.checkin.unnamedDevice}
+                  {c.pending && <span className="ml-2 badge bg-warn-soft text-warn">{dict.checkin.devicePendingBadge}</span>}
+                </p>
                 <p className="text-xs text-faint">
                   {c.lastUsedAt
                     ? dict.checkin.deviceLastUsed(
@@ -104,7 +115,8 @@ export default function WebauthnManager({ initialCredentials }: { initialCredent
         </ul>
       )}
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+      {credentials.length > 0 && <p className="mt-3 text-xs text-faint">{dict.checkin.deviceLimitHint}</p>}
+      <div className={`mt-4 flex flex-col gap-2 sm:flex-row ${credentials.length > 0 ? "hidden" : ""}`}>
         <input
           value={label}
           onChange={(e) => setLabel(e.target.value)}

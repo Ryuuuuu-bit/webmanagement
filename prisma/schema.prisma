@@ -287,6 +287,20 @@ model Attendance {
   attestedCheckin  Boolean @default(false)
   attestedCheckout Boolean @default(false)
 
+  // Anti buddy-punching evidence (see src/actions/attendance.ts):
+  // how identity was proven ("webauthn" | "password"), which browser
+  // installation tapped the button (random id kept in that phone's
+  // localStorage — the same id showing up for two different teachers on the
+  // same day raises flagSharedDevice), and the selfie taken at the moment
+  // of tapping, when the selfie policy is on.
+  checkinMethod    String?
+  checkoutMethod   String?
+  checkinDeviceId  String?
+  checkoutDeviceId String?
+  checkinSelfieId  String?
+  checkoutSelfieId String?
+  flagSharedDevice Boolean @default(false)
+
   @@unique([userId, date])
   @@index([date])
 }
@@ -388,10 +402,55 @@ model WebauthnCredential {
   // Optional teacher-chosen label so they can tell devices apart in the
   // "manage devices" list (e.g. "มือถือเครื่องหลัก").
   label        String?
+  // With the "device approval" policy on (AppSetting.deviceApprovalRequired)
+  // a self-registered device sits here as pending — unusable for check-in
+  // or passkey login — until an Admin approves it. Devices registered
+  // through an Admin-issued enrollment QR are approved on the spot. This
+  // closes the "register a colleague's phone under my account" trick: every
+  // new device is an Admin-visible event.
+  pending      Boolean   @default(false)
+  approvedById String?
+  approvedAt   DateTime?
   createdAt    DateTime  @default(now())
   lastUsedAt   DateTime?
 
   @@index([userId])
+}
+
+// Single-row, Admin-editable check-in security policy (Master Data).
+model AppSetting {
+  id                      String   @id @default("default")
+  // Check-in/out must be verified with a registered device's Face ID /
+  // fingerprint — no password fallback at all. Teachers without an approved
+  // device can't check in until they register one.
+  requireBiometricCheckin Boolean  @default(true)
+  // Take a selfie at the moment of tapping check-in/out, kept as evidence
+  // for Admin (no automatic face recognition).
+  requireSelfieCheckin    Boolean  @default(true)
+  // Self-registered devices need Admin approval before use.
+  deviceApprovalRequired  Boolean  @default(true)
+  // Selfies older than this are deleted automatically.
+  selfieRetentionDays     Int      @default(90)
+  // One-off maintenance scripts record the token they ran with here so a
+  // container restart never re-runs them (see scripts/).
+  seedToken               String?
+  updatedAt               DateTime @updatedAt
+}
+
+// Check-in/out selfie, stored in the database like lesson-plan files.
+// Small (client-side JPEG ~480px) and pruned after
+// AppSetting.selfieRetentionDays. Served to Admin / the owner only via
+// /api/selfies/<id>.
+model Selfie {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String // "checkin" | "checkout"
+  data      Bytes
+  mimeType  String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 // Short-lived WebAuthn challenge, issued when starting a registration or
