@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // password itself still expires (tempPasswordExpiresAt, checked at login).
   const current = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { mustChangePassword: true, tempPasswordExpiresAt: true, name: true, consentVersion: true },
+    select: { mustChangePassword: true, tempPasswordExpiresAt: true, passwordSetAt: true, name: true, consentVersion: true, _count: { select: { webauthnCredentials: true } } },
   });
   // PDPA: the privacy notice (selfies + GPS) must be accepted once before
   // using the app, and again whenever its version changes.
@@ -36,7 +36,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex min-h-screen flex-col lg:flex-row">
         <Sidebar isAdmin={isAdmin} userName={current?.name ?? session.user.name ?? session.user.email ?? "-"} />
         <div className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6">
-          {current?.mustChangePassword && <TempPasswordBanner expiresAt={current.tempPasswordExpiresAt?.toISOString() ?? null} />}
+          {current && (current.mustChangePassword || (!current.passwordSetAt && current._count.webauthnCredentials === 0)) && (
+            <TempPasswordBanner expiresAt={current.tempPasswordExpiresAt?.toISOString() ?? null} />
+          )}
           {children}
         </div>
       </div>

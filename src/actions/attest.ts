@@ -8,6 +8,7 @@ import { AttestType, RequestStatus } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { notifyAdmins, notifyUser } from "@/lib/notify";
+import { atTimeOfDay, getWorkHoursForUser } from "@/lib/settings";
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -24,6 +25,10 @@ export async function requestAttestation(formData: FormData): Promise<{ ok: bool
   const type = formData.get("type") as AttestType;
   const time = (formData.get("time") as string) || "";
   const time2 = (formData.get("time2") as string) || "";
+  const date = new Date(formData.get("date") as string);
+  if (isNaN(date.getTime())) return { ok: false, message: dict.actions.attest.invalidDate };
+  if (date.getTime() > Date.now() + 24 * 60 * 60 * 1000) return { ok: false, message: dict.actions.attest.futureDate };
+  if (!["FORGOT_CHECKIN", "FORGOT_CHECKOUT", "FORGOT_BOTH"].includes(type)) return { ok: false, message: dict.actions.attest.invalidDate };
 
   if (!TIME_RE.test(time)) {
     return {
@@ -43,7 +48,7 @@ export async function requestAttestation(formData: FormData): Promise<{ ok: bool
   const created = await prisma.timeAttestation.create({
     data: {
       requesterId: session.user.id,
-      date: new Date(formData.get("date") as string),
+      date,
       type,
       requestedTime: time,
       requestedCheckoutTime: type === "FORGOT_BOTH" ? time2 : null,
@@ -65,6 +70,7 @@ export async function requestAttestation(formData: FormData): Promise<{ ok: bool
   );
 
   revalidatePath("/attest");
+  revalidatePath("/dashboard");
   return { ok: true, message: dict.actions.attest.submitted };
 }
 
@@ -79,11 +85,17 @@ export async function decideAttestation(id: string, decision: "APPROVED" | "REJE
     throw new Error("Unauthorized");
   }
 
-  const req = await prisma.timeAttestation.update({
-    where: { id },
+  // Only a pending request can be decided (stale tab / double click / a
+  // second admin) — never flip a decided one.
+  const claimed = await prisma.timeAttestation.updateMany({
+    where: { id, status: "PENDING" },
     data: { status: decision as RequestStatus, approverId: session.user.id, decidedAt: new Date() },
-    include: { approver: { select: { name: true } } },
   });
+  if (claimed.count === 0) {
+    revalidatePath("/attest");
+    return;
+  }
+  const req = await prisma.timeAttestation.findUniqueOrThrow({ where: { id }, include: { approver: { select: { name: true } } } });
 
   await notifyUser(
     req.requesterId,
@@ -110,7 +122,10 @@ export async function decideAttestation(id: string, decision: "APPROVED" | "REJE
     if (req.type !== "FORGOT_CHECKOUT") {
       data.checkinAt = atTime(req.requestedTime);
       data.attestedCheckin = true;
-      data.status = "ON_TIME";
+      // Same late rule as a real check-in: after the site's start + grace = LATE.
+      const hours = await getWorkHoursForUser(req.requesterId);
+      const cutoff = new Date(atTimeOfDay(date, hours.start).getTime() + hours.graceMinutes * 60_000);
+      data.status = (data.checkinAt as Date) <= cutoff ? "ON_TIME" : "LATE";
     }
     if (req.type !== "FORGOT_CHECKIN") {
       data.checkoutAt = atTime(req.type === "FORGOT_BOTH" ? req.requestedCheckoutTime! : req.requestedTime);

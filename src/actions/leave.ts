@@ -73,6 +73,27 @@ export async function decideLeave(id: string, decision: "APPROVED" | "REJECTED")
     return;
   }
   const updated = await prisma.leaveRequest.findUnique({ where: { id }, include: { approver: { select: { name: true } } } });
+  if (updated && decision === "APPROVED" && !updated.halfDay) {
+    // Mark each approved day as LEAVE on the attendance sheet (unless the
+    // person actually checked in that day). Half-day leave keeps the real
+    // check-in/out record. Capped at 120 days per request.
+    const start = new Date(updated.startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(updated.endDate);
+    end.setHours(0, 0, 0, 0);
+    for (let d = new Date(start), n = 0; d <= end && n < 120; d.setDate(d.getDate() + 1), n++) {
+      const day = new Date(d);
+      const existing = await prisma.attendance.findUnique({ where: { userId_date: { userId: updated.requesterId, date: day } }, select: { checkinAt: true } });
+      if (existing?.checkinAt) continue;
+      await prisma.attendance.upsert({
+        where: { userId_date: { userId: updated.requesterId, date: day } },
+        create: { userId: updated.requesterId, date: day, status: "LEAVE" },
+        update: { status: "LEAVE" },
+      });
+    }
+    revalidatePath("/checkin");
+    revalidatePath("/teachers");
+  }
   if (updated) {
     await notifyUser(
       updated.requesterId,

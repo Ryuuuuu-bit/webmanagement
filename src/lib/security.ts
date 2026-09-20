@@ -20,11 +20,19 @@ function readHeader(src: HeaderSource, name: string): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
-/** Client IP as seen through Railway's proxy (first hop of x-forwarded-for), or "unknown". */
+/**
+ * Client IP as seen through Railway's proxy, or "unknown". The LAST hop of
+ * x-forwarded-for is the one the edge proxy itself appended, so a client
+ * can't defeat the per-IP lockout by sending its own spoofed header value
+ * (which would sit in front of the real address).
+ */
 export function getClientIp(src?: HeaderSource): string {
   const source = src ?? headers();
   const xff = readHeader(source, "x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
+  if (xff) {
+    const parts = xff.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1];
+  }
   return readHeader(source, "x-real-ip")?.trim() || "unknown";
 }
 
@@ -67,11 +75,12 @@ async function bump(key: string, max: number) {
     });
     return;
   }
-  const count = row.count + 1;
-  await prisma.loginLock.update({
-    where: { key },
-    data: { count, lockedUntil: count >= max ? new Date(now.getTime() + LOCK_MS) : row.lockedUntil },
-  });
+  // Atomic increment so a burst of parallel wrong guesses can't all read
+  // the same count and stay under the limit.
+  const updated = await prisma.loginLock.update({ where: { key }, data: { count: { increment: 1 } } });
+  if (updated.count >= max && !updated.lockedUntil) {
+    await prisma.loginLock.update({ where: { key }, data: { lockedUntil: new Date(now.getTime() + LOCK_MS) } });
+  }
 }
 
 export async function recordLoginFailure(email: string, ip: string) {

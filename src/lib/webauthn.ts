@@ -45,7 +45,9 @@ export function getRpIdAndOrigin() {
 
 /** One active challenge per user at a time — starting a new ceremony discards any unfinished one. */
 async function saveChallenge(userId: string, challenge: string) {
-  await prisma.webauthnChallenge.deleteMany({ where: { userId } });
+  // Also sweep expired rows (anonymous passkey-login challenges are never
+  // consumed when the person just closes the page) so the table can't grow.
+  await prisma.webauthnChallenge.deleteMany({ where: { OR: [{ userId }, { expiresAt: { lt: new Date() } }] } });
   await prisma.webauthnChallenge.create({
     data: { userId, challenge, expiresAt: new Date(Date.now() + CHALLENGE_TTL_MS) },
   });

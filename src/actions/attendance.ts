@@ -12,6 +12,8 @@ import { atTimeOfDay, getCheckinPolicy, getWorkHoursForUser } from "@/lib/settin
 import { logAudit } from "@/lib/audit";
 import { notifyAdmins } from "@/lib/notify";
 import { getClientIp } from "@/lib/security";
+import { cookies } from "next/headers";
+import { PDPA_VERSION } from "@/lib/consent";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 
@@ -37,6 +39,23 @@ export type CheckinExtras = {
 };
 
 type Fail = { ok: false; message: string };
+
+/** The layout gates the UI on the PDPA notice; the actions that actually collect GPS/selfies must too (scripted calls bypass the UI). */
+async function requireConsent(userId: string): Promise<Fail | null> {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { consentVersion: true } });
+  if (u?.consentVersion !== PDPA_VERSION) return { ok: false, message: getDictionary(getLocale()).actions.checkin.consentRequired };
+  return null;
+}
+
+/** Client-supplied install id, falling back to the ts_did cookie so omitting it can't switch shared-device detection off. */
+function resolveDeviceId(fromClient: string | null): string | null {
+  if (fromClient) return fromClient.slice(0, 64);
+  try {
+    return cookies().get("ts_did")?.value?.slice(0, 64) ?? null;
+  } catch {
+    return null;
+  }
+}
 
 async function verifyIdentity(userId: string, verification: IdentityVerification): Promise<Fail | null> {
   const dict = getDictionary(getLocale());
@@ -126,9 +145,18 @@ export async function checkIn(lat: number, lng: number, verification: IdentityVe
   if (!session?.user) return { ok: false, message: dict.actions.pleaseSignIn };
   const userId = session.user.id;
   const ip = getClientIp();
+  const deviceId = resolveDeviceId(extras.deviceId);
 
+  const consentFail = await requireConsent(userId);
+  if (consentFail) return consentFail;
   const idFail = await verifyIdentity(userId, verification);
   if (idFail) return idFail;
+
+  const date = todayAtMidnight();
+  // One check-in per day: a second call (stale tab, scripted) must not
+  // overwrite the first stamp, an admin edit or the day's status.
+  const already = await prisma.attendance.findUnique({ where: { userId_date: { userId, date } }, select: { checkinAt: true } });
+  if (already?.checkinAt) return { ok: false, message: dict.actions.checkin.alreadyCheckedIn };
 
   const expected = await getExpectedSite(userId);
   if (expected.kind === "no_site") return { ok: false, message: dict.actions.checkin.noSiteAssigned };
@@ -139,17 +167,16 @@ export async function checkIn(lat: number, lng: number, verification: IdentityVe
   const selfie = await storeSelfie(userId, "checkin", extras.selfie);
   if ("ok" in selfie) return selfie;
 
-  const date = todayAtMidnight();
   const now = new Date();
   // Late = after the site's (or global) start time plus the grace window.
   const hours = await getWorkHoursForUser(userId);
   const cutoff = new Date(atTimeOfDay(date, hours.start).getTime() + hours.graceMinutes * 60_000);
   const status = now <= cutoff ? "ON_TIME" : "LATE";
-  const shared = await detectSharedDevice(userId, date, extras.deviceId, ip);
+  const shared = await detectSharedDevice(userId, date, deviceId, ip);
 
   const evidence = {
     checkinMethod: verification.method,
-    checkinDeviceId: extras.deviceId,
+    checkinDeviceId: deviceId,
     checkinSelfieId: selfie.id,
     ...(shared ? { flagSharedDevice: true } : {}),
   };
@@ -171,7 +198,10 @@ export async function checkOut(lat: number, lng: number, verification: IdentityV
   if (!session?.user) return { ok: false, message: dict.actions.pleaseSignIn };
   const userId = session.user.id;
   const ip = getClientIp();
+  const deviceId = resolveDeviceId(extras.deviceId);
 
+  const consentFail = await requireConsent(userId);
+  if (consentFail) return consentFail;
   const idFail = await verifyIdentity(userId, verification);
   if (idFail) return idFail;
 
@@ -192,20 +222,22 @@ export async function checkOut(lat: number, lng: number, verification: IdentityV
   const now = new Date();
   const hours = await getWorkHoursForUser(userId);
   const earlyCheckout = now < atTimeOfDay(date, hours.end);
-  const shared = await detectSharedDevice(userId, date, extras.deviceId, ip);
-  await prisma.attendance.update({
-    where: { userId_date: { userId, date } },
+  const shared = await detectSharedDevice(userId, date, deviceId, ip);
+  // Atomic: only the first of two concurrent taps wins.
+  const claimed = await prisma.attendance.updateMany({
+    where: { userId, date, checkoutAt: null },
     data: {
       checkoutAt: now,
       checkoutLat: lat,
       checkoutLng: lng,
       checkoutMethod: verification.method,
-      checkoutDeviceId: extras.deviceId,
+      checkoutDeviceId: deviceId,
       checkoutSelfieId: selfie.id,
       earlyCheckout,
       ...(shared ? { flagSharedDevice: true } : {}),
     },
   });
+  if (claimed.count === 0) return { ok: false, message: dict.actions.checkin.alreadyCheckedOut };
 
   revalidatePath("/checkin");
   revalidatePath("/dashboard");

@@ -310,7 +310,7 @@ export default function UserManagement({
           {users.map((u) => {
             const btn = "whitespace-nowrap rounded-lg border border-line px-2.5 py-1 text-xs font-semibold text-brand-ink hover:bg-line-soft disabled:opacity-40";
             return (
-              <li key={u.id} data-row data-role={u.role} data-active={u.isActive ? "1" : "0"} className={`rounded-xl border border-line-soft bg-page p-4 ${u.isActive ? "" : "opacity-60"}`}>
+              <li key={u.id} data-row data-search={`${u.name} ${u.username ?? ""} ${u.email} ${u.department?.name ?? ""} ${u.campusLocation?.name ?? ""}`} data-role={u.role} data-active={u.isActive ? "1" : "0"} className={`rounded-xl border border-line-soft bg-page p-4 ${u.isActive ? "" : "opacity-60"}`}>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   {/* identity */}
                   <div className="min-w-0 flex-1">
@@ -364,7 +364,7 @@ export default function UserManagement({
                         {lastLogin(u)}
                       </span>
                       <span className="inline-flex items-center gap-1" title={u.consentAt ? formatDate(new Date(u.consentAt), locale) : ""}>
-                        <span className="text-faint">PDPA:</span>
+                        <span className="text-faint">{dict.users.pdpaLabel}</span>
                         {u.consentAt ? <span className="text-ok">✓</span> : <span className="text-faint">—</span>}
                       </span>
                     </div>

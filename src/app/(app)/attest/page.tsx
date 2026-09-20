@@ -97,7 +97,7 @@ export default async function AttestPage() {
               </thead>
               <tbody>
                 {pending.map((r) => (
-                  <tr key={r.id} data-date={r.date.toISOString().slice(0, 10)} className="border-t border-line-soft">
+                  <tr key={r.id} data-date={r.date.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" })} className="border-t border-line-soft">
                     <td className="py-2">{r.requester!.name}</td>
                     <td className="py-2">{formatDate(r.date, locale)}</td>
                     <td className="py-2">{dict.attest.types[r.type as keyof typeof dict.attest.types]}</td>
@@ -130,7 +130,7 @@ export default async function AttestPage() {
             </thead>
             <tbody>
               {done.map((r) => (
-                <tr key={r.id} data-status={r.status} data-date={r.date.toISOString().slice(0, 10)} className="border-t border-line-soft">
+                <tr key={r.id} data-status={r.status} data-date={r.date.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" })} className="border-t border-line-soft">
                   <td className="py-2">{r.requester!.name}</td>
                   <td className="py-2">{formatDate(r.date, locale)}</td>
                   <td className="py-2">{dict.attest.types[r.type as keyof typeof dict.attest.types]}</td>

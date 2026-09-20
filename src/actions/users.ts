@@ -11,7 +11,7 @@ import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { logAudit } from "@/lib/audit";
 import { notifyUser } from "@/lib/notify";
-import { checkPasswordPolicy, getClientIp, issueLoginTicket, normalizeUsername, USERNAME_RE } from "@/lib/security";
+import { checkPasswordPolicy, getClientIp, getLockRemainingMinutes, issueLoginTicket, normalizeUsername, recordLoginFailure, USERNAME_RE } from "@/lib/security";
 
 // A temporary password (account created / reset by Admin) is only good for
 // this long; after that the login page tells the person to ask Admin for a
@@ -50,7 +50,7 @@ export async function createUser(
   const session = await requireAdmin();
   const dict = getDictionary(getLocale());
 
-  const name = (formData.get("name") as string || "").trim();
+  const name = (formData.get("name") as string || "").trim().slice(0, 120);
   const username = normalizeUsername((formData.get("username") as string) || "");
   const email = (formData.get("email") as string || "").trim().toLowerCase();
   const role = (formData.get("role") as string || "MEMBER") as Role;
@@ -160,7 +160,17 @@ export async function updateUserRole(
 
   // Bump tokenVersion so the change takes effect immediately (forces
   // re-login) instead of waiting for their current session to expire.
+  if (user.role === "ADMIN" && role === "MEMBER") {
+    const otherAdmins = await prisma.user.count({ where: { role: "ADMIN", isActive: true, id: { not: userId } } });
+    if (otherAdmins === 0) return { ok: false, message: dict.actions.users.lastAdmin };
+  }
   await prisma.user.update({ where: { id: userId }, data: { role, tokenVersion: { increment: 1 } } });
+  if (role === "MEMBER") {
+    // Admin-only alerts (other teachers' requests) must not stay in a demoted account's inbox.
+    await prisma.notification.deleteMany({
+      where: { userId, kind: { in: ["LEAVE_REQUESTED", "LEAVE_CANCELLED", "ATTEST_REQUESTED", "LESSON_PLAN_SUBMITTED", "DEVICE_PENDING", "SHARED_DEVICE_DETECTED"] } },
+    });
+  }
   await logAudit({ action: "ROLE_CHANGED", actorId: session.user.id, targetUserId: userId, ip: getClientIp(), detail: `${user.role} → ${role}` });
   await notifyUser(userId, "ROLE_CHANGED", { role }, "/dashboard");
 
@@ -221,6 +231,10 @@ export async function deleteUser(userId: string): Promise<{ ok: boolean; message
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { ok: false, message: dict.actions.users.notFound };
+  if (user.role === "ADMIN" && user.isActive) {
+    const otherAdmins = await prisma.user.count({ where: { role: "ADMIN", isActive: true, id: { not: userId } } });
+    if (otherAdmins === 0) return { ok: false, message: dict.actions.users.lastAdmin };
+  }
   // Another ADMIN may be removed: the admin doing it can't delete themselves
   // (checked above), so at least one admin always remains.
 
@@ -269,9 +283,16 @@ export async function changeOwnPassword(
   // (passwordSetAt null, never told the temp password) skips the check.
   if (!user.mustChangePassword && user.passwordSetAt) {
     if (!currentPassword) return { ok: false, message: dict.actions.users.currentPasswordRequired };
+    // Same lockout as the login form, so a left-open session can't be used
+    // to brute-force the real password through this field.
+    const ip = getClientIp();
+    const lockKey = user.username ?? user.email;
+    const locked = await getLockRemainingMinutes(lockKey, ip);
+    if (locked > 0) return { ok: false, message: dict.login.tooManyAttempts(locked) };
     const ok = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!ok) {
-      await logAudit({ action: "LOGIN_FAILED", actorId: user.id, targetUserId: user.id, ip: getClientIp(), detail: "wrong current password on change" });
+      await recordLoginFailure(lockKey, ip);
+      await logAudit({ action: "LOGIN_FAILED", actorId: user.id, targetUserId: user.id, ip, detail: "wrong current password on change" });
       return { ok: false, message: dict.actions.users.currentPasswordWrong };
     }
   }
@@ -327,6 +348,7 @@ export async function signOutEverywhere(): Promise<{ ok: boolean; message: strin
   const dict = getDictionary(getLocale());
   if (!session?.user) return { ok: false, message: dict.actions.pleaseSignInAgain };
   await prisma.user.update({ where: { id: session.user.id }, data: { tokenVersion: { increment: 1 } } });
+  await prisma.pushSubscription.deleteMany({ where: { userId: session.user.id } });
   await logAudit({ action: "SIGNED_OUT_EVERYWHERE", actorId: session.user.id, targetUserId: session.user.id, ip: getClientIp() });
   return { ok: true, message: dict.actions.users.signedOutEverywhere };
 }
@@ -350,6 +372,7 @@ export async function setUserActive(userId: string, active: boolean): Promise<{ 
     where: { id: userId },
     data: { isActive: active, tokenVersion: { increment: 1 } },
   });
+  if (!active) await prisma.pushSubscription.deleteMany({ where: { userId } });
   await logAudit({ action: active ? "USER_REACTIVATED" : "USER_SUSPENDED", actorId: session.user.id, targetUserId: userId, ip: getClientIp() });
 
   revalidatePath("/admin/users");
@@ -406,6 +429,8 @@ export async function updateUserProfile(
   if (changes.length === 0) return { ok: true, message: dict.actions.users.profileUnchanged };
 
   await prisma.user.update({ where: { id: userId }, data: { name, username, email, departmentId } });
+  // A setup link mailed to the old (possibly mistyped) address must die with it.
+  if (email !== user.email) await prisma.passwordResetToken.deleteMany({ where: { userId, usedAt: null } });
   await logAudit({ action: "PROFILE_EDITED", actorId: session.user.id, targetUserId: userId, ip: getClientIp(), detail: changes.join("; ") });
 
   revalidatePath("/admin/users");

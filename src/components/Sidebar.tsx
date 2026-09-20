@@ -8,6 +8,22 @@ import ThemeToggle from "./ThemeToggle";
 import LanguageToggle from "./LanguageToggle";
 import { useLanguage } from "./LanguageProvider";
 import NotificationBell from "./NotificationBell";
+import { removeThisBrowserPush } from "@/actions/push";
+
+/** Shared phones: stop this browser receiving the outgoing user's pushes, then sign out. Best-effort, never blocks. */
+async function signOutClean() {
+  try {
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await removeThisBrowserPush(sub.endpoint);
+        await sub.unsubscribe().catch(() => {});
+      }
+    }
+  } catch {}
+  signOut({ callbackUrl: "/login" });
+}
 
 const ICON: Record<string, string> = {
   dashboard:
@@ -111,7 +127,7 @@ function SidebarContent({
           {dict.sidebar.changePassword}
         </Link>
         <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() => signOutClean()}
           className="rounded-lg border border-line px-3 py-2 text-left text-sm font-medium text-subtle hover:bg-line-soft"
         >
           {dict.sidebar.signOut}

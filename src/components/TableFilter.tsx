@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "./LanguageProvider";
 
 export type FilterSelect = { attr: string; label: string; options: { value: string; label: string }[] };
@@ -34,6 +34,21 @@ export default function TableFilter({
 
   const active = useMemo(() => q.trim() !== "" || Object.values(sel).some(Boolean) || from !== "" || to !== "", [q, sel, from, to]);
 
+  // Re-run when the list itself changes (router.refresh after a delete /
+  // create re-renders rows without touching our manual `hidden` class).
+  const [tick, setTick] = useState(0);
+  const selfRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = document.getElementById(targetId);
+    if (!root) return;
+    const mo = new MutationObserver((muts) => {
+      // Ignore our own re-renders (the count text lives inside the same container).
+      if (muts.some((m) => !selfRef.current || !selfRef.current.contains(m.target))) setTick((n) => n + 1);
+    });
+    mo.observe(root, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, [targetId]);
+
   useEffect(() => {
     const root = document.getElementById(targetId);
     if (!root) return;
@@ -42,7 +57,8 @@ export default function TableFilter({
     let shown = 0;
     for (const row of rows) {
       let ok = true;
-      if (needle && !(row.textContent ?? "").toLowerCase().includes(needle)) ok = false;
+      const hay = (row.dataset.search ?? row.textContent ?? "").toLowerCase();
+      if (needle && !hay.includes(needle)) ok = false;
       for (const [attr, value] of Object.entries(sel)) {
         if (value && row.dataset[attr] !== value) ok = false;
       }
@@ -54,8 +70,9 @@ export default function TableFilter({
       row.classList.toggle("hidden", !ok);
       if (ok) shown++;
     }
-    setCount({ shown, total: rows.length });
-  }, [targetId, q, sel, from, to]);
+    setCount((c) => (c && c.shown === shown && c.total === rows.length ? c : { shown, total: rows.length }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetId, q, sel, from, to, tick]);
 
   function reset() {
     setQ("");
@@ -65,7 +82,7 @@ export default function TableFilter({
   }
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+    <div ref={selfRef} className="mb-3 flex flex-wrap items-center gap-2 text-xs">
       <div className="relative min-w-[180px] flex-1">
         <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint">⌕</span>
         <input

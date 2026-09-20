@@ -8,6 +8,12 @@ import { notifyAdmins } from "@/lib/notify";
 export const LEAVE_ATTACHMENT_MAX = 5 * 1024 * 1024; // 5MB
 const ALLOWED_MIME = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"]);
 const ALLOWED_EXT = /\.(pdf|jpe?g|png|webp|heic)$/i;
+// Never trust the browser-supplied MIME: derive it from the extension so a
+// file called cert.pdf uploaded as text/html can't be served as HTML later.
+function mimeFromName(name: string): string {
+  const ext = (name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? "");
+  return ext === "pdf" ? "application/pdf" : ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : ext === "heic" ? "image/heic" : "image/jpeg";
+}
 
 /**
  * Creates a leave request. Shared by the /api/leave/request Route Handler
@@ -34,8 +40,8 @@ export async function createLeaveRequest(
     if (input.file.size > LEAVE_ATTACHMENT_MAX) return { ok: false, message: dict.actions.leave.fileTooLarge };
     if (!ALLOWED_MIME.has(input.file.type) && !ALLOWED_EXT.test(input.file.name)) return { ok: false, message: dict.actions.leave.unsupportedType };
     attachment = {
-      attachmentName: input.file.name,
-      attachmentMime: input.file.type || "application/octet-stream",
+      attachmentName: input.file.name.slice(0, 200),
+      attachmentMime: ALLOWED_MIME.has(input.file.type) ? input.file.type : mimeFromName(input.file.name),
       attachmentSize: input.file.size,
       attachmentData: Buffer.from(await input.file.arrayBuffer()),
     };

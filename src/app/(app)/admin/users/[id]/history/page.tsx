@@ -20,12 +20,18 @@ export default async function UserHistoryPage({ params }: { params: { id: string
   const locale = getLocale();
   const dict = getDictionary(locale);
 
+  const dayKey = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
   const user = await prisma.user.findUnique({ where: { id: params.id }, select: { id: true, name: true, username: true } });
   if (!user) notFound();
 
   const [attendance, leave, attest, lessonPlans] = await Promise.all([
     prisma.attendance.findMany({ where: { userId: user.id }, orderBy: { date: "desc" }, take: 200 }),
-    prisma.leaveRequest.findMany({ where: { requesterId: user.id }, orderBy: { createdAt: "desc" }, take: 200 }),
+    prisma.leaveRequest.findMany({
+      where: { requesterId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      select: { id: true, type: true, startDate: true, endDate: true, reason: true, status: true, createdAt: true },
+    }),
     prisma.timeAttestation.findMany({ where: { requesterId: user.id }, orderBy: { createdAt: "desc" }, take: 200 }),
     // select, not include — never pull the stored file bytes just to list rows.
     prisma.lessonPlan.findMany({
@@ -53,6 +59,7 @@ export default async function UserHistoryPage({ params }: { params: { id: string
         attendance={attendance.map((a) => ({
           id: a.id,
           date: a.date.toISOString(),
+          dayKey: dayKey(a.date),
           checkinAt: a.checkinAt?.toISOString() ?? null,
           checkoutAt: a.checkoutAt?.toISOString() ?? null,
           status: a.status,
@@ -67,6 +74,7 @@ export default async function UserHistoryPage({ params }: { params: { id: string
         leave={leave.map((l) => ({
           id: l.id,
           type: l.type,
+          dayKey: dayKey(l.startDate),
           startDate: l.startDate.toISOString(),
           endDate: l.endDate.toISOString(),
           reason: l.reason,
@@ -76,6 +84,7 @@ export default async function UserHistoryPage({ params }: { params: { id: string
         attest={attest.map((t) => ({
           id: t.id,
           type: t.type,
+          dayKey: dayKey(t.date),
           date: t.date.toISOString(),
           requestedTime: t.requestedTime,
           requestedCheckoutTime: t.requestedCheckoutTime,
@@ -84,6 +93,7 @@ export default async function UserHistoryPage({ params }: { params: { id: string
         }))}
         lessonPlans={lessonPlans.map((p) => ({
           id: p.id,
+          dayKey: dayKey(p.submittedAt),
           courseCode: p.course?.code ?? "-",
           courseName: p.course?.name ?? "-",
           fileName: p.fileName,

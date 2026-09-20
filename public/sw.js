@@ -36,12 +36,12 @@ self.addEventListener("notificationclick", (event) => {
   const url = new URL(href, self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-      for (const client of list) {
-        if ("focus" in client) {
-          client.focus();
-          if ("navigate" in client) return client.navigate(url);
-          return;
-        }
+      const client = list.find((c) => c.url && c.url.startsWith(self.location.origin)) || list[0];
+      if (client && "focus" in client) {
+        return client
+          .focus()
+          .then(() => ("navigate" in client ? client.navigate(url) : null))
+          .catch(() => self.clients.openWindow(url));
       }
       return self.clients.openWindow(url);
     })

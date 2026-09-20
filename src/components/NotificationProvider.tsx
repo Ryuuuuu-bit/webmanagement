@@ -93,7 +93,9 @@ export default function NotificationProvider({ initialUnread, children }: { init
   // A server action on the page we're on may have created a notification for
   // *us* (rare) or changed what's unread — refresh after navigation too.
   useEffect(() => {
-    if (seen.current !== null) refresh();
+    // The notifications page marks everything read itself and refreshes
+    // afterwards — polling here first would flash the old count.
+    if (seen.current !== null && pathname !== "/notifications") refresh();
   }, [pathname, refresh]);
 
   function openToast() {

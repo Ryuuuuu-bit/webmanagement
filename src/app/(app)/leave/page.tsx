@@ -71,7 +71,7 @@ export default async function LeavePage() {
                 </thead>
                 <tbody>
                   {mine.map((l) => (
-                    <tr key={l.id} data-status={l.status} data-date={l.startDate.toISOString().slice(0, 10)} className="border-t border-line-soft">
+                    <tr key={l.id} data-status={l.status} data-date={l.startDate.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" })} className="border-t border-line-soft">
                       <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
                       <td className="py-2">{dateRange(l)}</td>
                       <td className="py-2">
@@ -128,7 +128,7 @@ export default async function LeavePage() {
               </thead>
               <tbody>
                 {pending.map((l) => (
-                  <tr key={l.id} data-date={l.startDate.toISOString().slice(0, 10)} className="border-t border-line-soft">
+                  <tr key={l.id} data-date={l.startDate.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" })} className="border-t border-line-soft">
                     <td className="py-2">{l.requester!.name}</td>
                     <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
                     <td className="py-2">{dateRange(l)}</td>
@@ -168,7 +168,7 @@ export default async function LeavePage() {
             </thead>
             <tbody>
               {done.map((l) => (
-                <tr key={l.id} data-status={l.status} data-date={l.startDate.toISOString().slice(0, 10)} className="border-t border-line-soft">
+                <tr key={l.id} data-status={l.status} data-date={l.startDate.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" })} className="border-t border-line-soft">
                   <td className="py-2">{l.requester!.name}</td>
                   <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
                   <td className="py-2">{dateRange(l)}</td>

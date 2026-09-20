@@ -60,12 +60,15 @@ export async function notifyUser(userId: string, kind: NotificationKind, params:
   await pushFor([userId], kind, params, href);
 }
 
+let pushSeq = 0;
+
 /** Web Push copy of a notification, rendered in each subscriber's own language (no-op unless VAPID is configured). */
 async function pushFor(userIds: string[], kind: NotificationKind, params: NotificationParams, href: string | null) {
   await sendPushToUsers(userIds, (locale) => {
     const loc: Locale = locale === "en" ? "en" : "th";
     const r = renderNotification({ id: "", kind, params, href, readAt: null, createdAt: new Date() }, getDictionary(loc), loc);
-    return { title: r.title, body: r.body, href: r.href, tag: kind };
+    // Unique tag per event so two same-kind pushes don't replace each other on the device.
+    return { title: r.title, body: r.body, href: r.href, tag: `${kind}:${Date.now()}:${(pushSeq = (pushSeq + 1) % 1000)}` };
   });
 }
 

@@ -17,6 +17,15 @@ export async function savePushSubscription(sub: { endpoint: string; keys: { p256
   const session = await getServerSession(authOptions);
   if (!session?.user) return { ok: false };
   if (!sub?.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) return { ok: false };
+  // Only real push-service endpoints: https, sane length — never an
+  // arbitrary URL the server would then POST to.
+  try {
+    const u = new URL(sub.endpoint);
+    if (u.protocol !== "https:" || sub.endpoint.length > 2048) return { ok: false };
+  } catch {
+    return { ok: false };
+  }
+  if (sub.keys.p256dh.length > 256 || sub.keys.auth.length > 128) return { ok: false };
   const locale = getLocale();
   const userAgent = headers().get("user-agent")?.slice(0, 200) ?? null;
   await prisma.pushSubscription.upsert({
@@ -40,4 +49,12 @@ export async function hasPushSubscription(endpoint: string): Promise<boolean> {
   if (!session?.user) return false;
   const row = await prisma.pushSubscription.findUnique({ where: { endpoint }, select: { userId: true } });
   return !!row && row.userId === session.user.id;
+}
+
+/** Called right before signOut() so this browser stops receiving the outgoing user's pushes (shared phones). */
+export async function removeThisBrowserPush(endpoint: string | null): Promise<void> {
+  if (!endpoint) return;
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return;
+  await prisma.pushSubscription.deleteMany({ where: { endpoint, userId: session.user.id } });
 }

@@ -21,6 +21,8 @@ export async function POST(req: NextRequest) {
   const dict = getDictionary(getLocale());
   if (!session?.user) return NextResponse.json({ ok: false, message: dict.actions.pleaseSignIn }, { status: 401 });
 
+  const len = Number(req.headers.get("content-length") ?? 0);
+  if (len > 9 * 1024 * 1024) return NextResponse.json({ ok: false, message: dict.actions.lessonPlans.fileTooLarge }, { status: 413 });
   let form: FormData;
   try {
     form = await req.formData();

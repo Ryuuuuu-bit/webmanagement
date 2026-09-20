@@ -20,6 +20,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       "Content-Type": plan.mimeType,
       "Content-Disposition": `attachment; filename="${encodeURIComponent(plan.fileName)}"`,
       "Content-Length": String(plan.fileSize),
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox; default-src 'none'",
     },
   });
 }

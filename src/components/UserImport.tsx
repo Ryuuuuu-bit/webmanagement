@@ -36,6 +36,10 @@ export default function UserImport({ importUsers }: { importUsers: (rows: Import
     setRows(null);
     setParseError(null);
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setParseError(t.importParseError);
+      return;
+    }
     try {
       const XLSX = await import("xlsx");
       const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
@@ -84,7 +88,12 @@ export default function UserImport({ importUsers }: { importUsers: (rows: Import
     if (!result) return;
     const lines = [["row", "name", "username", "tempPassword", "status"].join(",")];
     for (const r of result.results) {
-      lines.push([r.row, r.name, r.username, r.tempPassword ?? "", r.ok ? "OK" : r.message].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
+      // Neutralise spreadsheet formula injection (a name like =HYPERLINK(...)).
+      const safe = (v: unknown) => {
+        const str = String(v);
+        return /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
+      };
+      lines.push([r.row, r.name, r.username, r.tempPassword ?? "", r.ok ? "OK" : r.message].map((v) => `"${safe(v).replace(/"/g, '""')}"`).join(","));
     }
     const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");

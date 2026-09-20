@@ -17,10 +17,16 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if (!row || !row.attachmentData) return new NextResponse("Not found", { status: 404 });
   if (session.user.role !== "ADMIN" && row.requesterId !== session.user.id) return new NextResponse("Forbidden", { status: 403 });
   const name = encodeURIComponent(row.attachmentName ?? "attachment");
+  const mime = row.attachmentMime ?? "application/octet-stream";
+  // Only PDFs/images are ever stored (src/lib/leave.ts); still: nosniff and a
+  // sandboxing CSP so nothing served here can run script on our origin.
+  const safeInline = mime === "application/pdf" || mime.startsWith("image/");
   return new NextResponse(Buffer.from(row.attachmentData), {
     headers: {
-      "Content-Type": row.attachmentMime ?? "application/octet-stream",
-      "Content-Disposition": `inline; filename*=UTF-8''${name}`,
+      "Content-Type": safeInline ? mime : "application/octet-stream",
+      "Content-Disposition": `${safeInline ? "inline" : "attachment"}; filename*=UTF-8''${name}`,
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox; default-src 'none'",
       "Cache-Control": "private, no-store",
     },
   });

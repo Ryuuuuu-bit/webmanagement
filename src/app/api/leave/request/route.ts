@@ -14,6 +14,9 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const dict = getDictionary(getLocale());
   if (!session?.user) return NextResponse.json({ ok: false, message: dict.actions.pleaseSignIn }, { status: 401 });
+  // Refuse oversized bodies before buffering them (5 MB file + form slack).
+  const len = Number(req.headers.get("content-length") ?? 0);
+  if (len > 6 * 1024 * 1024) return NextResponse.json({ ok: false, message: dict.actions.leave.fileTooLarge }, { status: 413 });
   let form: FormData;
   try {
     form = await req.formData();

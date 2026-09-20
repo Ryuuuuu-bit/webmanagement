@@ -12,6 +12,7 @@ import TableFilter from "./TableFilter";
 type AttendanceRow = {
   id: string;
   date: string;
+  dayKey: string;
   checkinAt: string | null;
   checkoutAt: string | null;
   status: string;
@@ -23,9 +24,9 @@ type AttendanceRow = {
   checkinSelfieId: string | null;
   checkoutSelfieId: string | null;
 };
-type LeaveRow = { id: string; type: string; startDate: string; endDate: string; reason: string; status: string; createdAt: string };
-type AttestRow = { id: string; type: string; date: string; requestedTime: string; requestedCheckoutTime: string | null; reason: string; status: string };
-type LessonPlanRow = { id: string; courseCode: string; courseName: string; fileName: string; fileSize: number; status: string; submittedAt: string };
+type LeaveRow = { id: string; dayKey: string; type: string; startDate: string; endDate: string; reason: string; status: string; createdAt: string };
+type AttestRow = { id: string; dayKey: string; type: string; date: string; requestedTime: string; requestedCheckoutTime: string | null; reason: string; status: string };
+type LessonPlanRow = { id: string; dayKey: string; courseCode: string; courseName: string; fileName: string; fileSize: number; status: string; submittedAt: string };
 
 type Result = { ok: boolean; message: string };
 
@@ -119,7 +120,7 @@ export default function UserHistoryClient({
           </thead>
           <tbody>
             {attendance.map((a) => (
-              <tr key={a.id} data-date={a.date.slice(0, 10)} className="border-t border-line-soft">
+              <tr key={a.id} data-date={a.dayKey} className="border-t border-line-soft">
                 <td className={td}>{formatDate(a.date, locale)}</td>
                 <td className={td}>
                   {formatTime(a.checkinAt ? new Date(a.checkinAt) : null, locale) ?? "—"}
@@ -166,7 +167,7 @@ export default function UserHistoryClient({
           </thead>
           <tbody>
             {leave.map((l) => (
-              <tr key={l.id} data-date={l.startDate.slice(0, 10)} className="border-t border-line-soft">
+              <tr key={l.id} data-date={l.dayKey} className="border-t border-line-soft">
                 <td className={td}>{(dict.leave.types as Record<string, string>)[l.type] ?? l.type}</td>
                 <td className={td}>{formatDate(l.startDate, locale)} – {formatDate(l.endDate, locale)}</td>
                 <td className={`${td} max-w-[240px] truncate`} title={l.reason}>{l.reason}</td>
@@ -194,7 +195,7 @@ export default function UserHistoryClient({
           </thead>
           <tbody>
             {attest.map((a) => (
-              <tr key={a.id} data-date={a.date.slice(0, 10)} className="border-t border-line-soft">
+              <tr key={a.id} data-date={a.dayKey} className="border-t border-line-soft">
                 <td className={td}>{formatDate(a.date, locale)}</td>
                 <td className={td}>{(dict.attest.types as Record<string, string>)[a.type] ?? a.type}</td>
                 <td className={td}>
@@ -225,7 +226,7 @@ export default function UserHistoryClient({
           </thead>
           <tbody>
             {lessonPlans.map((p) => (
-              <tr key={p.id} data-date={p.submittedAt.slice(0, 10)} className="border-t border-line-soft">
+              <tr key={p.id} data-date={p.dayKey} className="border-t border-line-soft">
                 <td className={td}>{p.courseCode} <span className="text-muted">{p.courseName}</span></td>
                 <td className={`${td} max-w-[240px] truncate`} title={p.fileName}>
                   {p.fileName} <span className="text-[11px] text-faint">({(p.fileSize / 1024 / 1024).toFixed(1)} MB)</span>
