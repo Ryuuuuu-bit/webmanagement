@@ -29,6 +29,23 @@ try {
     }
     console.log(`[backfill-usernames] set ${missing.length} username(s)`);
   }
+
+  // passwordSetAt backfill (idempotent): accounts that demonstrably set their
+  // own password (PASSWORD_CHANGED / PASSWORD_RESET_COMPLETED in the audit
+  // log) get that timestamp; everyone else stays null, which just means the
+  // change-password page won't ask them for a "current" password once.
+  const unset = await prisma.user.findMany({ where: { passwordSetAt: null }, select: { id: true } });
+  if (unset.length > 0) {
+    const evidence = await prisma.auditLog.findMany({
+      where: { action: { in: ["PASSWORD_CHANGED", "PASSWORD_RESET_COMPLETED"] }, targetUserId: { in: unset.map((u) => u.id) } },
+      orderBy: { at: "desc" },
+      select: { targetUserId: true, at: true },
+    });
+    const latest = new Map();
+    for (const e of evidence) if (!latest.has(e.targetUserId)) latest.set(e.targetUserId, e.at);
+    for (const [id, at] of latest) await prisma.user.update({ where: { id }, data: { passwordSetAt: at } });
+    if (latest.size > 0) console.log(`[backfill-usernames] passwordSetAt set for ${latest.size} account(s)`);
+  }
 } catch (err) {
   // Never block the app from starting over this — Admin can set usernames by hand.
   console.error("[backfill-usernames] failed:", err?.message ?? err);

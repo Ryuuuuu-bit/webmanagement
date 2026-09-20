@@ -117,7 +117,7 @@ export async function completePasswordReset(
   const passwordHash = await bcrypt.hash(newPassword, 12);
   await prisma.user.update({
     where: { id: row.userId },
-    data: { passwordHash, mustChangePassword: false, tempPasswordExpiresAt: null, tokenVersion: { increment: 1 } },
+    data: { passwordHash, mustChangePassword: false, tempPasswordExpiresAt: null, passwordSetAt: new Date(), tokenVersion: { increment: 1 } },
   });
   await logAudit({ action: "PASSWORD_RESET_COMPLETED", actorId: row.userId, targetUserId: row.userId, ip, detail: row.purpose });
   return { ok: true, message: dict.reset.done };

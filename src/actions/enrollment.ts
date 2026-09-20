@@ -99,9 +99,13 @@ export async function redeemEnrollment(
   });
   if (claimed.count === 0) return { ok: false, status: "used" };
 
+  // Enrolled = they have a passkey, so stop nagging about the temporary
+  // password. The temporary password itself keeps its expiry (they were
+  // probably never told it); setting their own later needs no "current"
+  // password because passwordSetAt stays null.
   await prisma.user.update({
     where: { id: row.userId },
-    data: { mustChangePassword: false, tempPasswordExpiresAt: null },
+    data: { mustChangePassword: false },
   });
   await logAudit({ action: "ENROLLED", actorId: row.userId, targetUserId: row.userId, ip });
   const ticket = await issueLoginTicket(row.userId, "enrollment");

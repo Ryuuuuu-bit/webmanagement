@@ -127,7 +127,7 @@ export async function resetUserPassword(
     // Bump tokenVersion so any active session this user has open right now
     // is rejected on its next request, instead of staying valid until it
     // naturally expires.
-    data: { passwordHash, mustChangePassword: true, tempPasswordExpiresAt: tempPasswordExpiry(), tokenVersion: { increment: 1 } },
+    data: { passwordHash, mustChangePassword: true, tempPasswordExpiresAt: tempPasswordExpiry(), passwordSetAt: null, tokenVersion: { increment: 1 } },
   });
   await logAudit({ action: "PASSWORD_RESET_BY_ADMIN", actorId: session.user.id, targetUserId: userId, ip: getClientIp() });
   await notifyUser(userId, "PASSWORD_TEMP", { expiresAt: tempPasswordExpiry().toISOString() }, "/change-password");
@@ -264,7 +264,10 @@ export async function changeOwnPassword(
   const newPassword = (formData.get("newPassword") as string) || "";
   const confirm = (formData.get("confirm") as string) || "";
 
-  if (!user.mustChangePassword) {
+  // Ask for the current password only if the person ever set one themselves.
+  // A temporary password (mustChangePassword) or a QR-enrolled account
+  // (passwordSetAt null, never told the temp password) skips the check.
+  if (!user.mustChangePassword && user.passwordSetAt) {
     if (!currentPassword) return { ok: false, message: dict.actions.users.currentPasswordRequired };
     const ok = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!ok) {
@@ -288,7 +291,7 @@ export async function changeOwnPassword(
     // request since it's the token that changed password, so this session
     // keeps working, but it invalidates any OTHER device's session for the
     // same account (e.g. left logged in elsewhere).
-    data: { passwordHash, mustChangePassword: false, tempPasswordExpiresAt: null, tokenVersion: { increment: 1 } },
+    data: { passwordHash, mustChangePassword: false, tempPasswordExpiresAt: null, passwordSetAt: new Date(), tokenVersion: { increment: 1 } },
   });
   await logAudit({ action: "PASSWORD_CHANGED", actorId: user.id, targetUserId: user.id, ip: getClientIp() });
   // The tokenVersion bump invalidates this browser's JWT too. Hand back a

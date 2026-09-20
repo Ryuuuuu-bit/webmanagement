@@ -102,6 +102,13 @@ model User {
   // a limited time — after this the person must ask Admin for a new one or
   // use an enrollment link instead. null once they've set their own password.
   tempPasswordExpiresAt DateTime?
+  // When the person last set a password THEMSELVES (change-password page or
+  // an admin-sent setup link). Null = the only password is one Admin issued
+  // and possibly never told them (QR-enrolled teachers) — so the change
+  // form doesn't ask for a "current" password they can't know, and an
+  // expired temporary password is refused at sign-in regardless of the
+  // mustChangePassword banner flag.
+  passwordSetAt DateTime?
   lastLoginAt   DateTime?
   // PDPA: when (and which version of) the privacy notice this person
   // accepted. The app collects selfies and GPS positions, so the notice is

@@ -81,7 +81,7 @@ export const authOptions: AuthOptions = {
           await logAudit({ action: "LOGIN_SUSPENDED", targetUserId: user.id, ip, device });
           throw new Error(AUTH_ERRORS.suspended);
         }
-        if (user.mustChangePassword && user.tempPasswordExpiresAt && user.tempPasswordExpiresAt < new Date()) {
+        if (!user.passwordSetAt && user.tempPasswordExpiresAt && user.tempPasswordExpiresAt < new Date()) {
           await logAudit({ action: "LOGIN_TEMP_EXPIRED", targetUserId: user.id, ip, device });
           throw new Error(AUTH_ERRORS.tempExpired);
         }

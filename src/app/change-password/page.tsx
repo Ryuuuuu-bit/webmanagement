@@ -12,8 +12,11 @@ export default async function ChangePasswordPage() {
   if (!session?.user?.id) redirect("/login");
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { mustChangePassword: true, email: true },
+    select: { mustChangePassword: true, passwordSetAt: true, email: true },
   });
   if (!user) redirect("/login");
-  return <ChangePasswordForm forced={user.mustChangePassword} email={user.email} />;
+  // No "current password" field when they never set one themselves: a
+  // temporary password, or a QR-enrolled account that was never told it.
+  const noCurrent = user.mustChangePassword || !user.passwordSetAt;
+  return <ChangePasswordForm forced={noCurrent} enrolled={!user.mustChangePassword && !user.passwordSetAt} email={user.email} />;
 }

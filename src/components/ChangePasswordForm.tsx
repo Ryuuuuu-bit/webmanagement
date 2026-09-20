@@ -24,7 +24,7 @@ function scorePassword(pw: string, email: string): 0 | 1 | 2 | 3 {
   return Math.min(3, score) as 0 | 1 | 2 | 3;
 }
 
-export default function ChangePasswordForm({ forced, email }: { forced: boolean; email: string }) {
+export default function ChangePasswordForm({ forced, enrolled = false, email }: { forced: boolean; enrolled?: boolean; email: string }) {
   const { dict } = useLanguage();
   const t = dict.changePassword;
   const router = useRouter();
@@ -86,7 +86,7 @@ export default function ChangePasswordForm({ forced, email }: { forced: boolean;
         </div>
 
         <h1 className="mb-1 text-lg font-bold">{forced ? t.title : t.titleSelf}</h1>
-        <p className="mb-6 text-sm text-muted">{forced ? t.subtitle : t.subtitleSelf}</p>
+        <p className="mb-6 text-sm text-muted">{enrolled ? t.subtitleEnrolled : forced ? t.subtitle : t.subtitleSelf}</p>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           {!forced && (
