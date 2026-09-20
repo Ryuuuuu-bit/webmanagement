@@ -12,8 +12,9 @@ export const MAP_ZOOM_FOCUSED = 16;
 
 // Same height everywhere a map appears, so the pin-picker (in the add/edit
 // form) and the all-locations overview don't look like two different
-// components.
-export const MAP_HEIGHT_CLASS = "h-[420px]";
+// components. Shorter on phones so a map doesn't eat the whole first
+// screenful before the admin can even see the form fields below it.
+export const MAP_HEIGHT_CLASS = "h-[260px] sm:h-[420px]";
 
 export const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 export const OSM_ATTRIBUTION =

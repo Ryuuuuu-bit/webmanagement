@@ -42,24 +42,26 @@ export default async function DashboardPage() {
           {todaySchedule.length === 0 ? (
             <p className="text-sm text-muted">{d.noClassToday}</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase text-faint">
-                  <th className="pb-2">{d.colPeriod}</th>
-                  <th className="pb-2">{d.colCourse}</th>
-                  <th className="pb-2">{d.colRoom}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {todaySchedule.map((s) => (
-                  <tr key={s.id} className="border-t border-line-soft">
-                    <td className="py-2">{s.startTime}–{s.endTime}</td>
-                    <td className="py-2">{s.course!.code} {s.course!.name}</td>
-                    <td className="py-2">{s.room!.name}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase text-faint">
+                    <th className="pb-2">{d.colPeriod}</th>
+                    <th className="pb-2">{d.colCourse}</th>
+                    <th className="pb-2">{d.colRoom}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {todaySchedule.map((s) => (
+                    <tr key={s.id} className="border-t border-line-soft">
+                      <td className="py-2">{s.startTime}–{s.endTime}</td>
+                      <td className="py-2">{s.course!.code} {s.course!.name}</td>
+                      <td className="py-2">{s.room!.name}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

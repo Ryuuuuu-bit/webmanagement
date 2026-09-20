@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -30,35 +31,31 @@ const ICON: Record<string, string> = {
     '<rect x="1.5" y="2" width="5.5" height="5.5" rx="1"/><rect x="9" y="2" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="8.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="8.5" width="5.5" height="5.5" rx="1"/>',
 };
 
-export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userName: string }) {
+type NavItem = [href: string, icon: string, label: string];
+
+/**
+ * The actual logo/nav-links/footer content, shared between the always-visible
+ * desktop sidebar and the slide-over drawer used on phones/tablets — one
+ * source of truth for the menu instead of two copies that could drift apart.
+ * `onNavigate` closes the mobile drawer the moment a link is tapped (a no-op
+ * on desktop, where there's no drawer to close).
+ */
+function SidebarContent({
+  items,
+  isAdmin,
+  userName,
+  onNavigate,
+}: {
+  items: NavItem[];
+  isAdmin: boolean;
+  userName: string;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const { dict } = useLanguage();
-  const nav = dict.sidebar.nav;
-
-  const items = isAdmin
-    ? [
-        ["/dashboard", "dashboard", nav.dashboard],
-        ["/schedule", "schedule", nav.scheduleAll],
-        ["/checkin", "checkin", nav.checkinAll],
-        ["/attest", "attest", nav.attestApprove],
-        ["/leave", "leave", nav.leaveApprove],
-        ["/teachers", "teachers", nav.teachers],
-        ["/lesson-plans", "lessonplans", nav.lessonPlansAll],
-        ["/admin/master-data", "masterdata", nav.masterData],
-        ["/admin/users", "users", nav.users],
-        ["/admin/locations", "locations", nav.locations],
-      ]
-    : [
-        ["/dashboard", "dashboard", nav.dashboard],
-        ["/schedule", "schedule", nav.scheduleMine],
-        ["/checkin", "checkin", nav.checkinMine],
-        ["/attest", "attest", nav.attestMine],
-        ["/leave", "leave", nav.leaveMine],
-        ["/lesson-plans", "lessonplans", nav.lessonPlansMine],
-      ];
 
   return (
-    <aside className="sticky top-0 flex h-screen w-56 flex-none flex-col border-r border-line bg-surface p-3">
+    <>
       <div className="flex items-center gap-2 px-2 pb-5 pt-1.5">
         <div className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">
           TS
@@ -77,6 +74,7 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
             <Link
               key={href}
               href={href}
+              onClick={onNavigate}
               className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium ${
                 active ? "bg-brand-soft text-brand-ink" : "text-subtle hover:bg-line-soft"
               }`}
@@ -104,6 +102,7 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
         </div>
         <Link
           href="/change-password"
+          onClick={onNavigate}
           className="rounded-lg border border-line px-3 py-2 text-sm font-medium text-subtle hover:bg-line-soft"
         >
           {dict.sidebar.changePassword}
@@ -115,6 +114,87 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
           {dict.sidebar.signOut}
         </button>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userName: string }) {
+  const { dict } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const nav = dict.sidebar.nav;
+
+  const items: NavItem[] = isAdmin
+    ? [
+        ["/dashboard", "dashboard", nav.dashboard],
+        ["/schedule", "schedule", nav.scheduleAll],
+        ["/checkin", "checkin", nav.checkinAll],
+        ["/attest", "attest", nav.attestApprove],
+        ["/leave", "leave", nav.leaveApprove],
+        ["/teachers", "teachers", nav.teachers],
+        ["/lesson-plans", "lessonplans", nav.lessonPlansAll],
+        ["/admin/master-data", "masterdata", nav.masterData],
+        ["/admin/users", "users", nav.users],
+        ["/admin/locations", "locations", nav.locations],
+      ]
+    : [
+        ["/dashboard", "dashboard", nav.dashboard],
+        ["/schedule", "schedule", nav.scheduleMine],
+        ["/checkin", "checkin", nav.checkinMine],
+        ["/attest", "attest", nav.attestMine],
+        ["/leave", "leave", nav.leaveMine],
+        ["/lesson-plans", "lessonplans", nav.lessonPlansMine],
+      ];
+
+  return (
+    <>
+      {/* Phone/tablet top bar — replaces the always-visible desktop sidebar
+          below the lg breakpoint, since there's no room to keep it pinned
+          open on a narrow screen. */}
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2.5 lg:hidden">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">
+            TS
+          </div>
+          <div className="text-sm font-bold leading-tight">{dict.appName}</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={dict.sidebar.menu}
+          className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-line text-subtle"
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <line x1="2" y1="4.5" x2="16" y2="4.5" />
+            <line x1="2" y1="9" x2="16" y2="9" />
+            <line x1="2" y1="13.5" x2="16" y2="13.5" />
+          </svg>
+        </button>
+      </header>
+
+      {/* Phone/tablet slide-over drawer with the same nav content. */}
+      {open && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
+          <aside className="absolute left-0 top-0 flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto bg-surface p-3 shadow-xl">
+            <div className="flex items-center justify-end pb-1">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label={dict.common.close}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-faint hover:bg-line-soft hover:text-subtle"
+              >
+                ✕
+              </button>
+            </div>
+            <SidebarContent items={items} isAdmin={isAdmin} userName={userName} onNavigate={() => setOpen(false)} />
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop sidebar — unchanged from before, just hidden below lg now. */}
+      <aside className="sticky top-0 hidden h-screen w-56 flex-none flex-col border-r border-line bg-surface p-3 lg:flex">
+        <SidebarContent items={items} isAdmin={isAdmin} userName={userName} />
+      </aside>
+    </>
   );
 }

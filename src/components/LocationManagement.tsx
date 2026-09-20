@@ -9,11 +9,11 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 // next/dynamic with ssr:false keeps it out of the server render entirely.
 const LocationsMap = dynamic(() => import("@/components/LocationsMap"), {
   ssr: false,
-  loading: () => <div className="h-[420px] w-full animate-pulse rounded-xl border border-line bg-bg" />,
+  loading: () => <div className="h-[260px] w-full animate-pulse rounded-xl border border-line bg-bg sm:h-[420px]" />,
 });
 const LocationPickerMap = dynamic(() => import("@/components/LocationPickerMap"), {
   ssr: false,
-  loading: () => <div className="h-[420px] w-full animate-pulse rounded-xl border border-line bg-bg" />,
+  loading: () => <div className="h-[260px] w-full animate-pulse rounded-xl border border-line bg-bg sm:h-[420px]" />,
 });
 
 type Loc = { id: string; name: string; latitude: number; longitude: number; radiusMeters: number };

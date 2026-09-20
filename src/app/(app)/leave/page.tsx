@@ -52,23 +52,25 @@ export default async function LeavePage() {
           {mine.length === 0 ? (
             <p className="mt-2 text-sm text-muted">{dict.leave.noHistory}</p>
           ) : (
-            <table className="mt-3 w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase text-faint">
-                  <th className="pb-2">{dict.leave.colType}</th><th className="pb-2">{dict.leave.colDate}</th><th className="pb-2">{dict.leave.colReason}</th><th className="pb-2">{dict.leave.colStatus}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mine.map((l) => (
-                  <tr key={l.id} className="border-t border-line-soft">
-                    <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
-                    <td className="py-2">{formatDate(l.startDate, locale)} – {formatDate(l.endDate, locale)}</td>
-                    <td className="py-2">{l.reason}</td>
-                    <td className="py-2"><RequestBadge status={l.status} dict={dict} /></td>
+            <div className="overflow-x-auto">
+              <table className="mt-3 w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase text-faint">
+                    <th className="pb-2">{dict.leave.colType}</th><th className="pb-2">{dict.leave.colDate}</th><th className="pb-2">{dict.leave.colReason}</th><th className="pb-2">{dict.leave.colStatus}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {mine.map((l) => (
+                    <tr key={l.id} className="border-t border-line-soft">
+                      <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
+                      <td className="py-2">{formatDate(l.startDate, locale)} – {formatDate(l.endDate, locale)}</td>
+                      <td className="py-2">{l.reason}</td>
+                      <td className="py-2"><RequestBadge status={l.status} dict={dict} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -87,51 +89,55 @@ export default async function LeavePage() {
         {pending.length === 0 ? (
           <p className="mt-2 text-sm text-muted">{dict.leave.noPending}</p>
         ) : (
-          <table className="mt-3 w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase text-faint">
-                <th className="pb-2">{dict.leave.colTeacher}</th><th className="pb-2">{dict.leave.colType}</th><th className="pb-2">{dict.leave.colDate}</th><th className="pb-2">{dict.leave.colReason}</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {pending.map((l) => (
-                <tr key={l.id} className="border-t border-line-soft">
-                  <td className="py-2">{l.requester!.name}</td>
-                  <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
-                  <td className="py-2">{formatDate(l.startDate, locale)} – {formatDate(l.endDate, locale)}</td>
-                  <td className="py-2">{l.reason}</td>
-                  <td className="py-2">
-                    <DecisionButtons
-                      onApprove={decideLeave.bind(null, l.id, "APPROVED")}
-                      onReject={decideLeave.bind(null, l.id, "REJECTED")}
-                    />
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="mt-3 w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-faint">
+                  <th className="pb-2">{dict.leave.colTeacher}</th><th className="pb-2">{dict.leave.colType}</th><th className="pb-2">{dict.leave.colDate}</th><th className="pb-2">{dict.leave.colReason}</th><th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {pending.map((l) => (
+                  <tr key={l.id} className="border-t border-line-soft">
+                    <td className="py-2">{l.requester!.name}</td>
+                    <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
+                    <td className="py-2">{formatDate(l.startDate, locale)} – {formatDate(l.endDate, locale)}</td>
+                    <td className="py-2">{l.reason}</td>
+                    <td className="py-2">
+                      <DecisionButtons
+                        onApprove={decideLeave.bind(null, l.id, "APPROVED")}
+                        onReject={decideLeave.bind(null, l.id, "REJECTED")}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <h2 className="text-base font-bold">{dict.leave.decidedTitle}</h2>
-        <table className="mt-3 w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs uppercase text-faint">
-              <th className="pb-2">{dict.leave.colTeacher}</th><th className="pb-2">{dict.leave.colType}</th><th className="pb-2">{dict.leave.colDate}</th><th className="pb-2">{dict.leave.colStatus}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {done.map((l) => (
-              <tr key={l.id} className="border-t border-line-soft">
-                <td className="py-2">{l.requester!.name}</td>
-                <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
-                <td className="py-2">{formatDate(l.startDate, locale)} – {formatDate(l.endDate, locale)}</td>
-                <td className="py-2"><RequestBadge status={l.status} dict={dict} /></td>
+        <div className="overflow-x-auto">
+          <table className="mt-3 w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase text-faint">
+                <th className="pb-2">{dict.leave.colTeacher}</th><th className="pb-2">{dict.leave.colType}</th><th className="pb-2">{dict.leave.colDate}</th><th className="pb-2">{dict.leave.colStatus}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {done.map((l) => (
+                <tr key={l.id} className="border-t border-line-soft">
+                  <td className="py-2">{l.requester!.name}</td>
+                  <td className="py-2">{dict.leave.types[l.type as keyof typeof dict.leave.types]}</td>
+                  <td className="py-2">{formatDate(l.startDate, locale)} – {formatDate(l.endDate, locale)}</td>
+                  <td className="py-2"><RequestBadge status={l.status} dict={dict} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

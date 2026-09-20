@@ -21,9 +21,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isAdmin = session.user.role === "ADMIN";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col lg:flex-row">
       <Sidebar isAdmin={isAdmin} userName={current?.name ?? session.user.name ?? session.user.email ?? "-"} />
-      <div className="mx-auto w-full max-w-6xl flex-1 p-6">{children}</div>
+      <div className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6">{children}</div>
     </div>
   );
 }
