@@ -113,14 +113,19 @@ export const authOptions: AuthOptions = {
           await logAudit({ action: "LOGIN_SUSPENDED", targetUserId: user.id, ip });
           throw new Error(AUTH_ERRORS.suspended);
         }
+        // "password" tickets just re-establish this browser's session after a
+        // self-service password change (tokenVersion moved on) — that event is
+        // already in the log as PASSWORD_CHANGED, so don't count it as a login.
         await Promise.all([
-          markLoggedIn(user.id),
-          logAudit({
-            action: redeemed.purpose === "enrollment" ? "LOGIN_ENROLLMENT" : "LOGIN_PASSKEY",
-            actorId: user.id,
-            targetUserId: user.id,
-            ip,
-          }),
+          redeemed.purpose === "password" ? Promise.resolve() : markLoggedIn(user.id),
+          redeemed.purpose === "password"
+            ? Promise.resolve()
+            : logAudit({
+                action: redeemed.purpose === "enrollment" ? "LOGIN_ENROLLMENT" : "LOGIN_PASSKEY",
+                actorId: user.id,
+                targetUserId: user.id,
+                ip,
+              }),
         ]);
         return { id: user.id, name: user.name, email: user.email, role: user.role, tokenVersion: user.tokenVersion };
       },

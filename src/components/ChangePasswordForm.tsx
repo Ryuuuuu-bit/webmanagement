@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { changeOwnPassword, signOutEverywhere } from "@/actions/users";
 import { useLanguage } from "@/components/LanguageProvider";
 import AuthPageControls from "@/components/AuthPageControls";
@@ -26,6 +27,7 @@ function scorePassword(pw: string, email: string): 0 | 1 | 2 | 3 {
 export default function ChangePasswordForm({ forced, email }: { forced: boolean; email: string }) {
   const { dict } = useLanguage();
   const t = dict.changePassword;
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -43,9 +45,18 @@ export default function ChangePasswordForm({ forced, email }: { forced: boolean;
       const res = await changeOwnPassword(null, formData);
       setResult(res);
       if (res.ok) {
-        // Changing the password bumps the account's session version, so this
-        // browser's own session is invalidated too — sign out cleanly and
-        // send them to log back in with the new password.
+        // Changing the password bumps the account's session version, which
+        // invalidates this browser's JWT too. The action hands back a
+        // one-shot ticket so we can re-establish the session here without
+        // making the person log in again; fall back to a clean sign-out.
+        if (res.ticket) {
+          const r = await signIn("ticket", { ticket: res.ticket, redirect: false });
+          if (!r?.error) {
+            router.push("/dashboard");
+            router.refresh();
+            return;
+          }
+        }
         signOut({ callbackUrl: "/login" });
       }
     });
@@ -123,11 +134,9 @@ export default function ChangePasswordForm({ forced, email }: { forced: boolean;
           >
             {pending ? t.submitting : t.submit}
           </button>
-          {!forced && (
-            <Link href="/dashboard" className="text-center text-xs font-medium text-muted hover:text-ink">
-              {dict.common.cancel}
-            </Link>
-          )}
+          <Link href="/dashboard" className="text-center text-xs font-medium text-muted hover:text-ink">
+            {forced ? t.later : dict.common.cancel}
+          </Link>
         </form>
       </div>
 

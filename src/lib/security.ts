@@ -102,7 +102,7 @@ export function randomToken(bytes = 32) {
  * immediately trades it for a session via the "ticket" provider in
  * src/lib/auth.ts, which consumes it. 60-second lifetime, hash-only storage.
  */
-export async function issueLoginTicket(userId: string, purpose: "passkey" | "enrollment"): Promise<string> {
+export async function issueLoginTicket(userId: string, purpose: "passkey" | "enrollment" | "password"): Promise<string> {
   const token = randomToken();
   await prisma.loginTicket.create({
     data: { userId, purpose, tokenHash: sha256(token), expiresAt: new Date(Date.now() + TICKET_TTL_MS) },

@@ -134,11 +134,21 @@ const th = {
         title: "สิทธิ์การใช้งานของคุณถูกเปลี่ยน",
         body: p.role === "ADMIN" ? "คุณเป็นผู้ดูแลระบบแล้ว — กรุณาเข้าสู่ระบบใหม่" : "คุณเป็นอาจารย์ผู้สอน — กรุณาเข้าสู่ระบบใหม่",
       }),
+      PASSWORD_TEMP: (p: NotifParams, h: NotifHelpers) => ({
+        title: "กรุณาตั้งรหัสผ่านของคุณเอง",
+        body: p.expiresAt ? `รหัสผ่านชั่วคราวใช้ได้ถึง ${h.date(p.expiresAt)} — กดเพื่อตั้งรหัสผ่านใหม่` : "คุณกำลังใช้รหัสผ่านชั่วคราว — กดเพื่อตั้งรหัสผ่านใหม่",
+      }),
       SITE_ASSIGNED: (p: NotifParams) => ({
         title: "จุดเช็คอิน-เอาต์ประจำของคุณถูกเปลี่ยน",
         body: p.siteName ? `ประจำที่: ${p.siteName}` : "ยังไม่ได้กำหนดจุดประจำ — ติดต่อผู้ดูแลระบบ",
       }),
     },
+  },
+  tempPasswordBanner: {
+    title: "คุณกำลังใช้รหัสผ่านชั่วคราว — กรุณาตั้งรหัสผ่านของคุณเอง",
+    body: "รหัสชั่วคราวที่ผู้ดูแลระบบออกให้ใช้ได้ระยะหนึ่งเท่านั้น ตั้งรหัสผ่านใหม่เพื่อให้เข้าสู่ระบบได้ต่อเนื่อง",
+    bodyWithDeadline: (date: string) => `รหัสชั่วคราวใช้ได้ถึง ${date} — หลังจากนั้นจะเข้าสู่ระบบด้วยรหัสนี้ไม่ได้ (ต้องให้ผู้ดูแลระบบออกให้ใหม่)`,
+    button: "ตั้งรหัสผ่านใหม่",
   },
   theme: {
     light: "โหมดสว่าง",
@@ -172,7 +182,8 @@ const th = {
   },
   changePassword: {
     title: "ตั้งรหัสผ่านใหม่",
-    subtitle: "บัญชีนี้ใช้รหัสผ่านชั่วคราวอยู่ กรุณาตั้งรหัสผ่านใหม่ก่อนใช้งานระบบ",
+    subtitle: "บัญชีนี้ยังใช้รหัสผ่านชั่วคราวที่ผู้ดูแลระบบออกให้ ตั้งรหัสผ่านของคุณเองได้เลย (ไม่ต้องกรอกรหัสเดิม)",
+    later: "ไว้ทีหลัง — กลับไปหน้าหลัก",
     newPassword: "รหัสผ่านใหม่",
     confirmPassword: "ยืนยันรหัสผ่านใหม่",
     newPasswordPlaceholder: "อย่างน้อย 8 ตัวอักษร",
@@ -1047,11 +1058,21 @@ const en: typeof th = {
         title: "Your role was changed",
         body: p.role === "ADMIN" ? "You are now an Administrator — please sign in again" : "You are now an Instructor — please sign in again",
       }),
+      PASSWORD_TEMP: (p: NotifParams, h: NotifHelpers) => ({
+        title: "Please set your own password",
+        body: p.expiresAt ? `Your temporary password works until ${h.date(p.expiresAt)} — tap to set a new one` : "You're on a temporary password — tap to set a new one",
+      }),
       SITE_ASSIGNED: (p: NotifParams) => ({
         title: "Your assigned check-in site was changed",
         body: p.siteName ? `Stationed at: ${p.siteName}` : "No site assigned yet — contact your administrator",
       }),
     },
+  },
+  tempPasswordBanner: {
+    title: "You're using a temporary password — please set your own",
+    body: "The temporary password your administrator issued only works for a limited time. Set a new one to keep signing in.",
+    bodyWithDeadline: (date: string) => `The temporary password works until ${date} — after that it stops working (your administrator would have to issue a new one)`,
+    button: "Set new password",
   },
   theme: {
     light: "Light Mode",
@@ -1085,7 +1106,8 @@ const en: typeof th = {
   },
   changePassword: {
     title: "Set a New Password",
-    subtitle: "This account is using a temporary password. Please set a new one before continuing.",
+    subtitle: "This account is still on the temporary password your administrator issued. Set your own now (no current password needed).",
+    later: "Later — back to the dashboard",
     newPassword: "New Password",
     confirmPassword: "Confirm New Password",
     newPasswordPlaceholder: "At least 8 characters",

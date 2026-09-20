@@ -11,6 +11,7 @@ const KIND_TONE: Record<string, string> = {
   ATTEST_REQUESTED: "bg-info-soft text-info",
   LESSON_PLAN_SUBMITTED: "bg-info-soft text-info",
   DEVICE_PENDING: "bg-warn-soft text-warn",
+  PASSWORD_TEMP: "bg-warn-soft text-warn",
   SHARED_DEVICE_DETECTED: "bg-danger-soft text-danger",
   LEAVE_DECIDED: "bg-ok-soft text-ok",
   ATTEST_DECIDED: "bg-ok-soft text-ok",

@@ -11,7 +11,7 @@ import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { logAudit } from "@/lib/audit";
 import { notifyUser } from "@/lib/notify";
-import { checkPasswordPolicy, getClientIp, normalizeUsername, USERNAME_RE } from "@/lib/security";
+import { checkPasswordPolicy, getClientIp, issueLoginTicket, normalizeUsername, USERNAME_RE } from "@/lib/security";
 
 // A temporary password (account created / reset by Admin) is only good for
 // this long; after that the login page tells the person to ask Admin for a
@@ -96,6 +96,7 @@ export async function createUser(
     },
   });
   await logAudit({ action: "USER_CREATED", actorId: session.user.id, targetUserId: created.id, ip: getClientIp(), detail: email });
+  await notifyUser(created.id, "PASSWORD_TEMP", { expiresAt: created.tempPasswordExpiresAt?.toISOString() ?? null }, "/change-password");
 
   revalidatePath("/admin/users");
   return {
@@ -129,6 +130,7 @@ export async function resetUserPassword(
     data: { passwordHash, mustChangePassword: true, tempPasswordExpiresAt: tempPasswordExpiry(), tokenVersion: { increment: 1 } },
   });
   await logAudit({ action: "PASSWORD_RESET_BY_ADMIN", actorId: session.user.id, targetUserId: userId, ip: getClientIp() });
+  await notifyUser(userId, "PASSWORD_TEMP", { expiresAt: tempPasswordExpiry().toISOString() }, "/change-password");
 
   revalidatePath("/admin/users");
   return {
@@ -250,7 +252,7 @@ export async function deleteUser(userId: string): Promise<{ ok: boolean; message
 export async function changeOwnPassword(
   _prev: { ok: boolean; message: string } | null,
   formData: FormData
-): Promise<{ ok: boolean; message: string }> {
+): Promise<{ ok: boolean; message: string; ticket?: string }> {
   const session = await getServerSession(authOptions);
   const dict = getDictionary(getLocale());
   if (!session?.user) return { ok: false, message: dict.actions.pleaseSignInAgain };
@@ -289,8 +291,11 @@ export async function changeOwnPassword(
     data: { passwordHash, mustChangePassword: false, tempPasswordExpiresAt: null, tokenVersion: { increment: 1 } },
   });
   await logAudit({ action: "PASSWORD_CHANGED", actorId: user.id, targetUserId: user.id, ip: getClientIp() });
-
-  return { ok: true, message: dict.actions.users.passwordChanged };
+  // The tokenVersion bump invalidates this browser's JWT too. Hand back a
+  // one-shot ticket so the form can silently re-sign-in instead of bouncing
+  // the person to the login page to type the password they just set.
+  const ticket = await issueLoginTicket(user.id, "password");
+  return { ok: true, message: dict.actions.users.passwordChanged, ticket };
 }
 
 /** Admin changes a user's sign-in name (e.g. a typo, or a new staff-ID scheme). Sessions keep working — it's not a credential change. */

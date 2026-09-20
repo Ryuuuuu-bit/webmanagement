@@ -34,7 +34,8 @@ export type NotificationKind =
   | "SCHEDULE_ASSIGNED"
   | "SCHEDULE_REMOVED"
   | "ROLE_CHANGED"
-  | "SITE_ASSIGNED";
+  | "SITE_ASSIGNED"
+  | "PASSWORD_TEMP";
 
 export type NotificationParams = Record<string, string | number | boolean | null>;
 
