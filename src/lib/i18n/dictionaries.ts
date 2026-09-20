@@ -310,9 +310,9 @@ const th = {
     addTitle: "เพิ่มจุดเช็คอิน-เช็คเอาต์",
     addHint:
       "ค้นหาชื่อสถานที่ด้านล่างแล้วเลือกผลลัพธ์ เพื่อกรอกพิกัดให้อัตโนมัติ — หรือจะกรอกละติจูด/ลองจิจูดเองก็ได้ (หาได้จาก Google Maps โดยคลิกขวาที่จุดแล้วคัดลอกตัวเลข) — อาจารย์ต้องอยู่ในรัศมีนี้ถึงจะเช็คอิน/เช็คเอาต์ได้",
-    namePlaceholder: "ชื่อจุด เช่น คณะวิศวกรรมศาสตร์",
-    latitudePlaceholder: "ละติจูด เช่น 13.8486",
-    longitudePlaceholder: "ลองจิจูด เช่น 100.5681",
+    namePlaceholder: "ชื่อจุดเช็คอิน",
+    latitudePlaceholder: "ละติจูด",
+    longitudePlaceholder: "ลองจิจูด",
     radiusPlaceholder: "รัศมี (เมตร)",
     addButton: "เพิ่มจุดเช็คอิน",
     allTitle: "จุดเช็คอินทั้งหมด",
@@ -323,7 +323,7 @@ const th = {
     mapHint: "คลิกรายการด้านซ้ายเพื่อซูมไปยังจุดนั้นบนแผนที่ — วงกลมสีเขียวคือขอบเขตที่เช็คอิน/เช็คเอาต์ได้",
     pickerHint: "หรือคลิกบนแผนที่เพื่อปักหมุด (ลากหมุดเพื่อปรับตำแหน่ง)",
     search: {
-      placeholder: "พิมพ์ชื่อสถานที่สั้นๆ เช่น มหาวิทยาลัยเกษตรศาสตร์",
+      placeholder: "พิมพ์ชื่อสถานที่ที่ต้องการค้นหา",
       button: "ค้นหา",
       tooShort: "พิมพ์อย่างน้อย 3 ตัวอักษร",
       noResults: "ไม่พบสถานที่ที่ค้นหา ลองพิมพ์คำอื่น หรือกรอกพิกัดเองด้านล่าง",
@@ -765,9 +765,9 @@ const en: typeof th = {
     addTitle: "Add Check-in/out Location",
     addHint:
       "Search for a place name below and pick a result to fill in the coordinates automatically — or enter latitude/longitude yourself (from Google Maps: right-click a point and copy the numbers). Faculty must be within this radius to check in/out.",
-    namePlaceholder: "Location name, e.g. Faculty of Engineering",
-    latitudePlaceholder: "Latitude, e.g. 13.8486",
-    longitudePlaceholder: "Longitude, e.g. 100.5681",
+    namePlaceholder: "Location name",
+    latitudePlaceholder: "Latitude",
+    longitudePlaceholder: "Longitude",
     radiusPlaceholder: "Radius (meters)",
     addButton: "Add Location",
     allTitle: "All Check-in Locations",
@@ -778,7 +778,7 @@ const en: typeof th = {
     mapHint: "Click a location on the left to zoom to it on the map — the green circle is the check-in/out boundary.",
     pickerHint: "Or click the map to drop a pin (drag it to fine-tune)",
     search: {
-      placeholder: "Type a short place name, e.g. Kasetsart University",
+      placeholder: "Type a place name to search",
       button: "Search",
       tooShort: "Type at least 3 characters",
       noResults: "No places found — try different wording, or enter coordinates manually below",
