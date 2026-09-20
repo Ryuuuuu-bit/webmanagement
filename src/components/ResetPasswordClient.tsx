@@ -44,8 +44,8 @@ export default function ResetPasswordClient({ token, preview }: { token: string;
           <>
             <h1 className="mb-1 text-lg font-bold">{t.badLinkTitle}</h1>
             <p className="text-sm text-muted">{preview.status === "used" ? t.used : preview.status === "expired" ? t.expired : t.invalid}</p>
-            <Link href="/forgot-password" className="mt-6 block rounded-lg bg-brand px-4 py-2.5 text-center text-sm font-semibold text-white">
-              {t.requestAgain}
+            <Link href="/login" className="mt-6 block rounded-lg bg-brand px-4 py-2.5 text-center text-sm font-semibold text-white">
+              {t.goLogin}
             </Link>
           </>
         ) : result?.ok ? (

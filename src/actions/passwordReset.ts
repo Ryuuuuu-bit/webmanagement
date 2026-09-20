@@ -12,41 +12,21 @@ import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 
 /**
- * Email-based password recovery. Two entry points mint the same kind of
- * token: a teacher on the login page ("forgot password", 30-minute link)
- * and Admin sending a new/reset account its "set your password" link
- * (7-day link) instead of reading a temporary password out loud. Both land
- * on /reset-password/<token>. Tokens are single-use and stored hashed.
- *
- * The self-service request never reveals whether a username/email exists:
- * the response is identical either way, and abuse is rate-limited per IP
- * (LoginLock "pr:" keys) and per account (one email per 2 minutes).
+ * Email-based password setup, Admin-initiated only (client decision: no
+ * self-service "forgot password" — a teacher who forgets asks Admin, who
+ * resets or sends this link). Admin sends a new/reset account its "set your
+ * password" link (7-day, single-use, stored hashed) instead of reading a
+ * temporary password out loud; it lands on /reset-password/<token>.
  */
 
 const RESET_TTL_MS = 30 * 60 * 1000;
 const SETUP_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const PER_ACCOUNT_COOLDOWN_MS = 2 * 60 * 1000;
-const PER_IP_MAX = 10;
-const PER_IP_WINDOW_MS = 15 * 60 * 1000;
 
 function appOrigin() {
   const h = headers();
   const host = h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   return `${proto}://${host}`;
-}
-
-async function ipAllowed(ip: string): Promise<boolean> {
-  const key = `pr:${ip}`;
-  const now = new Date();
-  const row = await prisma.loginLock.findUnique({ where: { key } });
-  if (!row || now.getTime() - row.firstFailAt.getTime() > PER_IP_WINDOW_MS) {
-    await prisma.loginLock.upsert({ where: { key }, create: { key, count: 1, firstFailAt: now }, update: { count: 1, firstFailAt: now, lockedUntil: null } });
-    return true;
-  }
-  if (row.count >= PER_IP_MAX) return false;
-  await prisma.loginLock.update({ where: { key }, data: { count: row.count + 1 } });
-  return true;
 }
 
 async function mintAndSend(userId: string, purpose: "reset" | "setup", actorId: string | null, ip: string): Promise<boolean> {
@@ -78,29 +58,6 @@ async function mintAndSend(userId: string, purpose: "reset" | "setup", actorId: 
     detail: sent.ok ? user.email : `email failed: ${sent.reason}`,
   });
   return sent.ok;
-}
-
-/** Public: "forgot password". Always answers the same way for an unknown/suspended account. */
-export async function requestPasswordReset(identifierRaw: string): Promise<{ ok: boolean; message: string }> {
-  const dict = getDictionary(getLocale());
-  const ip = getClientIp();
-  const identifier = identifierRaw.trim().toLowerCase();
-  if (!identifier) return { ok: false, message: dict.forgot.enterIdentifier };
-  if (!isEmailConfigured()) return { ok: false, message: dict.forgot.notConfigured };
-  if (!(await ipAllowed(ip))) return { ok: false, message: dict.forgot.tooMany };
-
-  const user = await prisma.user.findFirst({
-    where: identifier.includes("@") ? { email: identifier } : { username: identifier },
-    select: { id: true, isActive: true },
-  });
-  if (user && user.isActive) {
-    const recent = await prisma.passwordResetToken.findFirst({
-      where: { userId: user.id, usedAt: null, createdAt: { gt: new Date(Date.now() - PER_ACCOUNT_COOLDOWN_MS) } },
-    });
-    if (!recent) await mintAndSend(user.id, "reset", null, ip);
-  }
-  // Same message whether or not anything was sent — no account enumeration.
-  return { ok: true, message: dict.forgot.sentIfExists };
 }
 
 /** Admin: email a new/reset account its "set your password" link (7 days) instead of relaying a temporary password. */

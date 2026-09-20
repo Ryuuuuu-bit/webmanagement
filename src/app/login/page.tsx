@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { startPasskeyLogin, finishPasskeyLogin } from "@/actions/passkeyLogin";
@@ -152,9 +151,7 @@ function LoginForm() {
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium">{dict.login.password}</label>
-              <Link href="/forgot-password" className="text-xs font-medium text-brand-ink hover:underline">
-                {dict.login.forgotLink}
-              </Link>
+              <span className="text-[11px] text-faint">{dict.login.forgotHint}</span>
             </div>
             <div className="relative">
               <input
