@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { requestLeave, decideLeave } from "@/actions/leave";
 import { RequestBadge } from "@/components/StatusBadge";
@@ -11,18 +10,18 @@ import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export default async function LeavePage() {
-  const session = await getServerSession(authOptions);
-  const canApprove = session!.user.role === "ADMIN";
+  const session = await requireUser();
+  const canApprove = session.user.role === "ADMIN";
   const locale = getLocale();
   const dict = getDictionary(locale);
 
   if (!canApprove) {
     const [mine, quotaStatus] = await Promise.all([
       prisma.leaveRequest.findMany({
-        where: { requesterId: session!.user.id },
+        where: { requesterId: session.user.id },
         orderBy: { createdAt: "desc" },
       }),
-      getLeaveQuotaStatusForUser(session!.user.id),
+      getLeaveQuotaStatusForUser(session.user.id),
     ]);
 
     return (

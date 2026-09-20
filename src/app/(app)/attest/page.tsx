@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { requestAttestation, decideAttestation } from "@/actions/attest";
 import { RequestBadge } from "@/components/StatusBadge";
@@ -22,14 +21,14 @@ function requestedTimeLabel(
 }
 
 export default async function AttestPage() {
-  const session = await getServerSession(authOptions);
-  const canApprove = session!.user.role === "ADMIN";
+  const session = await requireUser();
+  const canApprove = session.user.role === "ADMIN";
   const locale = getLocale();
   const dict = getDictionary(locale);
 
   if (!canApprove) {
     const mine = await prisma.timeAttestation.findMany({
-      where: { requesterId: session!.user.id },
+      where: { requesterId: session.user.id },
       orderBy: { createdAt: "desc" },
     });
 

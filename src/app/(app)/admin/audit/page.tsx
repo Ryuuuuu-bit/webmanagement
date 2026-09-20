@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { formatDate, formatTime } from "@/lib/date";
 import { getLocale } from "@/lib/i18n/locale";
@@ -16,8 +15,8 @@ type AuditRow = { id: string; at: Date; action: string; actorId: string | null; 
  * first. Read-only; the app never deletes audit rows.
  */
 export default async function AdminAuditPage() {
-  const session = await getServerSession(authOptions);
-  if (session!.user.role !== "ADMIN") redirect("/dashboard");
+  const session = await requireUser();
+  if (session.user.role !== "ADMIN") redirect("/dashboard");
   const locale = getLocale();
   const dict = getDictionary(locale);
 

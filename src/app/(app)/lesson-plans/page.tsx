@@ -1,15 +1,13 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { submitLessonPlan, reviewLessonPlan } from "@/actions/lessonPlans";
+import { reviewLessonPlan } from "@/actions/lessonPlans";
 import LessonPlanUploadForm from "@/components/LessonPlanUploadForm";
 import LessonPlanReviewRow from "@/components/LessonPlanReviewRow";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export default async function LessonPlansPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return null;
+  const session = await requireUser();
 
   const locale = getLocale();
   const dict = getDictionary(locale);
@@ -102,7 +100,6 @@ export default async function LessonPlansPage() {
                       }
                     : null
                 }
-                submitLessonPlan={submitLessonPlan}
               />
             );
           })}

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import UserManagement from "@/components/UserManagement";
 import { createUser, resetUserPassword, updateUserRole, updateUserSite, deleteUser, setUserActive, updateUsername } from "@/actions/users";
@@ -10,8 +9,8 @@ import { sendPasswordSetupEmail } from "@/actions/passwordReset";
 import { isEmailConfigured } from "@/lib/email";
 
 export default async function AdminUsersPage() {
-  const session = await getServerSession(authOptions);
-  if (session!.user.role !== "ADMIN") redirect("/dashboard");
+  const session = await requireUser();
+  if (session.user.role !== "ADMIN") redirect("/dashboard");
 
   const [users, departments, campusLocations] = await Promise.all([
     prisma.user.findMany({ include: { department: true, campusLocation: true }, orderBy: [{ isActive: "desc" }, { name: "asc" }] }),
@@ -36,7 +35,7 @@ export default async function AdminUsersPage() {
       }))}
       departments={departments}
       campusLocations={campusLocations}
-      currentUserId={session!.user.id}
+      currentUserId={session.user.id}
       createUser={createUser}
       resetUserPassword={resetUserPassword}
       updateUserRole={updateUserRole}

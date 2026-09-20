@@ -222,6 +222,12 @@ const th = {
       colCheckout: "ออก",
     },
   },
+  errorPage: {
+    title: "เกิดข้อผิดพลาด",
+    hint: "หน้านี้แสดงผลไม่ได้ชั่วคราว ลองใหม่อีกครั้ง หรือกลับไปหน้าเช็คอิน — ถ้ายังเกิดซ้ำ แจ้งผู้ดูแลระบบพร้อมรหัสอ้างอิงด้านล่าง",
+    retry: "ลองใหม่",
+    home: "กลับหน้าเช็คอิน",
+  },
   // Teams-style calendar toolbar (schedule page)
   calendar: {
     today: "วันนี้",
@@ -425,6 +431,7 @@ const th = {
     submitNew: "ส่งไฟล์ใหม่",
     submitFirst: "ส่งแผนการสอน",
     sending: "กำลังส่ง...",
+    uploadHint: "รองรับ PDF, Word, PowerPoint ขนาดไม่เกิน 8MB",
     approveAction: "อนุมัติ",
     requestChangesAction: "ให้แก้ไข",
     requestChangesPlaceholder: "ระบุสิ่งที่ต้องแก้ไข",
@@ -705,6 +712,7 @@ const th = {
       courseNotFound: "ไม่พบวิชา",
       pleaseSelectFile: "กรุณาเลือกไฟล์แผนการสอน",
       fileTooLarge: "ไฟล์ใหญ่เกินไป (จำกัดไม่เกิน 8MB)",
+      uploadInterrupted: "อัปโหลดไม่สำเร็จ — การเชื่อมต่อขาดระหว่างส่งไฟล์ กรุณาลองใหม่ (ถ้าใช้มือถือ ลองต่อ Wi-Fi หรือรอสัญญาณดีขึ้น)",
       unsupportedType: "รองรับเฉพาะไฟล์ PDF, Word หรือ PowerPoint เท่านั้น",
       notYourCourse: "คุณไม่มีตารางสอนวิชานี้",
       submitted: "ส่งแผนการสอนแล้ว รอ Admin ตรวจสอบ",
@@ -1012,6 +1020,12 @@ const en: typeof th = {
       colCheckout: "Check-out",
     },
   },
+  errorPage: {
+    title: "Something went wrong",
+    hint: "This page couldn't be shown right now. Try again or go back to check-in — if it keeps happening, tell your administrator and quote the reference below",
+    retry: "Try again",
+    home: "Back to check-in",
+  },
   calendar: {
     today: "Today",
     prev: "Previous",
@@ -1211,6 +1225,7 @@ const en: typeof th = {
     submitNew: "Submit New File",
     submitFirst: "Submit Lesson Plan",
     sending: "Sending...",
+    uploadHint: "PDF, Word or PowerPoint, up to 8MB",
     approveAction: "Approve",
     requestChangesAction: "Request Changes",
     requestChangesPlaceholder: "Describe what needs to change",
@@ -1488,6 +1503,7 @@ const en: typeof th = {
       courseNotFound: "Course not found",
       pleaseSelectFile: "Please select a lesson plan file",
       fileTooLarge: "File is too large (max 8MB)",
+      uploadInterrupted: "Upload failed — the connection dropped while sending the file. Please try again (on a phone, try Wi-Fi or a better signal)",
       unsupportedType: "Only PDF, Word, or PowerPoint files are supported",
       notYourCourse: "You're not scheduled to teach this course",
       submitted: "Lesson plan submitted — awaiting Admin review",

@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { AttendanceBadge } from "@/components/StatusBadge";
 import { formatTime, todayAtMidnight, toWeekdayIndex } from "@/lib/date";
@@ -7,22 +6,22 @@ import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary, type Dictionary } from "@/lib/i18n/dictionaries";
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
-  const isAdmin = session!.user.role === "ADMIN";
+  const session = await requireUser();
+  const isAdmin = session.user.role === "ADMIN";
   const date = todayAtMidnight();
   const locale = getLocale();
   const dict = getDictionary(locale);
 
   if (!isAdmin) {
     const [attendance, todaySchedule, pendingLeave, pendingAttest] = await Promise.all([
-      prisma.attendance.findUnique({ where: { userId_date: { userId: session!.user.id, date } } }),
+      prisma.attendance.findUnique({ where: { userId_date: { userId: session.user.id, date } } }),
       prisma.schedule.findMany({
-        where: { teacherId: session!.user.id, dayOfWeek: toWeekdayIndex(new Date()) },
+        where: { teacherId: session.user.id, dayOfWeek: toWeekdayIndex(new Date()) },
         include: { course: true, room: true },
         orderBy: { startTime: "asc" },
       }),
-      prisma.leaveRequest.count({ where: { requesterId: session!.user.id, status: "PENDING" } }),
-      prisma.timeAttestation.count({ where: { requesterId: session!.user.id, status: "PENDING" } }),
+      prisma.leaveRequest.count({ where: { requesterId: session.user.id, status: "PENDING" } }),
+      prisma.timeAttestation.count({ where: { requesterId: session.user.id, status: "PENDING" } }),
     ]);
 
     const d = dict.dashboard.member;

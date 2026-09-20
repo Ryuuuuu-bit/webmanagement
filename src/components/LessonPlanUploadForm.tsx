@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "./LanguageProvider";
 
 type Plan = {
@@ -11,30 +12,70 @@ type Plan = {
   submittedAt: string;
 } | null;
 
+const MAX_SIZE = 8 * 1024 * 1024;
+
+/**
+ * Uploads with a plain XMLHttpRequest to /api/lesson-plans/upload so a large
+ * file on a phone gets a progress bar and a readable error, never a
+ * full-page crash (see the route for why not a Server Action).
+ */
 export default function LessonPlanUploadForm({
   courseId,
   courseLabel,
   plan,
-  submitLessonPlan,
 }: {
   courseId: string;
   courseLabel: string;
   plan: Plan;
-  submitLessonPlan: (_prev: { ok: boolean; message: string } | null, formData: FormData) => Promise<{ ok: boolean; message: string }>;
 }) {
   const { dict, locale } = useLanguage();
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
-  const [pending, startTransition] = useTransition();
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    startTransition(async () => {
-      const res = await submitLessonPlan(null, formData);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const file = formData.get("file");
+    setResult(null);
+    if (!(file instanceof File) || file.size === 0) {
+      setResult({ ok: false, message: dict.actions.lessonPlans.pleaseSelectFile });
+      return;
+    }
+    if (file.size > MAX_SIZE) {
+      setResult({ ok: false, message: dict.actions.lessonPlans.fileTooLarge });
+      return;
+    }
+    setBusy(true);
+    setProgress(0);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/lesson-plans/upload");
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 100));
+    };
+    xhr.onload = () => {
+      setBusy(false);
+      let res: { ok: boolean; message: string } | null = null;
+      try {
+        res = JSON.parse(xhr.responseText);
+      } catch {
+        res = null;
+      }
+      if (!res) res = { ok: false, message: dict.actions.lessonPlans.uploadInterrupted };
       setResult(res);
-      if (res.ok) formRef.current?.reset();
-    });
+      if (res.ok) {
+        form.reset();
+        router.refresh();
+      }
+    };
+    xhr.onerror = () => {
+      setBusy(false);
+      setResult({ ok: false, message: dict.actions.lessonPlans.uploadInterrupted });
+    };
+    xhr.send(formData);
   }
 
   const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
@@ -54,7 +95,7 @@ export default function LessonPlanUploadForm({
 
       {plan && (
         <div className="mt-2 text-sm text-subtle">
-          <a href={`/api/lesson-plans/${plan.id}`} className="font-semibold text-brand-ink underline">
+          <a href={`/api/lesson-plans/${plan.id}`} className="break-all font-semibold text-brand-ink underline">
             {plan.fileName}
           </a>
           <span className="ml-2 text-faint">
@@ -68,12 +109,18 @@ export default function LessonPlanUploadForm({
 
       <form ref={formRef} onSubmit={onSubmit} className="mt-3 flex flex-wrap items-center gap-3">
         <input type="hidden" name="courseId" value={courseId} />
-        <input name="file" type="file" required accept=".pdf,.doc,.docx,.ppt,.pptx" className="text-sm" />
-        <button type="submit" disabled={pending} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
-          {pending ? dict.lessonPlans.sending : plan ? dict.lessonPlans.submitNew : dict.lessonPlans.submitFirst}
+        <input name="file" type="file" required accept=".pdf,.doc,.docx,.ppt,.pptx" disabled={busy} className="max-w-full text-sm" />
+        <button type="submit" disabled={busy} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
+          {busy ? `${dict.lessonPlans.sending} ${progress}%` : plan ? dict.lessonPlans.submitNew : dict.lessonPlans.submitFirst}
         </button>
+        {busy && (
+          <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-line-soft">
+            <div className="h-full bg-brand transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        )}
         {result && <span className={`text-xs ${result.ok ? "text-brand-ink" : "text-danger"}`}>{result.message}</span>}
       </form>
+      <p className="mt-1 text-[11px] text-faint">{dict.lessonPlans.uploadHint}</p>
     </div>
   );
 }

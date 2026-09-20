@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { AttendanceBadge } from "@/components/StatusBadge";
 import CheckinClient from "@/components/CheckinClient";
@@ -30,8 +29,8 @@ function SiteRow({ result, dict }: { result: ExpectedSiteResult; dict: Dictionar
 }
 
 export default async function CheckinPage() {
-  const session = await getServerSession(authOptions);
-  const isAdmin = session!.user.role === "ADMIN";
+  const session = await requireUser();
+  const isAdmin = session.user.role === "ADMIN";
   const date = todayAtMidnight();
   const locale = getLocale();
   const dict = getDictionary(locale);
@@ -39,9 +38,9 @@ export default async function CheckinPage() {
   if (!isAdmin) {
     const [attendance, site, credentials, policy] = await Promise.all([
       prisma.attendance.findUnique({
-        where: { userId_date: { userId: session!.user.id, date } },
+        where: { userId_date: { userId: session.user.id, date } },
       }),
-      getExpectedSite(session!.user.id),
+      getExpectedSite(session.user.id),
       listMyCredentials(),
       getCheckinPolicy(),
     ]);

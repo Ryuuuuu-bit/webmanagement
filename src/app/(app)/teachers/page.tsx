@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { AttendanceBadge } from "@/components/StatusBadge";
 import { todayAtMidnight } from "@/lib/date";
@@ -8,8 +7,8 @@ import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export default async function TeachersPage() {
-  const session = await getServerSession(authOptions);
-  if (session!.user.role !== "ADMIN") redirect("/dashboard");
+  const session = await requireUser();
+  if (session.user.role !== "ADMIN") redirect("/dashboard");
 
   const locale = getLocale();
   const dict = getDictionary(locale);
