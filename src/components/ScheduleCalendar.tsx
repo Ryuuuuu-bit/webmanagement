@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { formatDayTime } from "@/lib/date";
 import { useLanguage } from "./LanguageProvider";
 
-type Option = { id: string; name?: string; code?: string; building?: string };
+type Option = { id: string; name?: string; code?: string; building?: string; campusLocationId?: string | null; siteName?: string | null };
 type SemesterOption = { id: string; name: string; startDate: string; endDate: string };
 type ScheduleRow = {
   id: string;
@@ -620,10 +620,28 @@ export default function ScheduleCalendar({
                 </select>
               </Field>
               <Field label={dict.schedule.fieldRoom}>
-                <select name="roomId" required defaultValue="" className="input w-full">
-                  <option value="" disabled>{dict.schedule.selectRoom}</option>
-                  {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
+                {(() => {
+                  // Only rooms at this teacher's own site (plus rooms with no
+                  // site yet) — a class at another branch can't be attended,
+                  // and check-in there would fail anyway.
+                  const teacherSite = (isAdmin ? teachers?.find((t) => t.id === viewTeacherId) : teachers?.find((t) => t.id === selfTeacherId))?.campusLocationId ?? null;
+                  const visible = teacherSite ? rooms.filter((r) => !r.campusLocationId || r.campusLocationId === teacherSite) : rooms;
+                  const hidden = rooms.length - visible.length;
+                  return (
+                    <>
+                      <select name="roomId" required defaultValue="" className="input w-full">
+                        <option value="" disabled>{dict.schedule.selectRoom}</option>
+                        {visible.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}{r.building ? ` (${r.building})` : ""}{r.siteName ? ` · ${r.siteName}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      {hidden > 0 && <p className="mt-1 text-[11px] text-faint">{dict.schedule.roomsFilteredHint(hidden)}</p>}
+                      {visible.length === 0 && <p className="mt-1 text-[11px] text-danger">{dict.schedule.noRoomsAtSite}</p>}
+                    </>
+                  );
+                })()}
               </Field>
               <Field label={dict.schedule.fieldSemester}>
                 <select name="semesterId" required defaultValue={draft.semesterId} className="input w-full">

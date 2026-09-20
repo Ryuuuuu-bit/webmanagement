@@ -377,6 +377,8 @@ const th = {
     selectCourse: "เลือกวิชา",
     fieldRoom: "ห้อง",
     selectRoom: "เลือกห้อง",
+    roomsFilteredHint: (n: number) => `ซ่อนห้องของ site อื่น ${n} ห้อง — แสดงเฉพาะห้องใน site ประจำของอาจารย์ (และห้องที่ยังไม่กำหนด site)`,
+    noRoomsAtSite: "ยังไม่มีห้องใน site ประจำของอาจารย์คนนี้ — เพิ่มห้องหรือกำหนด site ให้ห้องในข้อมูลหลักก่อน",
     fieldSemester: "ภาคเรียน",
     selectSemester: "เลือกภาคเรียน",
     fieldDay: "วัน",
@@ -891,6 +893,7 @@ const th = {
       noteSaved: "บันทึกรายละเอียดแล้ว",
       deleteUnauthorized: "ไม่มีสิทธิ์ลบตารางสอนนี้",
       deleted: "ลบตารางสอนแล้ว",
+      roomOtherSite: (site: string) => `ห้องนี้อยู่ที่ site “${site}” ซึ่งไม่ใช่ site ประจำของอาจารย์ — เลือกห้องใน site เดียวกัน`,
     },
     attest: {
       invalidCheckinTime: "กรอกเวลาเช็คอินให้ถูกต้อง (HH:MM)",
@@ -1412,6 +1415,8 @@ const en: typeof th = {
     selectCourse: "Select a course",
     fieldRoom: "Room",
     selectRoom: "Select a room",
+    roomsFilteredHint: (n: number) => `${n} room${n === 1 ? "" : "s"} at other sites hidden — only rooms at the teacher's own site (and rooms with no site) are listed`,
+    noRoomsAtSite: "No rooms at this teacher's site yet — add one or assign a site to a room in Master Data first",
     fieldSemester: "Semester",
     selectSemester: "Select a semester",
     fieldDay: "Day",
@@ -1920,6 +1925,7 @@ const en: typeof th = {
       noteSaved: "Notes saved",
       deleteUnauthorized: "You don't have permission to delete this class",
       deleted: "Class deleted",
+      roomOtherSite: (site: string) => `This room is at site “${site}”, not the teacher's own site — pick a room at the same site`,
     },
     attest: {
       invalidCheckinTime: "Enter a valid check-in time (HH:MM)",

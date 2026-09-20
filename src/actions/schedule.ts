@@ -46,6 +46,17 @@ export async function createSchedule(formData: FormData) {
     return { ok: false, message: dict.actions.schedule.endBeforeStart };
   }
 
+  // A room at another site than the teacher's own can't be used (client
+  // request) — rooms with no site yet are allowed for everyone.
+  const [teacher, room] = await Promise.all([
+    prisma.user.findUnique({ where: { id: teacherId }, select: { campusLocationId: true } }),
+    prisma.room.findUnique({ where: { id: roomId }, select: { campusLocationId: true, campusLocation: { select: { name: true } } } }),
+  ]);
+  if (!teacher || !room) return { ok: false, message: dict.actions.schedule.notFound };
+  if (room.campusLocationId && teacher.campusLocationId && room.campusLocationId !== teacher.campusLocationId) {
+    return { ok: false, message: dict.actions.schedule.roomOtherSite(room.campusLocation?.name ?? "-") };
+  }
+
   // Two ranges [s1,e1) and [s2,e2) overlap iff s1 < e2 && s2 < e1 — "HH:MM"
   // strings compare correctly as plain strings since they're zero-padded.
   const sameDay = await prisma.schedule.findMany({
