@@ -198,9 +198,9 @@ export async function updateUserSite(
 }
 
 /**
- * Admin deletes a MEMBER account. Admins can never delete another admin
- * account (or their own) — only a MEMBER can be removed this way, which
- * avoids one admin locking another out or accidentally removing themselves.
+ * Admin deletes an account (never their own). Another ADMIN can be removed
+ * too — the seeded demo admins, a departed colleague — as long as the person
+ * doing it stays, so the system always keeps at least one admin.
  * Deleting a user also removes their schedules/attendance/leave-and-attest
  * requests (required relations that can't dangle); any requests they
  * *approved* as an admin have that reference cleared instead of being deleted.
@@ -215,9 +215,8 @@ export async function deleteUser(userId: string): Promise<{ ok: boolean; message
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { ok: false, message: dict.actions.users.notFound };
-  if (user.role === "ADMIN") {
-    return { ok: false, message: dict.actions.users.cannotDeleteAdmin };
-  }
+  // Another ADMIN may be removed: the admin doing it can't delete themselves
+  // (checked above), so at least one admin always remains.
 
   await prisma.$transaction([
     prisma.schedule.deleteMany({ where: { teacherId: userId } }),
@@ -226,6 +225,9 @@ export async function deleteUser(userId: string): Promise<{ ok: boolean; message
     prisma.leaveRequest.deleteMany({ where: { requesterId: userId } }),
     prisma.timeAttestation.updateMany({ where: { approverId: userId }, data: { approverId: null } }),
     prisma.timeAttestation.deleteMany({ where: { requesterId: userId } }),
+    prisma.lessonPlan.updateMany({ where: { reviewerId: userId }, data: { reviewerId: null } }),
+    prisma.lessonPlan.deleteMany({ where: { teacherId: userId } }),
+    prisma.selfie.deleteMany({ where: { userId } }),
     prisma.user.delete({ where: { id: userId } }),
   ]);
   await logAudit({ action: "USER_DELETED", actorId: session.user.id, targetUserId: userId, ip: getClientIp(), detail: `${user.name} <${user.email}>` });

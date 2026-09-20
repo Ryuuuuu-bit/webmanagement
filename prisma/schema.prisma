@@ -434,6 +434,7 @@ model AppSetting {
   // One-off maintenance scripts record the token they ran with here so a
   // container restart never re-runs them (see scripts/).
   seedToken               String?
+  maintenanceToken        String?
   updatedAt               DateTime @updatedAt
 }
 

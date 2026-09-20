@@ -392,7 +392,7 @@ export default function UserManagement({
                       {u.isActive ? dict.users.suspendButton : dict.users.reactivateButton}
                     </button>
                   )}
-                  {u.role !== "ADMIN" && u.id !== currentUserId && (
+                  {u.id !== currentUserId && (
                     <button
                       disabled={pending}
                       onClick={() => onDelete(u.id, u.name)}
