@@ -28,6 +28,8 @@ const th = {
   day: {
     full: ["วันจันทร์", "วันอังคาร", "วันพุธ", "วันพฤหัสบดี", "วันศุกร์", "วันเสาร์", "วันอาทิตย์"],
     short: ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"],
+    // Single-letter headers for the mini month picker in the calendar.
+    mini: ["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"],
   },
   appName: "TeachSchedule",
   appTagline: "ระบบตารางสอนอาจารย์",
@@ -109,6 +111,18 @@ const th = {
       colCheckin: "เข้า",
       colCheckout: "ออก",
     },
+  },
+  // Teams-style calendar toolbar (schedule page)
+  calendar: {
+    today: "วันนี้",
+    prev: "ก่อนหน้า",
+    next: "ถัดไป",
+    prevMonth: "เดือนก่อนหน้า",
+    nextMonth: "เดือนถัดไป",
+    week: "สัปดาห์",
+    workWeek: "วันทำงาน",
+    day: "วัน",
+    noSemesterInRange: "ไม่มีภาคเรียนที่ครอบคลุมช่วงวันที่นี้ — ตารางสอนจะไม่แสดง",
   },
   schedule: {
     myScheduleLabel: "ตารางสอนของฉัน",
@@ -543,6 +557,7 @@ const en: typeof th = {
   day: {
     full: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
     short: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    mini: ["M", "T", "W", "T", "F", "S", "S"],
   },
   appName: "TeachSchedule",
   appTagline: "Faculty Schedule System",
@@ -624,6 +639,17 @@ const en: typeof th = {
       colCheckin: "Check-in",
       colCheckout: "Check-out",
     },
+  },
+  calendar: {
+    today: "Today",
+    prev: "Previous",
+    next: "Next",
+    prevMonth: "Previous month",
+    nextMonth: "Next month",
+    week: "Week",
+    workWeek: "Work week",
+    day: "Day",
+    noSemesterInRange: "No semester covers these dates — classes won't show here",
   },
   schedule: {
     myScheduleLabel: "My Schedule",

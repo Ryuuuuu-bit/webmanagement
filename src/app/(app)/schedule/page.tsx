@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createSchedule, deleteSchedule, updateScheduleNote } from "@/actions/schedule";
-import { getCurrentWeekDates, toWeekdayIndex } from "@/lib/date";
 import ScheduleCalendar from "@/components/ScheduleCalendar";
 
 export default async function SchedulePage() {
@@ -19,12 +18,13 @@ export default async function SchedulePage() {
     isAdmin ? prisma.user.findMany({ where: { role: "MEMBER" }, orderBy: { name: "asc" } }) : Promise.resolve([]),
     prisma.course.findMany(),
     prisma.room.findMany(),
-    prisma.semester.findMany(),
+    prisma.semester.findMany({ orderBy: { startDate: "desc" } }),
   ]);
 
-  const weekDayNumbers = getCurrentWeekDates().map((d) => d.getDate());
-  const todayIndex = toWeekdayIndex(new Date());
-
+  // Week navigation, today/now highlighting and view switching all happen
+  // client-side (browser local time, like Teams) — the server just supplies
+  // the semester date ranges so the calendar can show each class only on
+  // dates inside its semester.
   return (
     <div className="flex flex-col gap-6">
       <ScheduleCalendar
@@ -45,9 +45,12 @@ export default async function SchedulePage() {
         selfTeacherId={isAdmin ? undefined : session!.user.id}
         courses={courses}
         rooms={rooms}
-        semesters={semesters}
-        weekDayNumbers={weekDayNumbers}
-        todayIndex={todayIndex}
+        semesters={semesters.map((s) => ({
+          id: s.id,
+          name: s.name,
+          startDate: s.startDate.toISOString(),
+          endDate: s.endDate.toISOString(),
+        }))}
         currentUserId={session!.user.id}
         isAdmin={isAdmin}
         createSchedule={createSchedule}
