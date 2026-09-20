@@ -8,6 +8,7 @@ import type { EnrollmentLink } from "@/actions/enrollment";
 type UserRow = {
   id: string;
   name: string;
+  username: string | null;
   email: string;
   role: string;
   department?: { name: string } | null;
@@ -34,6 +35,9 @@ export default function UserManagement({
   clearWebauthnCredentials,
   setUserActive,
   createEnrollmentLink,
+  updateUsername,
+  sendPasswordSetupEmail,
+  emailConfigured,
 }: {
   users: UserRow[];
   departments: Dept[];
@@ -47,6 +51,10 @@ export default function UserManagement({
   clearWebauthnCredentials: (userId: string) => Promise<{ ok: boolean; message: string }>;
   setUserActive: (userId: string, active: boolean) => Promise<{ ok: boolean; message: string }>;
   createEnrollmentLink: (userId: string) => Promise<{ ok: true; link: EnrollmentLink; message: string } | { ok: false; message: string }>;
+  updateUsername: (userId: string, username: string) => Promise<{ ok: boolean; message: string }>;
+  sendPasswordSetupEmail: (userId: string) => Promise<{ ok: boolean; message: string }>;
+  /** Whether RESEND_API_KEY is set on the server — controls the "email setup link" button. */
+  emailConfigured: boolean;
 }) {
   const { dict, locale } = useLanguage();
   const formRef = useRef<HTMLFormElement>(null);
@@ -61,6 +69,9 @@ export default function UserManagement({
   const [enrollment, setEnrollment] = useState<{ userName: string; link: EnrollmentLink } | null>(null);
   const [enrollError, setEnrollError] = useState<{ userId: string; message: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [usernameEdit, setUsernameEdit] = useState<{ userId: string; value: string } | null>(null);
+  const [usernameResult, setUsernameResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
+  const [emailResult, setEmailResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
 
   function onCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -151,6 +162,25 @@ export default function UserManagement({
     }
   }
 
+  function onSaveUsername() {
+    if (!usernameEdit) return;
+    const { userId, value } = usernameEdit;
+    startTransition(async () => {
+      const res = await updateUsername(userId, value);
+      setUsernameResult({ userId, ...res });
+      if (res.ok) setUsernameEdit(null);
+    });
+  }
+
+  function onSendSetupEmail(u: UserRow) {
+    if (!confirm(dict.users.sendSetupEmailConfirm(u.name, u.email))) return;
+    setCreateResult(null);
+    startTransition(async () => {
+      const res = await sendPasswordSetupEmail(u.id);
+      setEmailResult({ userId: u.id, ...res });
+    });
+  }
+
   function statusBadge(u: UserRow) {
     if (!u.isActive) return <span className="badge bg-danger-soft text-danger">{dict.users.statusSuspended}</span>;
     if (u.mustChangePassword) {
@@ -178,8 +208,18 @@ export default function UserManagement({
           {dict.users.addHint}
         </p>
         <form ref={formRef} onSubmit={onCreate} className="mt-4 flex flex-col gap-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
             <input name="name" required placeholder={dict.users.namePlaceholder} className="input" />
+            <input
+              name="username"
+              required
+              autoCapitalize="none"
+              spellCheck={false}
+              pattern="[A-Za-z0-9._-]{3,32}"
+              title={dict.users.usernameRule}
+              placeholder={dict.users.usernamePlaceholder}
+              className="input"
+            />
             <input name="email" type="email" required placeholder={dict.users.emailPlaceholder} className="input" />
             <select name="departmentId" className="input" defaultValue="">
               <option value="">{dict.users.departmentUnset}</option>
@@ -209,7 +249,10 @@ export default function UserManagement({
           <div className={`mt-4 rounded-lg p-4 text-sm ${createResult.ok ? "bg-ok-soft text-ok" : "bg-danger-soft text-danger"}`}>
             <p>{createResult.message}</p>
             {createResult.tempPassword && (
-              <p className="mt-2 font-mono text-base font-bold tracking-wide">{createResult.tempPassword}</p>
+              <>
+                <p className="mt-2 font-mono text-base font-bold tracking-wide">{createResult.tempPassword}</p>
+                <p className="mt-2 text-xs opacity-80">{emailConfigured ? dict.users.createdEmailHint : dict.users.createdNoEmailHint}</p>
+              </>
             )}
           </div>
         )}
@@ -222,6 +265,7 @@ export default function UserManagement({
             <thead>
               <tr className="text-left text-xs uppercase text-faint">
                 <th className="pb-2">{dict.users.colName}</th>
+                <th className="pb-2">{dict.users.colUsername}</th>
                 <th className="pb-2">{dict.users.colEmail}</th>
                 <th className="pb-2">{dict.users.colDepartment}</th>
                 <th className="pb-2">{dict.users.colSite}</th>
@@ -235,6 +279,41 @@ export default function UserManagement({
               {users.map((u) => (
                 <tr key={u.id} className={`border-t border-line-soft align-top ${u.isActive ? "" : "opacity-60"}`}>
                   <td className="py-2 font-medium">{u.name}</td>
+                  <td className="py-2">
+                    {usernameEdit?.userId === u.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          value={usernameEdit.value}
+                          onChange={(e) => setUsernameEdit({ userId: u.id, value: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") onSaveUsername();
+                            if (e.key === "Escape") setUsernameEdit(null);
+                          }}
+                          autoFocus
+                          autoCapitalize="none"
+                          spellCheck={false}
+                          className="input w-36 px-2 py-1 text-xs"
+                        />
+                        <button disabled={pending} onClick={onSaveUsername} className="rounded bg-brand px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-40">
+                          {dict.common.save}
+                        </button>
+                        <button onClick={() => setUsernameEdit(null)} className="px-1 text-[11px] text-muted">
+                          {dict.common.cancel}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setUsernameEdit({ userId: u.id, value: u.username ?? "" })}
+                        title={dict.common.edit}
+                        className="font-mono text-xs text-ink underline decoration-dotted underline-offset-2 hover:text-brand-ink"
+                      >
+                        {u.username ?? <span className="text-danger">{dict.users.usernameMissing}</span>}
+                      </button>
+                    )}
+                    {usernameResult?.userId === u.id && (
+                      <div className={`mt-1 text-xs ${usernameResult.ok ? "text-ok" : "text-danger"}`}>{usernameResult.message}</div>
+                    )}
+                  </td>
                   <td className="py-2 text-muted">{u.email}</td>
                   <td className="py-2">{u.department?.name ?? "—"}</td>
                   <td className="py-2">
@@ -289,6 +368,15 @@ export default function UserManagement({
                       >
                         {dict.users.enrollmentButton}
                       </button>
+                      {emailConfigured && (
+                        <button
+                          disabled={pending || !u.isActive}
+                          onClick={() => onSendSetupEmail(u)}
+                          className="text-xs font-semibold text-brand-ink underline disabled:opacity-40"
+                        >
+                          {dict.users.sendSetupEmailButton}
+                        </button>
+                      )}
                       <button
                         disabled={pending}
                         onClick={() => onClearWebauthn(u.id, u.name)}
@@ -333,6 +421,9 @@ export default function UserManagement({
                       <div className={`mt-1 text-xs ${activeResult.ok ? "text-ok" : "text-danger"}`}>{activeResult.message}</div>
                     )}
                     {enrollError?.userId === u.id && <div className="mt-1 text-xs text-danger">{enrollError.message}</div>}
+                    {emailResult?.userId === u.id && (
+                      <div className={`mt-1 text-xs ${emailResult.ok ? "text-ok" : "text-danger"}`}>{emailResult.message}</div>
+                    )}
                   </td>
                 </tr>
               ))}

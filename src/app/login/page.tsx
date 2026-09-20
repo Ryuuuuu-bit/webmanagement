@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { startPasskeyLogin, finishPasskeyLogin } from "@/actions/passkeyLogin";
@@ -19,7 +20,7 @@ function LoginForm() {
   const router = useRouter();
   const search = useSearchParams();
   const { dict } = useLanguage();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +51,7 @@ function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const res = await signIn("credentials", { email, password, redirect: false });
+    const res = await signIn("credentials", { identifier, password, redirect: false });
     setLoading(false);
     if (res?.error) {
       setError(describeError(res.error));
@@ -133,19 +134,26 @@ function LoginForm() {
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">{dict.login.email}</label>
+            <label className="text-sm font-medium">{dict.login.identifier}</label>
             <input
-              type="email"
+              type="text"
               required
               autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoCapitalize="none"
+              spellCheck={false}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className="input"
-              placeholder="name@university.ac.th"
+              placeholder={dict.login.identifierPlaceholder}
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">{dict.login.password}</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">{dict.login.password}</label>
+              <Link href="/forgot-password" className="text-xs font-medium text-brand-ink hover:underline">
+                {dict.login.forgotLink}
+              </Link>
+            </div>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}

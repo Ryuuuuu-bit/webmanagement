@@ -63,6 +63,13 @@ model Department {
 model User {
   id            String    @id @default(cuid())
   name          String
+  // Sign-in name (client request: teachers log in with a username, not
+  // their email). Admin sets it when creating the account; the login page
+  // also accepts the email. Stored lowercase. Nullable only so existing
+  // rows can be backfilled from the email's local part on first deploy
+  // (scripts/backfill-usernames.mjs, run from the start script).
+  username      String?   @unique
+  // Kept as the recovery channel: "forgot password" emails go here.
   email         String    @unique
   passwordHash  String
   role          Role      @default(MEMBER)
@@ -108,6 +115,24 @@ model User {
   webauthnCredentials WebauthnCredential[]
   enrollmentTokens    EnrollmentToken[]
   loginTickets        LoginTicket[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+// "Forgot password" / "set your password" email link. Single-use,
+// hash-only storage; 30 minutes for a self-service reset, 7 days when
+// Admin sends a new account its setup link. Redeeming it sets a new
+// password and bumps tokenVersion (kicks every other session).
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  purpose   String // "reset" | "setup"
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // Brute-force protection state, persisted so it survives container

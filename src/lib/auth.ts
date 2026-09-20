@@ -42,30 +42,34 @@ export const authOptions: AuthOptions = {
       id: "credentials",
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        // Username (client request) — an email is accepted too, so nobody
+        // who learned the old way is locked out.
+        identifier: { label: "Username or email", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, req): Promise<SessionUser | null> {
-        if (!credentials?.email || !credentials?.password) return null;
-        const email = credentials.email.trim().toLowerCase();
+        if (!credentials?.identifier || !credentials?.password) return null;
+        const identifier = credentials.identifier.trim().toLowerCase();
         const ip = getClientIp(req?.headers as Record<string, string | undefined> | undefined);
 
-        const lockedMinutes = await getLockRemainingMinutes(email, ip);
+        const lockedMinutes = await getLockRemainingMinutes(identifier, ip);
         if (lockedMinutes > 0) {
-          await logAudit({ action: "LOGIN_LOCKED", ip, detail: email });
+          await logAudit({ action: "LOGIN_LOCKED", ip, detail: identifier });
           throw new Error(`${AUTH_ERRORS.tooManyAttempts}:${lockedMinutes}`);
         }
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findFirst({
+          where: identifier.includes("@") ? { email: identifier } : { username: identifier },
+        });
         if (!user) {
-          await recordLoginFailure(email, ip);
-          await logAudit({ action: "LOGIN_FAILED", ip, detail: `${email} (no such account)` });
+          await recordLoginFailure(identifier, ip);
+          await logAudit({ action: "LOGIN_FAILED", ip, detail: `${identifier} (no such account)` });
           return null;
         }
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) {
-          await recordLoginFailure(email, ip);
-          await logAudit({ action: "LOGIN_FAILED", targetUserId: user.id, ip, detail: email });
+          await recordLoginFailure(identifier, ip);
+          await logAudit({ action: "LOGIN_FAILED", targetUserId: user.id, ip, detail: identifier });
           return null;
         }
         // Password is right — now the account-state checks. These are
@@ -81,7 +85,7 @@ export const authOptions: AuthOptions = {
         }
 
         await Promise.all([
-          recordLoginSuccess(email, ip),
+          recordLoginSuccess(identifier, ip),
           markLoggedIn(user.id),
           logAudit({ action: "LOGIN_SUCCESS", actorId: user.id, targetUserId: user.id, ip }),
         ]);

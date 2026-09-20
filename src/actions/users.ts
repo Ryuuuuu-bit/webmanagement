@@ -10,7 +10,7 @@ import { Role } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { logAudit } from "@/lib/audit";
-import { checkPasswordPolicy, getClientIp } from "@/lib/security";
+import { checkPasswordPolicy, getClientIp, normalizeUsername, USERNAME_RE } from "@/lib/security";
 
 // A temporary password (account created / reset by Admin) is only good for
 // this long; after that the login page tells the person to ask Admin for a
@@ -50,13 +50,17 @@ export async function createUser(
   const dict = getDictionary(getLocale());
 
   const name = (formData.get("name") as string || "").trim();
+  const username = normalizeUsername((formData.get("username") as string) || "");
   const email = (formData.get("email") as string || "").trim().toLowerCase();
   const role = (formData.get("role") as string || "MEMBER") as Role;
   const departmentId = (formData.get("departmentId") as string) || null;
   const campusLocationId = (formData.get("campusLocationId") as string) || null;
 
-  if (!name || !email) {
+  if (!name || !email || !username) {
     return { ok: false, message: dict.actions.users.fillRequired };
+  }
+  if (!USERNAME_RE.test(username)) {
+    return { ok: false, message: dict.actions.users.invalidUsername };
   }
   if (!/^\S+@\S+\.\S+$/.test(email)) {
     return { ok: false, message: dict.actions.users.invalidEmail };
@@ -69,6 +73,10 @@ export async function createUser(
   if (existing) {
     return { ok: false, message: dict.actions.users.emailExists };
   }
+  const usernameTaken = await prisma.user.findUnique({ where: { username } });
+  if (usernameTaken) {
+    return { ok: false, message: dict.actions.users.usernameExists };
+  }
 
   const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 10);
@@ -76,6 +84,7 @@ export async function createUser(
   const created = await prisma.user.create({
     data: {
       name,
+      username,
       email,
       passwordHash,
       role,
@@ -256,7 +265,7 @@ export async function changeOwnPassword(
     }
   }
 
-  const problem = checkPasswordPolicy(newPassword, user.email);
+  const problem = checkPasswordPolicy(newPassword, user.email, user.username);
   if (problem === "too_short") return { ok: false, message: dict.actions.users.passwordTooShort };
   if (problem === "too_long") return { ok: false, message: dict.actions.users.passwordTooLong };
   if (problem === "too_common") return { ok: false, message: dict.actions.users.passwordTooCommon };
@@ -276,6 +285,26 @@ export async function changeOwnPassword(
   await logAudit({ action: "PASSWORD_CHANGED", actorId: user.id, targetUserId: user.id, ip: getClientIp() });
 
   return { ok: true, message: dict.actions.users.passwordChanged };
+}
+
+/** Admin changes a user's sign-in name (e.g. a typo, or a new staff-ID scheme). Sessions keep working — it's not a credential change. */
+export async function updateUsername(userId: string, raw: string): Promise<{ ok: boolean; message: string }> {
+  const session = await requireAdmin();
+  const dict = getDictionary(getLocale());
+  const username = normalizeUsername(raw);
+  if (!USERNAME_RE.test(username)) return { ok: false, message: dict.actions.users.invalidUsername };
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return { ok: false, message: dict.actions.users.notFound };
+  if (user.username === username) return { ok: true, message: dict.actions.users.usernameChanged(user.name, username) };
+
+  const taken = await prisma.user.findUnique({ where: { username } });
+  if (taken) return { ok: false, message: dict.actions.users.usernameExists };
+
+  await prisma.user.update({ where: { id: userId }, data: { username } });
+  await logAudit({ action: "USERNAME_CHANGED", actorId: session.user.id, targetUserId: userId, ip: getClientIp(), detail: `${user.username ?? "—"} → ${username}` });
+  revalidatePath("/admin/users");
+  return { ok: true, message: dict.actions.users.usernameChanged(user.name, username) };
 }
 
 /** Self-service "sign out everywhere": invalidates every session for this account, including this one. */

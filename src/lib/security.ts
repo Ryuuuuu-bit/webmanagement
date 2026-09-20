@@ -137,7 +137,7 @@ const COMMON_PASSWORDS = new Set([
 export type PasswordProblem = "too_short" | "too_long" | "too_common" | "contains_email";
 
 /** Returns the first policy problem, or null if the password is acceptable. */
-export function checkPasswordPolicy(password: string, email?: string | null): PasswordProblem | null {
+export function checkPasswordPolicy(password: string, email?: string | null, username?: string | null): PasswordProblem | null {
   if (password.length < 8) return "too_short";
   // bcrypt only looks at the first 72 bytes — refuse anything longer so a
   // user isn't fooled into thinking the tail of a long passphrase counts.
@@ -148,5 +148,16 @@ export function checkPasswordPolicy(password: string, email?: string | null): Pa
   if (/^(?:0123456789|1234567890|abcdefghijklmnopqrstuvwxyz)/.test(lower) && lower.length <= 10) return "too_common";
   const local = email?.split("@")[0]?.toLowerCase();
   if (local && local.length >= 4 && lower.includes(local)) return "contains_email";
+  const uname = username?.toLowerCase();
+  if (uname && uname.length >= 4 && lower.includes(uname)) return "contains_email";
   return null;
+}
+
+// Sign-in names: 3–32 chars of a-z 0-9 . _ - (lowercased before storing).
+// Anything with "@" is treated as an email by the login page, so usernames
+// can never contain one.
+export const USERNAME_RE = /^[a-z0-9._-]{3,32}$/;
+
+export function normalizeUsername(raw: string) {
+  return raw.trim().toLowerCase();
 }
