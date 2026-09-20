@@ -95,6 +95,7 @@ model User {
   decidedAttests     TimeAttestation[]    @relation("AttestApprover")
   lessonPlans        LessonPlan[]         @relation("LessonPlanTeacher")
   reviewedLessonPlans LessonPlan[]        @relation("LessonPlanReviewer")
+  webauthnCredentials WebauthnCredential[]
 }
 
 model Course {
@@ -242,4 +243,50 @@ model LessonPlan {
   decidedAt   DateTime?
 
   @@unique([teacherId, courseId])
+}
+
+// Anti "buddy punching" (ฝากเช็คอิน/เช็คเอาต์แทนกัน): each teacher can
+// register their own device's fingerprint/Face ID (via the WebAuthn
+// "platform authenticator") as a passkey tied to their account. Check-in
+// and check-out (src/actions/attendance.ts) require a fresh WebAuthn
+// assertion — or, as a fallback for a device that doesn't support platform
+// biometrics, the account password — proving the person physically present
+// with the phone is the account owner, not just someone who is logged in
+// on it. A teacher can register more than one device (e.g. phone + backup).
+model WebauthnCredential {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Base64url credential ID from the authenticator — how we look up which
+  // stored credential a given assertion claims to be from.
+  credentialId String    @unique
+  publicKey    Bytes
+  // Signature counter reported by the authenticator; bumped on every
+  // successful use and checked to detect a cloned/replayed credential.
+  counter      Int       @default(0)
+  deviceType   String // "singleDevice" | "multiDevice" (per @simplewebauthn)
+  backedUp     Boolean   @default(false)
+  transports   String? // comma-separated (e.g. "internal,hybrid")
+  // Optional teacher-chosen label so they can tell devices apart in the
+  // "manage devices" list (e.g. "มือถือเครื่องหลัก").
+  label        String?
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  @@index([userId])
+}
+
+// Short-lived WebAuthn challenge, issued when starting a registration or
+// verification ceremony and consumed (deleted) the moment it's checked —
+// so each challenge can only ever be used once, and a stale one can't be
+// replayed. One row per user at a time is enough since a person can only
+// be completing one such prompt at once.
+model WebauthnChallenge {
+  id        String   @id @default(cuid())
+  userId    String
+  challenge String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
 }

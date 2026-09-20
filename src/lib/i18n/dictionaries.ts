@@ -150,6 +150,29 @@ const th = {
     helpText: "ต้องอยู่ในรัศมีของ site ที่คุณประจำอยู่ถึงจะเช็คอิน/เช็คเอาต์ได้ ระบบจะขอสิทธิ์เข้าถึงตำแหน่งของคุณ",
     geoUnsupported: "อุปกรณ์นี้ไม่รองรับการอ่านตำแหน่ง GPS",
     geoError: "ไม่สามารถอ่านตำแหน่งได้ — กรุณาอนุญาตการเข้าถึงตำแหน่งในเบราว์เซอร์",
+    // Anti "buddy punching" — device biometric (fingerprint/Face ID) setup
+    // and the password-fallback prompt shown at check-in/out time.
+    deviceSectionTitle: "อุปกรณ์สำหรับยืนยันตัวตน",
+    deviceSectionHint:
+      "ลงทะเบียนลายนิ้วมือ/Face ID ของเครื่องนี้ เพื่อใช้ยืนยันตัวตนตอนเช็คอิน/เช็คเอาต์แทนการกรอกรหัสผ่าน ช่วยป้องกันการฝากเช็คอิน-เช็คเอาต์แทนกัน",
+    addDeviceButton: "+ เพิ่มอุปกรณ์นี้",
+    addingDevice: "กำลังลงทะเบียน...",
+    deviceLabelPlaceholder: "ชื่ออุปกรณ์ (ไม่บังคับ) เช่น มือถือของฉัน",
+    noDevices: "ยังไม่ได้ลงทะเบียนอุปกรณ์ใด — เช็คอิน/เช็คเอาต์จะใช้รหัสผ่านยืนยันแทน",
+    unnamedDevice: "(ไม่ระบุชื่อ)",
+    deviceLastUsed: (date: string) => `ใช้ล่าสุด ${date}`,
+    deviceNeverUsed: "ยังไม่เคยใช้ยืนยันตัวตน",
+    removeDevice: "ลบ",
+    removeDeviceConfirm: (label: string) =>
+      `ลบอุปกรณ์ "${label}" ใช่หรือไม่? เช็คอิน/เช็คเอาต์ครั้งถัดไปจากอุปกรณ์นี้จะต้องกรอกรหัสผ่านแทน`,
+    webauthnUnsupported: "เบราว์เซอร์/อุปกรณ์นี้ไม่รองรับการยืนยันด้วยลายนิ้วมือ/Face ID",
+    verifyingIdentity: "กำลังยืนยันตัวตน...",
+    passwordPromptTitle: "ยืนยันตัวตนด้วยรหัสผ่าน",
+    passwordPromptHint:
+      "อุปกรณ์นี้ยังไม่ได้ตั้งค่ายืนยันด้วยลายนิ้วมือ/Face ID — กรอกรหัสผ่านของคุณเพื่อยืนยันตัวตนก่อนเช็คอิน/เช็คเอาต์",
+    passwordFieldPlaceholder: "รหัสผ่าน",
+    confirmButton: "ยืนยัน",
+    cancelButton: "ยกเลิก",
   },
   attest: {
     requestTitle: "ขอรับรองเวลา",
@@ -301,6 +324,9 @@ const th = {
     passwordNormal: "ใช้งานปกติ",
     resetPassword: "รีเซ็ตรหัสผ่าน",
     deleteAccount: "ลบบัญชี",
+    clearWebauthnButton: "ล้างอุปกรณ์ยืนยันตัวตน",
+    clearWebauthnConfirm: (name: string) =>
+      `ล้างอุปกรณ์ยืนยันตัวตน (ลายนิ้วมือ/Face ID) ทั้งหมดของ ${name}? คนนี้จะต้องกรอกรหัสผ่านแทนจนกว่าจะลงทะเบียนอุปกรณ์ใหม่`,
     resetConfirm: (name: string) => `รีเซ็ตรหัสผ่านของ ${name} ใช่ไหม? รหัสผ่านเดิมจะใช้ไม่ได้ทันที`,
     roleChangeConfirm: (name: string, role: string) => `เปลี่ยนบทบาทของ ${name} เป็น ${role} ใช่ไหม?`,
     deleteConfirm: (name: string) =>
@@ -374,6 +400,7 @@ const th = {
       submitted: "ส่งคำขอรับรองเวลาแล้ว",
     },
     checkin: {
+      identityFailed: "ยืนยันตัวตนไม่สำเร็จ — กรุณาลองใหม่อีกครั้ง",
       noSiteAssigned: "คุณยังไม่ได้รับมอบหมาย site ประจำ — ติดต่อผู้ดูแลระบบให้กำหนด site ให้คุณก่อนจึงจะเช็คอิน/เช็คเอาต์ได้",
       wrongSiteIn: (siteName: string) => `เช็คอินไม่สำเร็จ — คุณประจำอยู่ที่ site "${siteName}"`,
       wrongSiteOut: (siteName: string) => `เช็คเอาต์ไม่สำเร็จ — คุณประจำอยู่ที่ site "${siteName}"`,
@@ -382,6 +409,14 @@ const th = {
       notCheckedInYet: "ยังไม่ได้เช็คอินวันนี้",
       alreadyCheckedOut: "เช็คเอาต์ไปแล้ววันนี้",
       outSuccess: "เช็คเอาต์สำเร็จ",
+    },
+    webauthn: {
+      challengeExpired: "หมดเวลายืนยันตัวตน กรุณาลองใหม่อีกครั้ง",
+      verifyFailed: "ยืนยันไม่สำเร็จ — อุปกรณ์นี้อาจยังไม่ได้ลงทะเบียน หรือลายนิ้วมือ/Face ID ไม่ตรงกับที่ลงทะเบียนไว้",
+      registered: "ลงทะเบียนอุปกรณ์นี้สำหรับยืนยันตัวตนเรียบร้อยแล้ว",
+      deviceRemoved: "ลบอุปกรณ์เรียบร้อยแล้ว",
+      adminCleared: (name: string) =>
+        `ล้างอุปกรณ์ยืนยันตัวตนทั้งหมดของ ${name} แล้ว — คนนี้ต้องกรอกรหัสผ่านยืนยันจนกว่าจะลงทะเบียนอุปกรณ์ใหม่`,
     },
     lessonPlans: {
       courseNotFound: "ไม่พบวิชา",
@@ -605,6 +640,27 @@ const en: typeof th = {
     helpText: "You must be within the radius of the site you're stationed at to check in/out. The app will ask for your location.",
     geoUnsupported: "This device doesn't support GPS location",
     geoError: "Couldn't read your location — please allow location access in your browser",
+    deviceSectionTitle: "Identity Verification Devices",
+    deviceSectionHint:
+      "Register this device's fingerprint/Face ID to verify your identity at check-in/out instead of typing your password — helps prevent buddy check-ins.",
+    addDeviceButton: "+ Add This Device",
+    addingDevice: "Registering...",
+    deviceLabelPlaceholder: "Device name (optional), e.g. My phone",
+    noDevices: "No devices registered yet — check-in/out will ask for your password instead",
+    unnamedDevice: "(unnamed)",
+    deviceLastUsed: (date: string) => `Last used ${date}`,
+    deviceNeverUsed: "Never used for verification",
+    removeDevice: "Remove",
+    removeDeviceConfirm: (label: string) =>
+      `Remove device "${label}"? The next check-in/out from this device will ask for your password instead.`,
+    webauthnUnsupported: "This browser/device doesn't support fingerprint/Face ID verification",
+    verifyingIdentity: "Verifying your identity...",
+    passwordPromptTitle: "Verify With Password",
+    passwordPromptHint:
+      "This device hasn't been set up for fingerprint/Face ID verification — enter your password to verify your identity before checking in/out.",
+    passwordFieldPlaceholder: "Password",
+    confirmButton: "Confirm",
+    cancelButton: "Cancel",
   },
   attest: {
     requestTitle: "Request Time Attestation",
@@ -756,6 +812,9 @@ const en: typeof th = {
     passwordNormal: "Active",
     resetPassword: "Reset Password",
     deleteAccount: "Delete Account",
+    clearWebauthnButton: "Clear Verification Devices",
+    clearWebauthnConfirm: (name: string) =>
+      `Clear all of ${name}'s registered identity verification devices (fingerprint/Face ID)? They'll have to use their password instead until they register a new device.`,
     resetConfirm: (name: string) => `Reset ${name}'s password? Their current password will stop working immediately.`,
     roleChangeConfirm: (name: string, role: string) => `Change ${name}'s role to ${role}?`,
     deleteConfirm: (name: string) =>
@@ -826,6 +885,7 @@ const en: typeof th = {
       submitted: "Attestation request submitted",
     },
     checkin: {
+      identityFailed: "Identity verification failed — please try again",
       noSiteAssigned: "You haven't been assigned a site yet — ask the admin to assign you one before you can check in/out",
       wrongSiteIn: (siteName: string) => `Check-in failed — you're stationed at the "${siteName}" site`,
       wrongSiteOut: (siteName: string) => `Check-out failed — you're stationed at the "${siteName}" site`,
@@ -834,6 +894,14 @@ const en: typeof th = {
       notCheckedInYet: "You haven't checked in today",
       alreadyCheckedOut: "You've already checked out today",
       outSuccess: "Checked out",
+    },
+    webauthn: {
+      challengeExpired: "Verification timed out — please try again",
+      verifyFailed: "Verification failed — this device may not be registered, or the fingerprint/Face ID didn't match",
+      registered: "This device is now registered for identity verification",
+      deviceRemoved: "Device removed",
+      adminCleared: (name: string) =>
+        `Cleared all of ${name}'s registered devices — they'll need to use their password until they register a new one`,
     },
     lessonPlans: {
       courseNotFound: "Course not found",

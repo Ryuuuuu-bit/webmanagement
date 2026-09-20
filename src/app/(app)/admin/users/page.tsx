@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import UserManagement from "@/components/UserManagement";
 import { createUser, resetUserPassword, updateUserRole, updateUserSite, deleteUser } from "@/actions/users";
+import { adminClearWebauthnCredentials } from "@/actions/webauthn";
 
 export default async function AdminUsersPage() {
   const session = await getServerSession(authOptions);
@@ -26,6 +27,7 @@ export default async function AdminUsersPage() {
       updateUserRole={updateUserRole}
       updateUserSite={updateUserSite}
       deleteUser={deleteUser}
+      clearWebauthnCredentials={adminClearWebauthnCredentials}
     />
   );
 }

@@ -3,6 +3,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AttendanceBadge } from "@/components/StatusBadge";
 import CheckinClient from "@/components/CheckinClient";
+import WebauthnManager from "@/components/WebauthnManager";
+import { listMyCredentials } from "@/actions/webauthn";
 import { formatTime, todayAtMidnight } from "@/lib/date";
 import { getExpectedSite, type ExpectedSiteResult } from "@/lib/geo";
 import { getLocale } from "@/lib/i18n/locale";
@@ -31,11 +33,12 @@ export default async function CheckinPage() {
   const dict = getDictionary(locale);
 
   if (!isAdmin) {
-    const [attendance, site] = await Promise.all([
+    const [attendance, site, credentials] = await Promise.all([
       prisma.attendance.findUnique({
         where: { userId_date: { userId: session!.user.id, date } },
       }),
       getExpectedSite(session!.user.id),
+      listMyCredentials(),
     ]);
 
     return (
@@ -54,6 +57,7 @@ export default async function CheckinPage() {
                   }
                 : null
             }
+            hasCredential={credentials.length > 0}
           />
           <div className="mt-4 flex justify-center gap-6 text-sm text-subtle">
             <span>{dict.checkin.checkinShort}: {formatTime(attendance?.checkinAt, locale) ?? "—"}</span>
@@ -66,6 +70,8 @@ export default async function CheckinPage() {
           <p className="mb-3 text-sm text-muted">{dict.checkin.todaySiteHint}</p>
           <SiteRow result={site} dict={dict} />
         </div>
+
+        <WebauthnManager initialCredentials={credentials} />
       </div>
     );
   }

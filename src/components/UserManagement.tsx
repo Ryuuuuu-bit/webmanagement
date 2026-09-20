@@ -26,6 +26,7 @@ export default function UserManagement({
   updateUserRole,
   updateUserSite,
   deleteUser,
+  clearWebauthnCredentials,
 }: {
   users: UserRow[];
   departments: Dept[];
@@ -36,6 +37,7 @@ export default function UserManagement({
   updateUserRole: (userId: string, role: "ADMIN" | "MEMBER") => Promise<{ ok: boolean; message: string }>;
   updateUserSite: (userId: string, campusLocationId: string | null) => Promise<{ ok: boolean; message: string }>;
   deleteUser: (userId: string) => Promise<{ ok: boolean; message: string }>;
+  clearWebauthnCredentials: (userId: string) => Promise<{ ok: boolean; message: string }>;
 }) {
   const { dict } = useLanguage();
   const formRef = useRef<HTMLFormElement>(null);
@@ -45,6 +47,7 @@ export default function UserManagement({
   const [roleResult, setRoleResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
   const [siteResult, setSiteResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
   const [deleteResult, setDeleteResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
+  const [webauthnResult, setWebauthnResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
 
   function onCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -89,6 +92,15 @@ export default function UserManagement({
     startTransition(async () => {
       const res = await deleteUser(userId);
       setDeleteResult({ userId, ...res });
+    });
+  }
+
+  function onClearWebauthn(userId: string, name: string) {
+    if (!confirm(dict.users.clearWebauthnConfirm(name))) return;
+    setCreateResult(null);
+    startTransition(async () => {
+      const res = await clearWebauthnCredentials(userId);
+      setWebauthnResult({ userId, ...res });
     });
   }
 
@@ -208,6 +220,13 @@ export default function UserManagement({
                       >
                         {dict.users.resetPassword}
                       </button>
+                      <button
+                        disabled={pending}
+                        onClick={() => onClearWebauthn(u.id, u.name)}
+                        className="text-xs font-semibold text-brand-ink underline disabled:opacity-40"
+                      >
+                        {dict.users.clearWebauthnButton}
+                      </button>
                       {u.role !== "ADMIN" && u.id !== currentUserId && (
                         <button
                           disabled={pending}
@@ -225,6 +244,9 @@ export default function UserManagement({
                           <div className="mt-1 font-mono text-sm font-bold tracking-wide text-ink">{resetResult.tempPassword}</div>
                         )}
                       </div>
+                    )}
+                    {webauthnResult?.userId === u.id && (
+                      <div className={`mt-1 text-xs ${webauthnResult.ok ? "text-ok" : "text-danger"}`}>{webauthnResult.message}</div>
                     )}
                     {deleteResult?.userId === u.id && (
                       <div className={`mt-1 text-xs ${deleteResult.ok ? "text-ok" : "text-danger"}`}>{deleteResult.message}</div>
