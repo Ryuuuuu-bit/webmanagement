@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { describeDevice } from "@/lib/device";
 import {
   getClientIp,
   getLockRemainingMinutes,
@@ -51,10 +52,11 @@ export const authOptions: AuthOptions = {
         if (!credentials?.identifier || !credentials?.password) return null;
         const identifier = credentials.identifier.trim().toLowerCase();
         const ip = getClientIp(req?.headers as Record<string, string | undefined> | undefined);
+        const device = describeDevice(req?.headers as Record<string, string | undefined> | undefined);
 
         const lockedMinutes = await getLockRemainingMinutes(identifier, ip);
         if (lockedMinutes > 0) {
-          await logAudit({ action: "LOGIN_LOCKED", ip, detail: identifier });
+          await logAudit({ action: "LOGIN_LOCKED", ip, device, detail: identifier });
           throw new Error(`${AUTH_ERRORS.tooManyAttempts}:${lockedMinutes}`);
         }
 
@@ -63,31 +65,31 @@ export const authOptions: AuthOptions = {
         });
         if (!user) {
           await recordLoginFailure(identifier, ip);
-          await logAudit({ action: "LOGIN_FAILED", ip, detail: `${identifier} (no such account)` });
+          await logAudit({ action: "LOGIN_FAILED", ip, device, detail: `${identifier} (no such account)` });
           return null;
         }
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) {
           await recordLoginFailure(identifier, ip);
-          await logAudit({ action: "LOGIN_FAILED", targetUserId: user.id, ip, detail: identifier });
+          await logAudit({ action: "LOGIN_FAILED", targetUserId: user.id, ip, device, detail: identifier });
           return null;
         }
         // Password is right — now the account-state checks. These are
         // reported distinctly (not as "wrong password") because the person
         // genuinely knows their password and needs to be told what to do.
         if (!user.isActive) {
-          await logAudit({ action: "LOGIN_SUSPENDED", targetUserId: user.id, ip });
+          await logAudit({ action: "LOGIN_SUSPENDED", targetUserId: user.id, ip, device });
           throw new Error(AUTH_ERRORS.suspended);
         }
         if (user.mustChangePassword && user.tempPasswordExpiresAt && user.tempPasswordExpiresAt < new Date()) {
-          await logAudit({ action: "LOGIN_TEMP_EXPIRED", targetUserId: user.id, ip });
+          await logAudit({ action: "LOGIN_TEMP_EXPIRED", targetUserId: user.id, ip, device });
           throw new Error(AUTH_ERRORS.tempExpired);
         }
 
         await Promise.all([
           recordLoginSuccess(identifier, ip),
           markLoggedIn(user.id),
-          logAudit({ action: "LOGIN_SUCCESS", actorId: user.id, targetUserId: user.id, ip }),
+          logAudit({ action: "LOGIN_SUCCESS", actorId: user.id, targetUserId: user.id, ip, device }),
         ]);
         return { id: user.id, name: user.name, email: user.email, role: user.role, tokenVersion: user.tokenVersion };
       },
@@ -105,12 +107,13 @@ export const authOptions: AuthOptions = {
       async authorize(credentials, req): Promise<SessionUser | null> {
         if (!credentials?.ticket) return null;
         const ip = getClientIp(req?.headers as Record<string, string | undefined> | undefined);
+        const device = describeDevice(req?.headers as Record<string, string | undefined> | undefined);
         const redeemed = await redeemLoginTicket(credentials.ticket);
         if (!redeemed) return null;
         const user = await prisma.user.findUnique({ where: { id: redeemed.userId } });
         if (!user) return null;
         if (!user.isActive) {
-          await logAudit({ action: "LOGIN_SUSPENDED", targetUserId: user.id, ip });
+          await logAudit({ action: "LOGIN_SUSPENDED", targetUserId: user.id, ip, device });
           throw new Error(AUTH_ERRORS.suspended);
         }
         // "password" tickets just re-establish this browser's session after a
@@ -124,7 +127,7 @@ export const authOptions: AuthOptions = {
                 action: redeemed.purpose === "enrollment" ? "LOGIN_ENROLLMENT" : "LOGIN_PASSKEY",
                 actorId: user.id,
                 targetUserId: user.id,
-                ip,
+                ip, device,
               }),
         ]);
         return { id: user.id, name: user.name, email: user.email, role: user.role, tokenVersion: user.tokenVersion };

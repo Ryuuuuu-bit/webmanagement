@@ -18,6 +18,7 @@ type UserRow = {
   tempPasswordExpiresAt: string | null;
   isActive: boolean;
   lastLoginAt: string | null;
+  consentAt: string | null;
 };
 type Dept = { id: string; name: string };
 type Site = { id: string; name: string };
@@ -352,6 +353,10 @@ export default function UserManagement({
                       <span className="inline-flex items-center gap-1">
                         <span className="text-faint">{dict.users.colLastLogin}:</span>
                         {lastLogin(u)}
+                      </span>
+                      <span className="inline-flex items-center gap-1" title={u.consentAt ? formatDate(new Date(u.consentAt), locale) : ""}>
+                        <span className="text-faint">PDPA:</span>
+                        {u.consentAt ? <span className="text-ok">✓</span> : <span className="text-faint">—</span>}
                       </span>
                     </div>
                     {usernameResult?.userId === u.id && (

@@ -41,8 +41,9 @@ function dateOnlyUTC(d: Date) {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
-/** Inclusive whole-day count between two dates — no holiday/weekend awareness, matching how the rest of the app treats leave dates. */
-export function countLeaveDays(start: Date, end: Date): number {
+/** Inclusive whole-day count between two dates (0.5 for a half-day request) — no holiday/weekend awareness, matching how the rest of the app treats leave dates. */
+export function countLeaveDays(start: Date, end: Date, halfDay?: string | null): number {
+  if (halfDay) return 0.5;
   return Math.round((dateOnlyUTC(end) - dateOnlyUTC(start)) / 86400000) + 1;
 }
 
@@ -61,9 +62,9 @@ export async function getLeaveUsedDays(requesterId: string, type: LeaveType, yea
       status: { in: [RequestStatus.PENDING, RequestStatus.APPROVED] },
       startDate: { gte: new Date(Date.UTC(year, 0, 1)), lte: new Date(Date.UTC(year, 11, 31, 23, 59, 59)) },
     },
-    select: { startDate: true, endDate: true },
+    select: { startDate: true, endDate: true, halfDay: true },
   });
-  return requests.reduce((sum, r) => sum + countLeaveDays(r.startDate, r.endDate), 0);
+  return requests.reduce((sum, r) => sum + countLeaveDays(r.startDate, r.endDate, r.halfDay), 0);
 }
 
 export type LeaveQuotaStatus = { type: LeaveType; quota: number; used: number; remaining: number | null };
@@ -79,11 +80,11 @@ export async function getLeaveQuotaStatusForUser(userId: string, year = new Date
       status: { in: [RequestStatus.PENDING, RequestStatus.APPROVED] },
       startDate: { gte: yearStart, lte: yearEnd },
     },
-    select: { type: true, startDate: true, endDate: true },
+    select: { type: true, startDate: true, endDate: true, halfDay: true },
   });
   const usedByType = new Map<LeaveType, number>();
   for (const r of requests) {
-    usedByType.set(r.type, (usedByType.get(r.type) ?? 0) + countLeaveDays(r.startDate, r.endDate));
+    usedByType.set(r.type, (usedByType.get(r.type) ?? 0) + countLeaveDays(r.startDate, r.endDate, r.halfDay));
   }
   return LEAVE_TYPES.map((type) => {
     const quota = quotaMap[type];

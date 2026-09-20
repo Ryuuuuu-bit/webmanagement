@@ -32,6 +32,7 @@ enum RequestStatus {
   PENDING
   APPROVED
   REJECTED
+  CANCELLED // withdrawn by the requester while still pending
 }
 
 enum AttendanceStatus {
@@ -102,6 +103,12 @@ model User {
   // use an enrollment link instead. null once they've set their own password.
   tempPasswordExpiresAt DateTime?
   lastLoginAt   DateTime?
+  // PDPA: when (and which version of) the privacy notice this person
+  // accepted. The app collects selfies and GPS positions, so the notice is
+  // shown once after login and again whenever PDPA_VERSION changes
+  // (src/lib/consent.ts). Null = not yet accepted → /consent gate.
+  consentAt      DateTime?
+  consentVersion String?
   createdAt     DateTime  @default(now())
 
   schedules          Schedule[]
@@ -117,6 +124,7 @@ model User {
   loginTickets        LoginTicket[]
   passwordResetTokens PasswordResetToken[]
   notifications       Notification[]
+  pushSubscriptions   PushSubscription[]
 }
 
 // "Forgot password" / "set your password" email link. Single-use,
@@ -195,6 +203,11 @@ model AuditLog {
   actorId      String? // who did it (null for anonymous/failed logins)
   targetUserId String? // whose account it concerns
   ip           String?
+  // "a3f9c12b · iPhone · Safari": installation id (ts_did cookie, first 8
+  // chars) + a short User-Agent reading — see src/lib/device.ts. Tells two
+  // rows from the same phone apart from two different phones, which the IP
+  // column can't.
+  device       String?
   detail       String?
 
   @@index([at])
@@ -315,10 +328,20 @@ model LeaveRequest {
   startDate   DateTime
   endDate     DateTime
   reason      String
+  // "AM" | "PM" for a half-day request (start == end); null = whole day(s).
+  // Counts 0.5 against the quota (src/lib/leaveQuota.ts).
+  halfDay     String?
+  // Optional supporting document (medical certificate etc.), stored inline
+  // like lesson-plan files; served to Admin/owner via /api/leave/<id>/attachment.
+  attachmentName String?
+  attachmentMime String?
+  attachmentSize Int?
+  attachmentData Bytes?
   status      RequestStatus @default(PENDING)
   approverId  String?
   approver    User?         @relation("LeaveApprover", fields: [approverId], references: [id])
   decidedAt   DateTime?
+  cancelledAt DateTime?
   createdAt   DateTime      @default(now())
 }
 
@@ -489,4 +512,26 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([userId, createdAt])
+}
+
+// Web Push subscription (one per browser installation that opted in).
+// Lets a notification reach the phone even when the PWA is closed. The
+// endpoint is issued by the browser vendor's push service; VAPID keys in
+// env (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT). `locale` is
+// the language the person was using when they subscribed, so the push text
+// matches what they'd see in the app. Rows are dropped when the push
+// service answers 404/410 (unsubscribed / expired).
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  locale     String   @default("th")
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime?
+
+  @@index([userId])
 }

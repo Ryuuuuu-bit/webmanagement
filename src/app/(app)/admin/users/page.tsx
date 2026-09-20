@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import UserManagement from "@/components/UserManagement";
-import { createUser, resetUserPassword, updateUserRole, updateUserSite, deleteUser, setUserActive, updateUsername, updateUserProfile } from "@/actions/users";
+import UserImport from "@/components/UserImport";
+import { createUser, resetUserPassword, updateUserRole, updateUserSite, deleteUser, setUserActive, updateUsername, updateUserProfile, importUsers } from "@/actions/users";
 import { adminClearWebauthnCredentials } from "@/actions/webauthn";
 import { createEnrollmentLink } from "@/actions/enrollment";
 import { sendPasswordSetupEmail } from "@/actions/passwordReset";
@@ -19,6 +20,8 @@ export default async function AdminUsersPage() {
   ]);
 
   return (
+    <div className="flex flex-col gap-5">
+    <UserImport importUsers={importUsers} />
     <UserManagement
       users={users.map((u) => ({
         id: u.id,
@@ -32,6 +35,7 @@ export default async function AdminUsersPage() {
         tempPasswordExpiresAt: u.tempPasswordExpiresAt?.toISOString() ?? null,
         isActive: u.isActive,
         lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
+        consentAt: u.consentAt?.toISOString() ?? null,
       }))}
       departments={departments}
       campusLocations={campusLocations}
@@ -49,5 +53,6 @@ export default async function AdminUsersPage() {
       updateUserProfile={updateUserProfile}
       emailConfigured={isEmailConfigured()}
     />
+    </div>
   );
 }

@@ -112,3 +112,75 @@ export async function clearRecords(kind: RecordKind, userId: string): Promise<{ 
   revalidateAll(userId);
   return { ok: true, message: dict.history.deletedMany(count) };
 }
+
+const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const ATTENDANCE_STATUSES = ["PENDING", "ON_TIME", "LATE", "ABSENT", "LEAVE"] as const;
+export type AttendanceStatusValue = (typeof ATTENDANCE_STATUSES)[number];
+
+/**
+ * Admin corrects a day's attendance in place (a wrong tap, a phone that
+ * died at 17:00) instead of deleting the whole row. Times are "HH:MM" on
+ * the row's own date in Thailand time; empty clears the stamp. Marked
+ * attested*=true so the report can tell an admin edit from a real
+ * GPS/biometric tap; the before/after goes to the audit log.
+ */
+export async function updateAttendance(
+  id: string,
+  input: { checkin: string; checkout: string; status: AttendanceStatusValue }
+): Promise<{ ok: boolean; message: string }> {
+  const session = await requireAdmin();
+  const dict = getDictionary(getLocale());
+  const row = await prisma.attendance.findUnique({ where: { id } });
+  if (!row) return { ok: false, message: dict.history.notFound };
+
+  const checkin = input.checkin.trim();
+  const checkout = input.checkout.trim();
+  if ((checkin && !TIME_RE.test(checkin)) || (checkout && !TIME_RE.test(checkout))) {
+    return { ok: false, message: dict.history.invalidTime };
+  }
+  if (checkin && checkout && checkout <= checkin) return { ok: false, message: dict.history.checkoutBeforeCheckin };
+  if (!ATTENDANCE_STATUSES.includes(input.status)) return { ok: false, message: dict.history.invalidStatus };
+
+  const day = new Date(row.date);
+  day.setHours(0, 0, 0, 0);
+  const at = (hhmm: string) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    const d = new Date(day);
+    d.setHours(h, m, 0, 0);
+    return d;
+  };
+  // Compare at minute precision in Thai time so an untouched field (whose
+  // stored value has seconds) isn't counted as an edit.
+  const hhmm = (d: Date | null) =>
+    d ? new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Bangkok" }) : "";
+  const inChanged = hhmm(row.checkinAt) !== checkin;
+  const outChanged = hhmm(row.checkoutAt) !== checkout;
+  const nextIn = inChanged ? (checkin ? at(checkin) : null) : row.checkinAt;
+  const nextOut = outChanged ? (checkout ? at(checkout) : null) : row.checkoutAt;
+
+  const changes: string[] = [];
+  if (inChanged) changes.push(`in: ${hhmm(row.checkinAt) || "—"} → ${checkin || "—"}`);
+  if (outChanged) changes.push(`out: ${hhmm(row.checkoutAt) || "—"} → ${checkout || "—"}`);
+  if (row.status !== input.status) changes.push(`status: ${row.status} → ${input.status}`);
+  if (changes.length === 0) return { ok: true, message: dict.history.unchanged };
+
+  await prisma.attendance.update({
+    where: { id },
+    data: {
+      checkinAt: nextIn,
+      checkoutAt: nextOut,
+      status: input.status,
+      attestedCheckin: row.attestedCheckin || inChanged,
+      attestedCheckout: row.attestedCheckout || outChanged,
+    },
+  });
+  await logAudit({
+    action: "RECORD_EDITED",
+    actorId: session.user.id,
+    targetUserId: row.userId,
+    ip: getClientIp(),
+    detail: `attendance ${row.date.toISOString().slice(0, 10)}: ${changes.join("; ")}`,
+  });
+  revalidateAll(row.userId);
+  return { ok: true, message: dict.history.edited };
+}

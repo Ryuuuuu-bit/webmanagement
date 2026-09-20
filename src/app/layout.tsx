@@ -3,6 +3,7 @@ import { Sarabun } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import PwaRegister from "@/components/PwaRegister";
+import DeviceIdSync from "@/components/DeviceIdSync";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import "./globals.css";
@@ -62,6 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="font-sans">
         <PwaRegister />
+        <DeviceIdSync />
         <ThemeProvider>
           <LanguageProvider initialLocale={locale}>{children}</LanguageProvider>
         </ThemeProvider>

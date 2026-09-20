@@ -1,7 +1,7 @@
-// Minimal service worker. Its only job is to exist with a fetch handler so
-// Chrome/Android consider this site installable as a home-screen app — it
-// intentionally does no caching, so it can never serve stale content.
-// Every request just passes straight through to the network.
+// Service worker: (1) exists with a fetch handler so Chrome/Android treat the
+// site as installable; does no caching so it never serves stale content.
+// (2) Web Push: shows the notification the server sent and opens the right
+// page when tapped.
 self.addEventListener("install", () => {
   self.skipWaiting();
 });
@@ -12,4 +12,38 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   event.respondWith(fetch(event.request));
+});
+
+self.addEventListener("push", (event) => {
+  let data = { title: "TeachSchedule", body: "", href: "/notifications", tag: undefined };
+  try {
+    data = { ...data, ...event.data.json() };
+  } catch (e) {}
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "/icon",
+      badge: "/icon",
+      tag: data.tag,
+      data: { href: data.href || "/notifications" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const href = (event.notification.data && event.notification.data.href) || "/notifications";
+  const url = new URL(href, self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if ("focus" in client) {
+          client.focus();
+          if ("navigate" in client) return client.navigate(url);
+          return;
+        }
+      }
+      return self.clients.openWindow(url);
+    })
+  );
 });

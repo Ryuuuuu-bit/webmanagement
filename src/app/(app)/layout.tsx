@@ -6,6 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import NotificationProvider from "@/components/NotificationProvider";
 import TempPasswordBanner from "@/components/TempPasswordBanner";
 import { countUnread } from "@/lib/notify";
+import { PDPA_VERSION } from "@/lib/consent";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -19,8 +20,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // password itself still expires (tempPasswordExpiresAt, checked at login).
   const current = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { mustChangePassword: true, tempPasswordExpiresAt: true, name: true },
+    select: { mustChangePassword: true, tempPasswordExpiresAt: true, name: true, consentVersion: true },
   });
+  // PDPA: the privacy notice (selfies + GPS) must be accepted once before
+  // using the app, and again whenever its version changes.
+  if (current && current.consentVersion !== PDPA_VERSION) redirect("/consent");
 
   const isAdmin = session.user.role === "ADMIN";
   // Seed the bell badge server-side so it's right on first paint; the

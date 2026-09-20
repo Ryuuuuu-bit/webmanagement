@@ -6,6 +6,7 @@ import { useLanguage } from "./LanguageProvider";
 import { AttendanceBadge, RequestBadge } from "./StatusBadge";
 import { formatDate, formatTime, formatTimeLabel } from "@/lib/date";
 import type { RecordKind } from "@/actions/records";
+import EditAttendanceButton from "./EditAttendanceButton";
 
 type AttendanceRow = {
   id: string;
@@ -90,6 +91,8 @@ export default function UserHistoryClient({
     </section>
   );
 
+  const hhmm = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Bangkok" }) : "";
   const th = "pb-2 text-left text-xs uppercase text-faint";
   const td = "py-2 align-top";
 
@@ -126,7 +129,14 @@ export default function UserHistoryClient({
                   <AttendanceBadge status={a.status} dict={dict} />
                   {a.flagSharedDevice && <span className="badge ml-1 bg-danger-soft text-danger">{t.sharedDevice}</span>}
                 </td>
-                <td className={`${td} text-right`}>
+                <td className={`${td} whitespace-nowrap text-right`}>
+                  <EditAttendanceButton
+                    id={a.id}
+                    label={`${userName} · ${formatDate(a.date, locale)}`}
+                    checkin={hhmm(a.checkinAt)}
+                    checkout={hhmm(a.checkoutAt)}
+                    status={a.status}
+                  />{" "}
                   <button disabled={pending} onClick={() => onDelete("attendance", a.id)} className={delBtn}>{t.deleteOne}</button>
                 </td>
               </tr>

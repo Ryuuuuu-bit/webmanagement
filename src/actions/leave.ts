@@ -4,67 +4,55 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { LeaveType, RequestStatus } from "@prisma/client";
+import { RequestStatus } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
-import { countLeaveDays, getLeaveQuotaMap, getLeaveUsedDays } from "@/lib/leaveQuota";
 import { notifyAdmins, notifyUser } from "@/lib/notify";
+import { createLeaveRequest } from "@/lib/leave";
 
+/**
+ * Legacy entry point — the form now posts multipart to /api/leave/request
+ * (attachments). Kept as a thin wrapper around the shared createLeaveRequest.
+ */
 export async function requestLeave(formData: FormData): Promise<{ ok: boolean; message: string }> {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error("Unauthorized");
-  const dict = getDictionary(getLocale());
-
-  const type = formData.get("type") as LeaveType;
-  const startDate = new Date(formData.get("from") as string);
-  const endDate = new Date(formData.get("to") as string);
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-    return { ok: false, message: dict.actions.leave.invalidDates };
-  }
-  if (endDate < startDate) {
-    return { ok: false, message: dict.actions.leave.endBeforeStart };
-  }
-
-  // Not blocking (client decision: warn, don't block) — checked BEFORE
-  // creating the row so "used" below doesn't double-count this request.
-  const days = countLeaveDays(startDate, endDate);
-  const year = startDate.getUTCFullYear();
-  const [quotaMap, usedBefore] = await Promise.all([
-    getLeaveQuotaMap(),
-    getLeaveUsedDays(session.user.id, type, year),
-  ]);
-  const quota = quotaMap[type];
-
-  await prisma.leaveRequest.create({
-    data: {
-      requesterId: session.user.id,
-      type,
-      startDate,
-      endDate,
-      reason: (formData.get("reason") as string) || "-",
-    },
+  const file = formData.get("file");
+  const res = await createLeaveRequest(session.user.id, {
+    type: String(formData.get("type") ?? ""),
+    from: String(formData.get("from") ?? ""),
+    to: String(formData.get("to") ?? ""),
+    halfDay: String(formData.get("halfDay") ?? ""),
+    reason: String(formData.get("reason") ?? ""),
+    file: file instanceof File ? file : null,
   });
+  if (res.ok) {
+    revalidatePath("/leave");
+    revalidatePath("/dashboard");
+  }
+  return res;
+}
 
-  const usedAfter = usedBefore + days;
-  const overQuota = quota > 0 && usedAfter > quota;
-
-  // Tell every Admin there's something to approve (the requester's name is
-  // read fresh in case it was edited since their session was issued).
+/** Requester withdraws their own request while it is still pending. */
+export async function cancelLeave(id: string): Promise<{ ok: boolean; message: string }> {
+  const session = await getServerSession(authOptions);
+  const dict = getDictionary(getLocale());
+  if (!session?.user) return { ok: false, message: dict.actions.pleaseSignIn };
+  const row = await prisma.leaveRequest.findUnique({ where: { id }, select: { requesterId: true, status: true, type: true, startDate: true, endDate: true } });
+  if (!row || row.requesterId !== session.user.id) return { ok: false, message: dict.actions.leave.notFound };
+  if (row.status !== "PENDING") return { ok: false, message: dict.actions.leave.cannotCancel };
+  const claimed = await prisma.leaveRequest.updateMany({ where: { id, status: "PENDING" }, data: { status: "CANCELLED", cancelledAt: new Date() } });
+  if (claimed.count === 0) return { ok: false, message: dict.actions.leave.cannotCancel };
   const requester = await prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true } });
   await notifyAdmins(
-    "LEAVE_REQUESTED",
-    { requesterName: requester?.name ?? session.user.name ?? "-", type, from: startDate.toISOString(), to: endDate.toISOString(), days, overQuota },
+    "LEAVE_CANCELLED",
+    { requesterName: requester?.name ?? "-", type: row.type, from: row.startDate.toISOString(), to: row.endDate.toISOString() },
     "/leave",
     { excludeUserId: session.user.id }
   );
-
   revalidatePath("/leave");
   revalidatePath("/dashboard");
-
-  if (overQuota) {
-    return { ok: true, message: dict.actions.leave.submittedOverQuota(usedAfter, quota) };
-  }
-  return { ok: true, message: dict.actions.leave.submitted };
+  return { ok: true, message: dict.actions.leave.cancelled };
 }
 
 /** FR-8: Admin approves or rejects a leave request. */
@@ -74,19 +62,25 @@ export async function decideLeave(id: string, decision: "APPROVED" | "REJECTED")
     throw new Error("Unauthorized");
   }
 
-  const updated = await prisma.leaveRequest.update({
-    where: { id },
+  // Only a pending request can be decided — a request the teacher already
+  // withdrew must not silently come back as approved.
+  const claimed = await prisma.leaveRequest.updateMany({
+    where: { id, status: "PENDING" },
     data: { status: decision as RequestStatus, approverId: session.user.id, decidedAt: new Date() },
-    include: { approver: { select: { name: true } } },
   });
-
-  // Tell the requester how it went.
-  await notifyUser(
-    updated.requesterId,
-    "LEAVE_DECIDED",
-    { decision, type: updated.type, from: updated.startDate.toISOString(), to: updated.endDate.toISOString(), approverName: updated.approver?.name ?? session.user.name ?? "-" },
-    "/leave"
-  );
+  if (claimed.count === 0) {
+    revalidatePath("/leave");
+    return;
+  }
+  const updated = await prisma.leaveRequest.findUnique({ where: { id }, include: { approver: { select: { name: true } } } });
+  if (updated) {
+    await notifyUser(
+      updated.requesterId,
+      "LEAVE_DECIDED",
+      { decision, type: updated.type, from: updated.startDate.toISOString(), to: updated.endDate.toISOString(), approverName: updated.approver?.name ?? session.user.name ?? "-" },
+      "/leave"
+    );
+  }
 
   revalidatePath("/leave");
   revalidatePath("/dashboard");

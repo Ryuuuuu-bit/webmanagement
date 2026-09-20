@@ -7,6 +7,7 @@ import InstallPrompt from "@/components/InstallPrompt";
 import { listMyCredentials, listPendingCredentials, decidePendingCredential } from "@/actions/webauthn";
 import PendingDevicesPanel from "@/components/PendingDevicesPanel";
 import DeleteRecordButton from "@/components/DeleteRecordButton";
+import EditAttendanceButton from "@/components/EditAttendanceButton";
 import Link from "next/link";
 import { getCheckinPolicy } from "@/lib/settings";
 import type { CredentialState } from "@/components/CheckinClient";
@@ -97,6 +98,8 @@ export default async function CheckinPage() {
     listPendingCredentials(),
   ]);
   const byUser = new Map(attendances.map((a) => [a.userId, a]));
+  const hhmm = (d: Date | null) =>
+    d ? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Bangkok" }) : "";
 
   const Method = ({ m }: { m: string | null | undefined }) =>
     !m ? null : (
@@ -167,6 +170,15 @@ export default async function CheckinPage() {
                         {dict.checkin.historyLink}
                       </Link>
                       {/* Admin can wipe today's row (a wrong tap, a test) right here — same action + audit as the history page. */}
+                      {a && (
+                        <EditAttendanceButton
+                          id={a.id}
+                          label={`${t.name} · ${formatDate(date, locale)}`}
+                          checkin={hhmm(a.checkinAt)}
+                          checkout={hhmm(a.checkoutAt)}
+                          status={a.status}
+                        />
+                      )}
                       {a && <DeleteRecordButton kind="attendance" id={a.id} label={`${t.name} · ${formatDate(date, locale)}`} />}
                     </span>
                   </td>

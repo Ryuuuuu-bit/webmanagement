@@ -12,6 +12,7 @@ const REQUEST_CLS: Record<string, string> = {
   PENDING: "bg-line-soft text-muted",
   APPROVED: "bg-ok-soft text-ok",
   REJECTED: "bg-danger-soft text-danger",
+  CANCELLED: "bg-line-soft text-faint",
 };
 
 export function AttendanceBadge({ status, dict }: { status: string; dict: Dictionary }) {

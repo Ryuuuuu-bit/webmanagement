@@ -409,3 +409,88 @@ export async function updateUserProfile(
   revalidatePath("/teachers");
   return { ok: true, message: dict.actions.users.profileSaved(name) };
 }
+
+export type ImportUserRow = { name: string; username: string; email: string; department?: string; site?: string; role?: string };
+export type ImportUserResult = { row: number; name: string; username: string; ok: boolean; message: string; tempPassword?: string };
+
+/**
+ * Bulk account creation from a spreadsheet (client parses the .xlsx with
+ * SheetJS and sends plain rows). Same rules as createUser per row;
+ * department/site are matched by name (case-insensitive) and left unset
+ * when not found — never a reason to reject the row. Each account gets its
+ * own temporary password, returned once for Admin to hand out.
+ */
+export async function importUsers(rows: ImportUserRow[]): Promise<{ ok: boolean; message: string; results: ImportUserResult[] }> {
+  const session = await requireAdmin();
+  const dict = getDictionary(getLocale());
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, message: dict.users.importEmpty, results: [] };
+  if (rows.length > 200) return { ok: false, message: dict.users.importTooMany(200), results: [] };
+
+  const [departments, sites] = await Promise.all([prisma.department.findMany(), prisma.campusLocation.findMany()]);
+  const deptByName = new Map(departments.map((d) => [d.name.trim().toLowerCase(), d.id]));
+  const siteByName = new Map(sites.map((s) => [s.name.trim().toLowerCase(), s.id]));
+
+  const results: ImportUserResult[] = [];
+  const seenUsernames = new Set<string>();
+  const seenEmails = new Set<string>();
+  let created = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const name = (r.name || "").toString().trim();
+    const username = normalizeUsername((r.username || "").toString());
+    const email = (r.email || "").toString().trim().toLowerCase();
+    const roleRaw = (r.role || "MEMBER").toString().trim().toUpperCase();
+    const role: Role = roleRaw === "ADMIN" ? "ADMIN" : "MEMBER";
+    const base = { row: i + 2, name, username };
+
+    if (!name || !username || !email) {
+      results.push({ ...base, ok: false, message: dict.actions.users.fillRequired });
+      continue;
+    }
+    if (!USERNAME_RE.test(username)) {
+      results.push({ ...base, ok: false, message: dict.actions.users.invalidUsername });
+      continue;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      results.push({ ...base, ok: false, message: dict.actions.users.invalidEmail });
+      continue;
+    }
+    if (seenUsernames.has(username) || (await prisma.user.findUnique({ where: { username } }))) {
+      results.push({ ...base, ok: false, message: dict.actions.users.usernameExists });
+      continue;
+    }
+    if (seenEmails.has(email) || (await prisma.user.findUnique({ where: { email } }))) {
+      results.push({ ...base, ok: false, message: dict.actions.users.emailExists });
+      continue;
+    }
+    seenUsernames.add(username);
+    seenEmails.add(email);
+
+    const departmentId = r.department ? deptByName.get(r.department.toString().trim().toLowerCase()) ?? null : null;
+    const campusLocationId = r.site ? siteByName.get(r.site.toString().trim().toLowerCase()) ?? null : null;
+
+    const tempPassword = generateTempPassword();
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+    const user = await prisma.user.create({
+      data: {
+        name, username, email, passwordHash, role,
+        departmentId: departmentId ?? undefined,
+        campusLocationId: campusLocationId ?? undefined,
+        mustChangePassword: true,
+        tempPasswordExpiresAt: tempPasswordExpiry(),
+      },
+    });
+    await logAudit({ action: "USER_CREATED", actorId: session.user.id, targetUserId: user.id, ip: getClientIp(), detail: `${email} (import)` });
+    await notifyUser(user.id, "PASSWORD_TEMP", { expiresAt: user.tempPasswordExpiresAt?.toISOString() ?? null }, "/change-password");
+    created++;
+    const notes: string[] = [];
+    if (r.department && !departmentId) notes.push(dict.users.importDeptNotFound(r.department.toString()));
+    if (r.site && !campusLocationId) notes.push(dict.users.importSiteNotFound(r.site.toString()));
+    results.push({ ...base, ok: true, message: notes.length ? notes.join(" · ") : dict.users.importCreated, tempPassword });
+  }
+
+  revalidatePath("/admin/users");
+  revalidatePath("/teachers");
+  return { ok: true, message: dict.users.importSummary(created, rows.length - created), results };
+}

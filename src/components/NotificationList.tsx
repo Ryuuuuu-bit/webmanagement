@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useLanguage } from "./LanguageProvider";
 import { BellIcon, useNotifications, type NotificationItem } from "./NotificationProvider";
 import { markAllNotificationsRead } from "@/actions/notifications";
+import PushToggle from "./PushToggle";
 
 const KIND_TONE: Record<string, string> = {
   LEAVE_REQUESTED: "bg-info-soft text-info",
@@ -53,6 +54,8 @@ export default function NotificationList({ initialItems }: { initialItems: Notif
         <h1 className="text-lg font-bold">{t.title}</h1>
         {unreadAtOpen.size > 0 && <span className="text-xs text-muted">{t.unread(unreadAtOpen.size)}</span>}
       </div>
+
+      <PushToggle />
 
       <div className="rounded-2xl border border-line bg-surface shadow-sm">
         {items.length === 0 ? (

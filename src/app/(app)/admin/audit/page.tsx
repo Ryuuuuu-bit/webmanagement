@@ -7,7 +7,7 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 
 const PAGE_SIZE = 200;
 
-type AuditRow = { id: string; at: Date; action: string; actorId: string | null; targetUserId: string | null; ip: string | null; detail: string | null };
+type AuditRow = { id: string; at: Date; action: string; actorId: string | null; targetUserId: string | null; ip: string | null; device: string | null; detail: string | null };
 
 /**
  * Admin-only security audit trail (see src/lib/audit.ts): sign-ins,
@@ -50,6 +50,7 @@ export default async function AdminAuditPage() {
                   <th className="pb-2 pr-3">{dict.audit.colActor}</th>
                   <th className="pb-2 pr-3">{dict.audit.colTarget}</th>
                   <th className="pb-2 pr-3">{dict.audit.colIp}</th>
+                  <th className="pb-2 pr-3">{dict.audit.colDevice}</th>
                   <th className="pb-2">{dict.audit.colDetail}</th>
                 </tr>
               </thead>
@@ -70,6 +71,7 @@ export default async function AdminAuditPage() {
                       <td className="py-2 pr-3">{r.actorId ? nameOf.get(r.actorId) ?? "—" : <span className="text-faint">—</span>}</td>
                       <td className="py-2 pr-3">{r.targetUserId ? nameOf.get(r.targetUserId) ?? dict.audit.deletedUser : <span className="text-faint">—</span>}</td>
                       <td className="py-2 pr-3 font-mono text-xs text-muted">{r.ip ?? "—"}</td>
+                      <td className="whitespace-nowrap py-2 pr-3 font-mono text-xs text-muted" title={dict.audit.deviceHint}>{r.device ?? "—"}</td>
                       <td className="py-2 text-xs text-muted">{r.detail ?? ""}</td>
                     </tr>
                   );

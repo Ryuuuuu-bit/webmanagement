@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { formatDate } from "./date";
 import { getDictionary, type Dictionary, type Locale } from "./i18n/dictionaries";
+import { sendPushToUsers } from "./push";
 
 /**
  * In-app notifications ("แจ้งเตือน"). Every workflow step that concerns
@@ -24,6 +25,7 @@ import { getDictionary, type Dictionary, type Locale } from "./i18n/dictionaries
 export type NotificationKind =
   | "LEAVE_REQUESTED"
   | "LEAVE_DECIDED"
+  | "LEAVE_CANCELLED"
   | "ATTEST_REQUESTED"
   | "ATTEST_DECIDED"
   | "LESSON_PLAN_SUBMITTED"
@@ -55,6 +57,16 @@ export async function notifyUser(userId: string, kind: NotificationKind, params:
   } catch {
     // Never fail the action that triggered it.
   }
+  await pushFor([userId], kind, params, href);
+}
+
+/** Web Push copy of a notification, rendered in each subscriber's own language (no-op unless VAPID is configured). */
+async function pushFor(userIds: string[], kind: NotificationKind, params: NotificationParams, href: string | null) {
+  await sendPushToUsers(userIds, (locale) => {
+    const loc: Locale = locale === "en" ? "en" : "th";
+    const r = renderNotification({ id: "", kind, params, href, readAt: null, createdAt: new Date() }, getDictionary(loc), loc);
+    return { title: r.title, body: r.body, href: r.href, tag: kind };
+  });
 }
 
 /** The same notification for every active Admin (optionally skipping the one who caused it). */
@@ -64,6 +76,7 @@ export async function notifyAdmins(kind: NotificationKind, params: NotificationP
     const rows = admins.filter((a) => a.id !== opts.excludeUserId).map((a) => ({ userId: a.id, kind, params, href }));
     if (rows.length > 0) await prisma.notification.createMany({ data: rows });
     if (Math.random() < 0.05) await pruneOld();
+    await pushFor(rows.map((r) => r.userId), kind, params, href);
   } catch {
     // Never fail the action that triggered it.
   }

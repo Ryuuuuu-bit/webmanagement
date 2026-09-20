@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { describeDevice } from "./device";
 
 /**
  * Security audit trail (AuditLog table). Every sign-in attempt and every
@@ -37,7 +38,9 @@ export type AuditAction =
   | "SHARED_DEVICE_DETECTED"
   | "POLICY_CHANGED"
   | "PROFILE_EDITED"
-  | "RECORD_DELETED";
+  | "RECORD_DELETED"
+  | "RECORD_EDITED"
+  | "CONSENT_GIVEN";
 
 export async function logAudit(entry: {
   action: AuditAction;
@@ -45,6 +48,8 @@ export async function logAudit(entry: {
   targetUserId?: string | null;
   ip?: string | null;
   detail?: string | null;
+  /** Pass when the caller has the request headers (NextAuth authorize); otherwise read from next/headers. */
+  device?: string | null;
 }) {
   try {
     await prisma.auditLog.create({
@@ -53,6 +58,7 @@ export async function logAudit(entry: {
         actorId: entry.actorId ?? null,
         targetUserId: entry.targetUserId ?? null,
         ip: entry.ip ?? null,
+        device: entry.device ?? describeDevice(),
         detail: entry.detail ?? null,
       },
     });

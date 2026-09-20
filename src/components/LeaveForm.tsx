@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import type { LeaveType } from "@prisma/client";
 import { useLanguage } from "./LanguageProvider";
+import { useRouter } from "next/navigation";
 
 type QuotaStatus = { type: LeaveType; quota: number; used: number; remaining: number | null };
 type ActionResult = { ok: boolean; message: string };
@@ -15,25 +16,39 @@ type ActionResult = { ok: boolean; message: string };
  * (client decision: warn, don't block — see src/lib/leaveQuota.ts).
  */
 export default function LeaveForm({
-  requestLeave,
   quotaStatus,
 }: {
-  requestLeave: (formData: FormData) => Promise<ActionResult>;
   quotaStatus: QuotaStatus[];
 }) {
   const { dict } = useLanguage();
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<ActionResult | null>(null);
+  const [halfDay, setHalfDay] = useState("");
+  const [from, setFrom] = useState("");
 
+  // Posts multipart to a Route Handler (not a Server Action) so the optional
+  // attachment uploads reliably from phones — same lesson as lesson plans.
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
     const formData = new FormData(form);
+    if (halfDay) formData.set("to", String(formData.get("from") ?? ""));
     startTransition(async () => {
-      const res = await requestLeave(formData);
-      setResult(res);
-      if (res.ok) form.reset();
+      try {
+        const res = await fetch("/api/leave/request", { method: "POST", body: formData });
+        const json = (await res.json()) as ActionResult;
+        setResult(json);
+        if (json.ok) {
+          form.reset();
+          setHalfDay("");
+          setFrom("");
+          router.refresh();
+        }
+      } catch {
+        setResult({ ok: false, message: dict.actions.leave.uploadInterrupted });
+      }
     });
   }
 
@@ -81,10 +96,25 @@ export default function LeaveForm({
               <option value="TRAINING">{dict.leave.types.TRAINING}</option>
             </select>
           </Field>
-          <Field label={dict.leave.fieldFrom}><input type="date" name="from" required className="input" /></Field>
-          <Field label={dict.leave.fieldTo}><input type="date" name="to" required className="input" /></Field>
+          <Field label={dict.leave.fieldDuration}>
+            <select name="halfDay" value={halfDay} onChange={(e) => setHalfDay(e.target.value)} className="input">
+              <option value="">{dict.leave.durationFull}</option>
+              <option value="AM">{dict.leave.durationAm}</option>
+              <option value="PM">{dict.leave.durationPm}</option>
+            </select>
+          </Field>
+          <Field label={halfDay ? dict.leave.fieldDate : dict.leave.fieldFrom}>
+            <input type="date" name="from" required value={from} onChange={(e) => setFrom(e.target.value)} className="input" />
+          </Field>
+          {!halfDay && (
+            <Field label={dict.leave.fieldTo}><input type="date" name="to" required min={from || undefined} className="input" /></Field>
+          )}
         </div>
         <Field label={dict.leave.fieldReason}><textarea name="reason" className="input min-h-[70px]" placeholder={dict.leave.reasonPlaceholder} /></Field>
+        <Field label={dict.leave.fieldAttachment}>
+          <input type="file" name="file" accept=".pdf,image/*" className="block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-brand-ink" />
+          <span className="text-[11px] text-faint">{dict.leave.attachmentHint}</span>
+        </Field>
         {result && <p className={`text-sm ${result.ok ? "text-brand-ink" : "text-danger"}`}>{result.message}</p>}
         <button
           type="submit"

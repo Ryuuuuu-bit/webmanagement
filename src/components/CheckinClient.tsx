@@ -7,6 +7,7 @@ import { startWebauthnVerification } from "@/actions/webauthn";
 import type { CheckinPolicy } from "@/lib/settings";
 import { useLanguage } from "./LanguageProvider";
 import SelfieCapture from "./SelfieCapture";
+import { getDeviceId } from "@/lib/deviceId";
 
 type Attendance = {
   status: string;
@@ -17,22 +18,6 @@ type Attendance = {
 type Coords = { lat: number; lng: number };
 type ActionKind = "checkin" | "checkout";
 export type CredentialState = "none" | "pending" | "approved";
-
-const DEVICE_ID_KEY = "ts.deviceInstallId";
-
-/** Stable random id for this browser installation — lets the server notice one phone being used for two teachers. */
-function getDeviceId(): string | null {
-  try {
-    let id = localStorage.getItem(DEVICE_ID_KEY);
-    if (!id) {
-      id = crypto.randomUUID();
-      localStorage.setItem(DEVICE_ID_KEY, id);
-    }
-    return id;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Check-in/out flow: GPS (prefetched) → selfie (if policy) → Face ID /
