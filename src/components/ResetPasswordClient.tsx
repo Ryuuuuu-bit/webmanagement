@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { completePasswordReset, type ResetPreview } from "@/actions/passwordReset";
 import { useLanguage } from "./LanguageProvider";
+import AuthPageControls from "./AuthPageControls";
 
 export default function ResetPasswordClient({ token, preview }: { token: string; preview: ResetPreview }) {
   const { dict } = useLanguage();
@@ -28,7 +29,8 @@ export default function ResetPasswordClient({ token, preview }: { token: string;
   const inputType = show ? "text" : "password";
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center p-4 pt-16">
+      <AuthPageControls />
       <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">TS</div>

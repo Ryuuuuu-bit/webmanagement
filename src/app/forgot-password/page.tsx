@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { requestPasswordReset } from "@/actions/passwordReset";
 import { useLanguage } from "@/components/LanguageProvider";
+import AuthPageControls from "@/components/AuthPageControls";
 
 /** Public "forgot password" — enter username or email, get a reset link by email (src/actions/passwordReset.ts). */
 export default function ForgotPasswordPage() {
@@ -21,7 +22,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center p-4 pt-16">
+      <AuthPageControls />
       <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">TS</div>

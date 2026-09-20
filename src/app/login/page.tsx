@@ -8,6 +8,7 @@ import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/br
 import { startPasskeyLogin, finishPasskeyLogin } from "@/actions/passkeyLogin";
 import { useLanguage } from "@/components/LanguageProvider";
 import InstallPrompt from "@/components/InstallPrompt";
+import AuthPageControls from "@/components/AuthPageControls";
 import { hasPasskeyHint, rememberPasskeyHint } from "@/lib/passkeyHint";
 
 /** Only ever send people to a same-site path after login — never an absolute URL from the query string. */
@@ -99,7 +100,8 @@ function LoginForm() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4 pt-16">
+      <AuthPageControls />
       <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">TS</div>
