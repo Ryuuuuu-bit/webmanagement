@@ -9,6 +9,18 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import { logAudit } from "@/lib/audit";
+import { checkPasswordPolicy, getClientIp } from "@/lib/security";
+
+// A temporary password (account created / reset by Admin) is only good for
+// this long; after that the login page tells the person to ask Admin for a
+// fresh one (or an enrollment QR) instead of silently keeping a stale
+// secret alive forever.
+const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function tempPasswordExpiry() {
+  return new Date(Date.now() + TEMP_PASSWORD_TTL_MS);
+}
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -34,7 +46,7 @@ export async function createUser(
   _prev: { ok: boolean; message: string; tempPassword?: string } | null,
   formData: FormData
 ): Promise<{ ok: boolean; message: string; tempPassword?: string }> {
-  await requireAdmin();
+  const session = await requireAdmin();
   const dict = getDictionary(getLocale());
 
   const name = (formData.get("name") as string || "").trim();
@@ -61,7 +73,7 @@ export async function createUser(
   const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 10);
 
-  await prisma.user.create({
+  const created = await prisma.user.create({
     data: {
       name,
       email,
@@ -70,8 +82,10 @@ export async function createUser(
       departmentId: departmentId || undefined,
       campusLocationId: campusLocationId || undefined,
       mustChangePassword: true,
+      tempPasswordExpiresAt: tempPasswordExpiry(),
     },
   });
+  await logAudit({ action: "USER_CREATED", actorId: session.user.id, targetUserId: created.id, ip: getClientIp(), detail: email });
 
   revalidatePath("/admin/users");
   return {
@@ -88,7 +102,7 @@ export async function createUser(
 export async function resetUserPassword(
   userId: string
 ): Promise<{ ok: boolean; message: string; tempPassword?: string }> {
-  await requireAdmin();
+  const session = await requireAdmin();
   const dict = getDictionary(getLocale());
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -102,8 +116,9 @@ export async function resetUserPassword(
     // Bump tokenVersion so any active session this user has open right now
     // is rejected on its next request, instead of staying valid until it
     // naturally expires.
-    data: { passwordHash, mustChangePassword: true, tokenVersion: { increment: 1 } },
+    data: { passwordHash, mustChangePassword: true, tempPasswordExpiresAt: tempPasswordExpiry(), tokenVersion: { increment: 1 } },
   });
+  await logAudit({ action: "PASSWORD_RESET_BY_ADMIN", actorId: session.user.id, targetUserId: userId, ip: getClientIp() });
 
   revalidatePath("/admin/users");
   return {
@@ -134,6 +149,7 @@ export async function updateUserRole(
   // Bump tokenVersion so the change takes effect immediately (forces
   // re-login) instead of waiting for their current session to expire.
   await prisma.user.update({ where: { id: userId }, data: { role, tokenVersion: { increment: 1 } } });
+  await logAudit({ action: "ROLE_CHANGED", actorId: session.user.id, targetUserId: userId, ip: getClientIp(), detail: `${user.role} → ${role}` });
 
   revalidatePath("/admin/users");
   return { ok: true, message: dict.actions.users.roleChanged(user.name, role) };
@@ -203,12 +219,19 @@ export async function deleteUser(userId: string): Promise<{ ok: boolean; message
     prisma.timeAttestation.deleteMany({ where: { requesterId: userId } }),
     prisma.user.delete({ where: { id: userId } }),
   ]);
+  await logAudit({ action: "USER_DELETED", actorId: session.user.id, targetUserId: userId, ip: getClientIp(), detail: `${user.name} <${user.email}>` });
 
   revalidatePath("/admin/users");
   return { ok: true, message: dict.actions.users.deleted(user.name) };
 }
 
-/** Self-service: the logged-in user sets their own new password (forced after admin creates/resets an account). */
+/**
+ * Self-service password change. Requires the CURRENT password unless the
+ * account is on an Admin-issued temporary password (mustChangePassword) —
+ * so someone who merely finds a phone left signed in can't take the
+ * account over by setting a new password. Also refuses trivially weak
+ * passwords and reusing the current one (see checkPasswordPolicy).
+ */
 export async function changeOwnPassword(
   _prev: { ok: boolean; message: string } | null,
   formData: FormData
@@ -217,25 +240,77 @@ export async function changeOwnPassword(
   const dict = getDictionary(getLocale());
   if (!session?.user) return { ok: false, message: dict.actions.pleaseSignInAgain };
 
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (!user) return { ok: false, message: dict.actions.pleaseSignInAgain };
+
+  const currentPassword = (formData.get("currentPassword") as string) || "";
   const newPassword = (formData.get("newPassword") as string) || "";
   const confirm = (formData.get("confirm") as string) || "";
 
-  if (newPassword.length < 8) {
-    return { ok: false, message: dict.actions.users.passwordTooShort };
-  }
-  if (newPassword !== confirm) {
-    return { ok: false, message: dict.actions.users.passwordMismatch };
+  if (!user.mustChangePassword) {
+    if (!currentPassword) return { ok: false, message: dict.actions.users.currentPasswordRequired };
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!ok) {
+      await logAudit({ action: "LOGIN_FAILED", actorId: user.id, targetUserId: user.id, ip: getClientIp(), detail: "wrong current password on change" });
+      return { ok: false, message: dict.actions.users.currentPasswordWrong };
+    }
   }
 
-  const passwordHash = await bcrypt.hash(newPassword, 10);
+  const problem = checkPasswordPolicy(newPassword, user.email);
+  if (problem === "too_short") return { ok: false, message: dict.actions.users.passwordTooShort };
+  if (problem === "too_long") return { ok: false, message: dict.actions.users.passwordTooLong };
+  if (problem === "too_common") return { ok: false, message: dict.actions.users.passwordTooCommon };
+  if (problem === "contains_email") return { ok: false, message: dict.actions.users.passwordContainsEmail };
+  if (newPassword !== confirm) return { ok: false, message: dict.actions.users.passwordMismatch };
+  if (await bcrypt.compare(newPassword, user.passwordHash)) return { ok: false, message: dict.actions.users.passwordReused };
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
   await prisma.user.update({
     where: { id: session.user.id },
     // Bump tokenVersion too: this JWT will pick up the new value at the next
     // request since it's the token that changed password, so this session
     // keeps working, but it invalidates any OTHER device's session for the
     // same account (e.g. left logged in elsewhere).
-    data: { passwordHash, mustChangePassword: false, tokenVersion: { increment: 1 } },
+    data: { passwordHash, mustChangePassword: false, tempPasswordExpiresAt: null, tokenVersion: { increment: 1 } },
   });
+  await logAudit({ action: "PASSWORD_CHANGED", actorId: user.id, targetUserId: user.id, ip: getClientIp() });
 
   return { ok: true, message: dict.actions.users.passwordChanged };
+}
+
+/** Self-service "sign out everywhere": invalidates every session for this account, including this one. */
+export async function signOutEverywhere(): Promise<{ ok: boolean; message: string }> {
+  const session = await getServerSession(authOptions);
+  const dict = getDictionary(getLocale());
+  if (!session?.user) return { ok: false, message: dict.actions.pleaseSignInAgain };
+  await prisma.user.update({ where: { id: session.user.id }, data: { tokenVersion: { increment: 1 } } });
+  await logAudit({ action: "SIGNED_OUT_EVERYWHERE", actorId: session.user.id, targetUserId: session.user.id, ip: getClientIp() });
+  return { ok: true, message: dict.actions.users.signedOutEverywhere };
+}
+
+/**
+ * Admin suspends / reactivates an account. Suspension blocks sign-in
+ * immediately (tokenVersion bump kicks any live session) but keeps every
+ * record — the right call for a teacher who has left or is on long leave,
+ * where deleting would also erase their attendance and leave history.
+ */
+export async function setUserActive(userId: string, active: boolean): Promise<{ ok: boolean; message: string }> {
+  const session = await requireAdmin();
+  const dict = getDictionary(getLocale());
+  if (userId === session.user.id) return { ok: false, message: dict.actions.users.cannotSuspendSelf };
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return { ok: false, message: dict.actions.users.notFound };
+  if (user.role === "ADMIN" && !active) return { ok: false, message: dict.actions.users.cannotSuspendAdmin };
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { isActive: active, tokenVersion: { increment: 1 } },
+  });
+  await logAudit({ action: active ? "USER_REACTIVATED" : "USER_SUSPENDED", actorId: session.user.id, targetUserId: userId, ip: getClientIp() });
+
+  revalidatePath("/admin/users");
+  revalidatePath("/teachers");
+  revalidatePath("/checkin");
+  return { ok: true, message: active ? dict.actions.users.reactivated(user.name) : dict.actions.users.suspended(user.name) };
 }

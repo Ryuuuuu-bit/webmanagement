@@ -16,7 +16,7 @@ export default async function TeachersPage() {
   const date = todayAtMidnight();
   const [teachers, attendances] = await Promise.all([
     prisma.user.findMany({
-      where: { role: "MEMBER" },
+      where: { role: "MEMBER", isActive: true },
       include: { department: true, campusLocation: true },
       orderBy: { name: "asc" },
     }),

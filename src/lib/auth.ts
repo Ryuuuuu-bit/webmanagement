@@ -2,74 +2,122 @@ import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-
-// Basic brute-force protection: lock an email out after too many failed
-// attempts in a short window. In-memory only (resets on redeploy/restart,
-// and only works because this app runs as a single long-lived container,
-// not multiple instances) — good enough for this app's scale without
-// bringing in Redis or another store.
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000;
-const LOCK_MS = 15 * 60 * 1000;
-const loginAttempts = new Map<string, { count: number; firstFailAt: number; lockedUntil?: number }>();
-
-function isLocked(email: string) {
-  const entry = loginAttempts.get(email);
-  return !!(entry?.lockedUntil && entry.lockedUntil > Date.now());
-}
-
-function recordFailure(email: string) {
-  const now = Date.now();
-  const entry = loginAttempts.get(email);
-  if (!entry || now - entry.firstFailAt > WINDOW_MS) {
-    loginAttempts.set(email, { count: 1, firstFailAt: now });
-    return;
-  }
-  entry.count += 1;
-  if (entry.count >= MAX_ATTEMPTS) entry.lockedUntil = now + LOCK_MS;
-}
-
-function recordSuccess(email: string) {
-  loginAttempts.delete(email);
-}
+import { logAudit } from "@/lib/audit";
+import {
+  getClientIp,
+  getLockRemainingMinutes,
+  recordLoginFailure,
+  recordLoginSuccess,
+  redeemLoginTicket,
+} from "@/lib/security";
 
 // 90 days — long enough that someone who installs this as a home-screen app
 // (see manifest.ts) essentially never has to log in again on that device.
-// The lockout/tokenVersion checks above and in the jwt callback still apply
-// on every request, so a longer-lived session doesn't weaken password or
+// The isActive/tokenVersion checks in the jwt callback still apply on every
+// request, so a longer-lived session doesn't weaken password, suspension or
 // role-change enforcement, it only avoids re-prompting for credentials.
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 90;
+
+// Error codes surfaced to the login page via signIn()'s `error` field.
+// Anything else the page treats as "wrong email or password".
+export const AUTH_ERRORS = {
+  tooManyAttempts: "TOO_MANY_ATTEMPTS", // suffixed ":<minutes remaining>"
+  suspended: "ACCOUNT_SUSPENDED",
+  tempExpired: "TEMP_PASSWORD_EXPIRED",
+} as const;
+
+type SessionUser = { id: string; name: string; email: string; role: "ADMIN" | "MEMBER"; tokenVersion: number };
+
+async function markLoggedIn(userId: string) {
+  await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
+}
 
 export const authOptions: AuthOptions = {
   session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
   jwt: { maxAge: SESSION_MAX_AGE_SECONDS },
   pages: { signIn: "/login" },
   providers: [
+    // ---- Email + password -------------------------------------------
     CredentialsProvider({
+      id: "credentials",
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req): Promise<SessionUser | null> {
         if (!credentials?.email || !credentials?.password) return null;
         const email = credentials.email.trim().toLowerCase();
+        const ip = getClientIp(req?.headers as Record<string, string | undefined> | undefined);
 
-        if (isLocked(email)) {
-          throw new Error("TOO_MANY_ATTEMPTS");
+        const lockedMinutes = await getLockRemainingMinutes(email, ip);
+        if (lockedMinutes > 0) {
+          await logAudit({ action: "LOGIN_LOCKED", ip, detail: email });
+          throw new Error(`${AUTH_ERRORS.tooManyAttempts}:${lockedMinutes}`);
         }
 
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) {
-          recordFailure(email);
+          await recordLoginFailure(email, ip);
+          await logAudit({ action: "LOGIN_FAILED", ip, detail: `${email} (no such account)` });
           return null;
         }
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) {
-          recordFailure(email);
+          await recordLoginFailure(email, ip);
+          await logAudit({ action: "LOGIN_FAILED", targetUserId: user.id, ip, detail: email });
           return null;
         }
-        recordSuccess(email);
+        // Password is right — now the account-state checks. These are
+        // reported distinctly (not as "wrong password") because the person
+        // genuinely knows their password and needs to be told what to do.
+        if (!user.isActive) {
+          await logAudit({ action: "LOGIN_SUSPENDED", targetUserId: user.id, ip });
+          throw new Error(AUTH_ERRORS.suspended);
+        }
+        if (user.mustChangePassword && user.tempPasswordExpiresAt && user.tempPasswordExpiresAt < new Date()) {
+          await logAudit({ action: "LOGIN_TEMP_EXPIRED", targetUserId: user.id, ip });
+          throw new Error(AUTH_ERRORS.tempExpired);
+        }
+
+        await Promise.all([
+          recordLoginSuccess(email, ip),
+          markLoggedIn(user.id),
+          logAudit({ action: "LOGIN_SUCCESS", actorId: user.id, targetUserId: user.id, ip }),
+        ]);
+        return { id: user.id, name: user.name, email: user.email, role: user.role, tokenVersion: user.tokenVersion };
+      },
+    }),
+
+    // ---- One-time ticket (passkey login / enrollment link) -----------
+    // The server has already verified the person by the time a ticket
+    // exists (see src/actions/passkeyLogin.ts and src/actions/enrollment.ts);
+    // this provider just turns that proof into a session. Tickets are
+    // single-use and expire in 60s, so there's nothing to brute-force.
+    CredentialsProvider({
+      id: "ticket",
+      name: "ticket",
+      credentials: { ticket: { label: "Ticket", type: "text" } },
+      async authorize(credentials, req): Promise<SessionUser | null> {
+        if (!credentials?.ticket) return null;
+        const ip = getClientIp(req?.headers as Record<string, string | undefined> | undefined);
+        const redeemed = await redeemLoginTicket(credentials.ticket);
+        if (!redeemed) return null;
+        const user = await prisma.user.findUnique({ where: { id: redeemed.userId } });
+        if (!user) return null;
+        if (!user.isActive) {
+          await logAudit({ action: "LOGIN_SUSPENDED", targetUserId: user.id, ip });
+          throw new Error(AUTH_ERRORS.suspended);
+        }
+        await Promise.all([
+          markLoggedIn(user.id),
+          logAudit({
+            action: redeemed.purpose === "enrollment" ? "LOGIN_ENROLLMENT" : "LOGIN_PASSKEY",
+            actorId: user.id,
+            targetUserId: user.id,
+            ip,
+          }),
+        ]);
         return { id: user.id, name: user.name, email: user.email, role: user.role, tokenVersion: user.tokenVersion };
       },
     }),
@@ -84,14 +132,14 @@ export const authOptions: AuthOptions = {
         token.invalid = false;
       } else if (token.id) {
         // Every other request: if the account's tokenVersion has moved on
-        // (password reset/changed or role changed elsewhere), this JWT was
-        // issued before that change — reject it instead of trusting stale
-        // claims baked into the token.
+        // (password reset/changed, role changed, "sign out everywhere") or
+        // the account was suspended, this JWT is stale — reject it instead
+        // of trusting claims baked into the token.
         const fresh = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { tokenVersion: true },
+          select: { tokenVersion: true, isActive: true },
         });
-        token.invalid = !fresh || fresh.tokenVersion !== token.tokenVersion;
+        token.invalid = !fresh || !fresh.isActive || fresh.tokenVersion !== token.tokenVersion;
       }
       return token;
     },

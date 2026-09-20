@@ -11,6 +11,7 @@ import {
 } from "@/actions/webauthn";
 import { useLanguage } from "./LanguageProvider";
 import { formatDate, formatTime } from "@/lib/date";
+import { rememberPasskeyHint } from "@/lib/passkeyHint";
 
 /**
  * Lets a teacher register their own device's fingerprint/Face ID (a
@@ -41,6 +42,8 @@ export default function WebauthnManager({ initialCredentials }: { initialCredent
       const response = await startRegistration({ optionsJSON: options });
       const res = await finishWebauthnRegistration(response, label);
       if (res.ok) {
+        // This browser now has a passkey — let the login page lead with it.
+        rememberPasskeyHint();
         setSuccess(res.message);
         setLabel("");
         setCredentials(await listMyCredentials());

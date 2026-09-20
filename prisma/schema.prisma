@@ -85,6 +85,16 @@ model User {
   // (which otherwise keep working until they expire) are forced to log in
   // again and pick up the change immediately.
   tokenVersion  Int       @default(0)
+  // Admin can suspend an account (teacher left, on long leave) instead of
+  // deleting it — keeps their attendance/leave history intact while
+  // blocking login immediately (checked at sign-in and on every request via
+  // the jwt callback, alongside tokenVersion).
+  isActive      Boolean   @default(true)
+  // A temporary password (admin created/reset the account) is only good for
+  // a limited time — after this the person must ask Admin for a new one or
+  // use an enrollment link instead. null once they've set their own password.
+  tempPasswordExpiresAt DateTime?
+  lastLoginAt   DateTime?
   createdAt     DateTime  @default(now())
 
   schedules          Schedule[]
@@ -96,6 +106,73 @@ model User {
   lessonPlans        LessonPlan[]         @relation("LessonPlanTeacher")
   reviewedLessonPlans LessonPlan[]        @relation("LessonPlanReviewer")
   webauthnCredentials WebauthnCredential[]
+  enrollmentTokens    EnrollmentToken[]
+  loginTickets        LoginTicket[]
+}
+
+// Brute-force protection state, persisted so it survives container
+// restarts/redeploys (the earlier in-memory Map reset on every deploy) and
+// keyed by email+IP / IP rather than email alone, so a stranger hammering a
+// teacher's email from elsewhere can't lock that teacher out of their own
+// phone. Rows are upserted per failed attempt and cleared on success; a
+// row past its window is simply treated as fresh. See src/lib/security.ts.
+model LoginLock {
+  key         String    @id // "e:<email>|<ip>" or "ip:<ip>"
+  count       Int       @default(0)
+  firstFailAt DateTime  @default(now())
+  lockedUntil DateTime?
+}
+
+// One-time, short-lived (60s) sign-in ticket: the bridge between a
+// server-verified passkey assertion or a redeemed enrollment link and an
+// actual NextAuth session. The client hands the ticket to the "ticket"
+// credentials provider in src/lib/auth.ts, which consumes it (deletes the
+// row) and signs the user in. Only the SHA-256 hash of the ticket is stored.
+model LoginTicket {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  purpose   String // "passkey" | "enrollment"
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Admin-issued "link this device" QR/URL for a teacher: scanning it on
+// their phone signs them in without ever typing a password and walks them
+// through registering that phone's Face ID/fingerprint as a passkey.
+// Single-use, expires after 7 days, hash-only storage — the raw token only
+// ever exists in the QR the admin shows the teacher.
+model EnrollmentToken {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  createdById String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Security audit trail: who signed in (or failed to), from where, and every
+// account-affecting admin action — so an attendance dispute ("that wasn't
+// me checking in") or a suspicious pattern can be investigated. Append-only;
+// never deleted by the app. See src/lib/audit.ts for the action names.
+model AuditLog {
+  id           String   @id @default(cuid())
+  at           DateTime @default(now())
+  action       String
+  actorId      String? // who did it (null for anonymous/failed logins)
+  targetUserId String? // whose account it concerns
+  ip           String?
+  detail       String?
+
+  @@index([at])
+  @@index([targetUserId])
 }
 
 model Course {

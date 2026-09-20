@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { buildRegistrationOptions, finishRegistration as finishRegistrationLib, buildAuthenticationOptions } from "@/lib/webauthn";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import { logAudit } from "@/lib/audit";
+import { getClientIp } from "@/lib/security";
 
 async function requireUserId(): Promise<string> {
   const session = await getServerSession(authOptions);
@@ -54,6 +56,7 @@ export async function finishWebauthnRegistration(
       message: result.reason === "challenge_expired" ? dict.actions.webauthn.challengeExpired : dict.actions.webauthn.verifyFailed,
     };
   }
+  await logAudit({ action: "PASSKEY_REGISTERED", actorId: userId, targetUserId: userId, ip: getClientIp(), detail: label.trim() || null });
   revalidatePath("/checkin");
   return { ok: true, message: dict.actions.webauthn.registered };
 }
@@ -69,6 +72,7 @@ export async function deleteMyCredential(credentialDbId: string): Promise<{ ok: 
   const userId = await requireUserId();
   const dict = getDictionary(getLocale());
   await prisma.webauthnCredential.deleteMany({ where: { id: credentialDbId, userId } });
+  await logAudit({ action: "PASSKEY_REMOVED", actorId: userId, targetUserId: userId, ip: getClientIp() });
   revalidatePath("/checkin");
   return { ok: true, message: dict.actions.webauthn.deviceRemoved };
 }
@@ -88,6 +92,7 @@ export async function adminClearWebauthnCredentials(userId: string): Promise<{ o
   if (!user) return { ok: false, message: dict.actions.users.notFound };
 
   await prisma.webauthnCredential.deleteMany({ where: { userId } });
+  await logAudit({ action: "PASSKEYS_CLEARED_BY_ADMIN", actorId: session.user.id, targetUserId: userId, ip: getClientIp() });
   revalidatePath("/admin/users");
   return { ok: true, message: dict.actions.webauthn.adminCleared(user.name) };
 }

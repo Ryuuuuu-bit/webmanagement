@@ -69,7 +69,7 @@ export default async function DashboardPage() {
   }
 
   const [teachers, attendances] = await Promise.all([
-    prisma.user.findMany({ where: { role: "MEMBER" }, include: { department: true } }),
+    prisma.user.findMany({ where: { role: "MEMBER", isActive: true }, include: { department: true } }),
     prisma.attendance.findMany({ where: { date } }),
   ]);
   const byUser = new Map(attendances.map((a) => [a.userId, a]));

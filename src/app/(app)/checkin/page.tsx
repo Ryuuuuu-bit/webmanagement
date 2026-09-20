@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { AttendanceBadge } from "@/components/StatusBadge";
 import CheckinClient from "@/components/CheckinClient";
 import WebauthnManager from "@/components/WebauthnManager";
+import InstallPrompt from "@/components/InstallPrompt";
 import { listMyCredentials } from "@/actions/webauthn";
 import { formatTime, todayAtMidnight } from "@/lib/date";
 import { getExpectedSite, type ExpectedSiteResult } from "@/lib/geo";
@@ -43,6 +44,7 @@ export default async function CheckinPage() {
 
     return (
       <div className="flex flex-col gap-6">
+        <InstallPrompt />
         <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <div className="mb-4 flex justify-center">
             <AttendanceBadge status={attendance?.status ?? "PENDING"} dict={dict} />
@@ -77,7 +79,7 @@ export default async function CheckinPage() {
   }
 
   const [teachers, attendances] = await Promise.all([
-    prisma.user.findMany({ where: { role: "MEMBER" }, include: { department: true, campusLocation: true } }),
+    prisma.user.findMany({ where: { role: "MEMBER", isActive: true }, include: { department: true, campusLocation: true } }),
     prisma.attendance.findMany({ where: { date } }),
   ]);
   const byUser = new Map(attendances.map((a) => [a.userId, a]));

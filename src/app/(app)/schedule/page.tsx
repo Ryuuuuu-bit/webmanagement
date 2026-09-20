@@ -15,7 +15,7 @@ export default async function SchedulePage() {
       include: { course: true, room: true },
       orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
     }),
-    isAdmin ? prisma.user.findMany({ where: { role: "MEMBER" }, orderBy: { name: "asc" } }) : Promise.resolve([]),
+    isAdmin ? prisma.user.findMany({ where: { role: "MEMBER", isActive: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
     prisma.course.findMany(),
     prisma.room.findMany(),
     prisma.semester.findMany({ orderBy: { startDate: "desc" } }),

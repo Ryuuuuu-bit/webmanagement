@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { headers } from "next/headers";
 import {
   generateRegistrationOptions,
@@ -193,4 +194,80 @@ export async function verifyAssertion(userId: string, response: AuthenticationRe
     data: { counter: verification.authenticationInfo.newCounter, lastUsedAt: new Date() },
   });
   return true;
+}
+
+// ---------------------------------------------------- passkey sign-in ----
+//
+// The same registered device credentials double as a passwordless login:
+// the browser is asked for *any* passkey for this site ("discoverable"
+// credential — no email typed first), and whichever one the person unlocks
+// with Face ID/fingerprint tells us who they are via its credential ID.
+// Because there's no user yet when the challenge is issued, it's stored
+// under a random "login:<key>" pseudo-user in WebauthnChallenge and the key
+// is handed to the client to bring back with the assertion.
+
+function loginChallengeKey() {
+  return `login:${randomBytes(18).toString("base64url")}`;
+}
+
+export async function buildLoginOptions(): Promise<{
+  challengeKey: string;
+  options: Awaited<ReturnType<typeof generateAuthenticationOptions>>;
+}> {
+  const { rpID } = getRpIdAndOrigin();
+  const options = await generateAuthenticationOptions({
+    rpID,
+    // No allowCredentials → the authenticator offers every passkey it holds
+    // for this rpID and the person picks (usually there's exactly one).
+    userVerification: "required",
+  });
+  const challengeKey = loginChallengeKey();
+  await saveChallenge(challengeKey, options.challenge);
+  return { challengeKey, options };
+}
+
+/**
+ * Verifies a discoverable-credential assertion and returns the owning
+ * user's id, or null. The caller (src/actions/passkeyLogin.ts) turns that
+ * into a one-time sign-in ticket for the "ticket" NextAuth provider.
+ */
+export async function verifyLoginAssertion(
+  challengeKey: string,
+  response: AuthenticationResponseJSON
+): Promise<{ userId: string; credentialLabel: string | null } | null> {
+  if (!challengeKey.startsWith("login:")) return null;
+  const { rpID, origin } = getRpIdAndOrigin();
+  const expectedChallenge = await takeChallenge(challengeKey);
+  if (!expectedChallenge) return null;
+
+  const stored = await prisma.webauthnCredential.findUnique({ where: { credentialId: response.id } });
+  if (!stored) return null;
+
+  const credential: SimpleWebAuthnCredential = {
+    id: stored.credentialId,
+    publicKey: new Uint8Array(stored.publicKey),
+    counter: stored.counter,
+    transports: toTransports(stored.transports) as SimpleWebAuthnCredential["transports"],
+  };
+
+  let verification;
+  try {
+    verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
+      credential,
+      requireUserVerification: true,
+    });
+  } catch {
+    return null;
+  }
+  if (!verification.verified) return null;
+
+  await prisma.webauthnCredential.update({
+    where: { id: stored.id },
+    data: { counter: verification.authenticationInfo.newCounter, lastUsedAt: new Date() },
+  });
+  return { userId: stored.userId, credentialLabel: stored.label };
 }

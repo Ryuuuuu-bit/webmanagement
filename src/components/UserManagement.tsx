@@ -2,6 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
+import { formatDate, formatTime } from "@/lib/date";
+import type { EnrollmentLink } from "@/actions/enrollment";
 
 type UserRow = {
   id: string;
@@ -11,6 +13,9 @@ type UserRow = {
   department?: { name: string } | null;
   campusLocation?: { id: string; name: string } | null;
   mustChangePassword: boolean;
+  tempPasswordExpiresAt: string | null;
+  isActive: boolean;
+  lastLoginAt: string | null;
 };
 type Dept = { id: string; name: string };
 type Site = { id: string; name: string };
@@ -27,6 +32,8 @@ export default function UserManagement({
   updateUserSite,
   deleteUser,
   clearWebauthnCredentials,
+  setUserActive,
+  createEnrollmentLink,
 }: {
   users: UserRow[];
   departments: Dept[];
@@ -38,8 +45,10 @@ export default function UserManagement({
   updateUserSite: (userId: string, campusLocationId: string | null) => Promise<{ ok: boolean; message: string }>;
   deleteUser: (userId: string) => Promise<{ ok: boolean; message: string }>;
   clearWebauthnCredentials: (userId: string) => Promise<{ ok: boolean; message: string }>;
+  setUserActive: (userId: string, active: boolean) => Promise<{ ok: boolean; message: string }>;
+  createEnrollmentLink: (userId: string) => Promise<{ ok: true; link: EnrollmentLink; message: string } | { ok: false; message: string }>;
 }) {
-  const { dict } = useLanguage();
+  const { dict, locale } = useLanguage();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);
@@ -48,6 +57,10 @@ export default function UserManagement({
   const [siteResult, setSiteResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
   const [deleteResult, setDeleteResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
   const [webauthnResult, setWebauthnResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
+  const [activeResult, setActiveResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
+  const [enrollment, setEnrollment] = useState<{ userName: string; link: EnrollmentLink } | null>(null);
+  const [enrollError, setEnrollError] = useState<{ userId: string; message: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   function onCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -102,6 +115,59 @@ export default function UserManagement({
       const res = await clearWebauthnCredentials(userId);
       setWebauthnResult({ userId, ...res });
     });
+  }
+
+  function onToggleActive(u: UserRow) {
+    const next = !u.isActive;
+    if (!confirm(next ? dict.users.reactivateConfirm(u.name) : dict.users.suspendConfirm(u.name))) return;
+    setCreateResult(null);
+    startTransition(async () => {
+      const res = await setUserActive(u.id, next);
+      setActiveResult({ userId: u.id, ...res });
+    });
+  }
+
+  function onEnrollment(u: UserRow) {
+    setCreateResult(null);
+    setEnrollError(null);
+    startTransition(async () => {
+      const res = await createEnrollmentLink(u.id);
+      if (res.ok) {
+        setCopied(false);
+        setEnrollment({ userName: u.name, link: res.link });
+      } else {
+        setEnrollError({ userId: u.id, message: res.message });
+      }
+    });
+  }
+
+  async function copyLink() {
+    if (!enrollment) return;
+    try {
+      await navigator.clipboard.writeText(enrollment.link.url);
+      setCopied(true);
+    } catch {
+      // Clipboard blocked — the URL is shown as text to copy manually.
+    }
+  }
+
+  function statusBadge(u: UserRow) {
+    if (!u.isActive) return <span className="badge bg-danger-soft text-danger">{dict.users.statusSuspended}</span>;
+    if (u.mustChangePassword) {
+      const expired = u.tempPasswordExpiresAt ? new Date(u.tempPasswordExpiresAt) < new Date() : false;
+      return expired ? (
+        <span className="badge bg-danger-soft text-danger">{dict.users.tempExpired}</span>
+      ) : (
+        <span className="badge bg-warn-soft text-warn">{dict.users.passwordPendingReset}</span>
+      );
+    }
+    return <span className="text-faint">{dict.users.passwordNormal}</span>;
+  }
+
+  function lastLogin(u: UserRow) {
+    if (!u.lastLoginAt) return <span className="text-faint">{dict.users.neverLoggedIn}</span>;
+    const d = new Date(u.lastLoginAt);
+    return <span className="whitespace-nowrap text-xs">{formatDate(d, locale)} {formatTime(d, locale)}</span>;
   }
 
   return (
@@ -160,14 +226,15 @@ export default function UserManagement({
                 <th className="pb-2">{dict.users.colDepartment}</th>
                 <th className="pb-2">{dict.users.colSite}</th>
                 <th className="pb-2">{dict.users.colRole}</th>
-                <th className="pb-2">{dict.users.colPasswordStatus}</th>
+                <th className="pb-2">{dict.users.colStatus}</th>
+                <th className="pb-2">{dict.users.colLastLogin}</th>
                 <th className="pb-2"></th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-t border-line-soft align-top">
-                  <td className="py-2">{u.name}</td>
+                <tr key={u.id} className={`border-t border-line-soft align-top ${u.isActive ? "" : "opacity-60"}`}>
+                  <td className="py-2 font-medium">{u.name}</td>
                   <td className="py-2 text-muted">{u.email}</td>
                   <td className="py-2">{u.department?.name ?? "—"}</td>
                   <td className="py-2">
@@ -204,13 +271,8 @@ export default function UserManagement({
                       <div className={`mt-1 text-xs ${roleResult.ok ? "text-ok" : "text-danger"}`}>{roleResult.message}</div>
                     )}
                   </td>
-                  <td className="py-2">
-                    {u.mustChangePassword ? (
-                      <span className="badge bg-warn-soft text-warn">{dict.users.passwordPendingReset}</span>
-                    ) : (
-                      <span className="text-faint">{dict.users.passwordNormal}</span>
-                    )}
-                  </td>
+                  <td className="py-2">{statusBadge(u)}</td>
+                  <td className="py-2">{lastLogin(u)}</td>
                   <td className="py-2">
                     <div className="flex flex-wrap items-center gap-3">
                       <button
@@ -221,12 +283,28 @@ export default function UserManagement({
                         {dict.users.resetPassword}
                       </button>
                       <button
+                        disabled={pending || !u.isActive}
+                        onClick={() => onEnrollment(u)}
+                        className="text-xs font-semibold text-brand-ink underline disabled:opacity-40"
+                      >
+                        {dict.users.enrollmentButton}
+                      </button>
+                      <button
                         disabled={pending}
                         onClick={() => onClearWebauthn(u.id, u.name)}
                         className="text-xs font-semibold text-brand-ink underline disabled:opacity-40"
                       >
                         {dict.users.clearWebauthnButton}
                       </button>
+                      {u.id !== currentUserId && (u.role !== "ADMIN" || !u.isActive) && (
+                        <button
+                          disabled={pending}
+                          onClick={() => onToggleActive(u)}
+                          className={`text-xs font-semibold underline disabled:opacity-40 ${u.isActive ? "text-warn" : "text-ok"}`}
+                        >
+                          {u.isActive ? dict.users.suspendButton : dict.users.reactivateButton}
+                        </button>
+                      )}
                       {u.role !== "ADMIN" && u.id !== currentUserId && (
                         <button
                           disabled={pending}
@@ -251,6 +329,10 @@ export default function UserManagement({
                     {deleteResult?.userId === u.id && (
                       <div className={`mt-1 text-xs ${deleteResult.ok ? "text-ok" : "text-danger"}`}>{deleteResult.message}</div>
                     )}
+                    {activeResult?.userId === u.id && (
+                      <div className={`mt-1 text-xs ${activeResult.ok ? "text-ok" : "text-danger"}`}>{activeResult.message}</div>
+                    )}
+                    {enrollError?.userId === u.id && <div className="mt-1 text-xs text-danger">{enrollError.message}</div>}
                   </td>
                 </tr>
               ))}
@@ -258,6 +340,34 @@ export default function UserManagement({
           </table>
         </div>
       </div>
+
+      {enrollment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setEnrollment(null)}>
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-1 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold">{dict.users.enrollmentTitle}</h3>
+                <p className="text-xs text-muted">{dict.users.enrollmentFor(enrollment.userName)}</p>
+              </div>
+              <button onClick={() => setEnrollment(null)} className="text-faint hover:text-subtle">✕</button>
+            </div>
+            <div
+              className="mx-auto mt-4 w-[220px] rounded-xl bg-white p-2 [&>svg]:h-auto [&>svg]:w-full"
+              dangerouslySetInnerHTML={{ __html: enrollment.link.qrSvg }}
+            />
+            <p className="mt-4 text-xs text-muted">{dict.users.enrollmentHint}</p>
+            <div className="mt-3 flex items-center gap-2">
+              <input readOnly value={enrollment.link.url} className="input flex-1 text-[11px]" onFocus={(e) => e.currentTarget.select()} />
+              <button onClick={copyLink} className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white">
+                {copied ? dict.users.copied : dict.users.copyLink}
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-faint">
+              {dict.users.enrollmentExpires(`${formatDate(enrollment.link.expiresAt, locale)}`)}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

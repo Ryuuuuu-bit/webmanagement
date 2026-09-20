@@ -26,8 +26,11 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/api/pwa-icon?size=512", sizes: "512x512", type: "image/png" },
       { src: "/api/pwa-icon?size=512", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
+    // Long-press the home-screen icon (Android) → jump straight to these.
     shortcuts: [
       { name: "เช็คอิน / เช็คเอาต์", short_name: "เช็คอิน", url: "/checkin" },
+      { name: "ตารางสอนของฉัน", short_name: "ตารางสอน", url: "/schedule" },
+      { name: "ขอลา", short_name: "ขอลา", url: "/leave" },
     ],
   };
 }
