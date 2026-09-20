@@ -1,6 +1,11 @@
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 import { AttendanceBadge } from "@/components/StatusBadge";
+import CheckinClient, { type CredentialState } from "@/components/CheckinClient";
+import { listMyCredentials } from "@/actions/webauthn";
+import { getCheckinPolicy } from "@/lib/settings";
+import { getExpectedSite } from "@/lib/geo";
 import { formatTime, todayAtMidnight, toWeekdayIndex } from "@/lib/date";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary, type Dictionary } from "@/lib/i18n/dictionaries";
@@ -13,7 +18,7 @@ export default async function DashboardPage() {
   const dict = getDictionary(locale);
 
   if (!isAdmin) {
-    const [attendance, todaySchedule, pendingLeave, pendingAttest] = await Promise.all([
+    const [attendance, todaySchedule, pendingLeave, pendingAttest, site, credentials, policy] = await Promise.all([
       prisma.attendance.findUnique({ where: { userId_date: { userId: session.user.id, date } } }),
       prisma.schedule.findMany({
         where: { teacherId: session.user.id, dayOfWeek: toWeekdayIndex(new Date()) },
@@ -22,12 +27,56 @@ export default async function DashboardPage() {
       }),
       prisma.leaveRequest.count({ where: { requesterId: session.user.id, status: "PENDING" } }),
       prisma.timeAttestation.count({ where: { requesterId: session.user.id, status: "PENDING" } }),
+      getExpectedSite(session.user.id),
+      listMyCredentials(),
+      getCheckinPolicy(),
     ]);
+    // Same derivation as the check-in page, so the buttons behave identically here.
+    const credentialState: CredentialState = credentials.some((c) => !c.pending)
+      ? "approved"
+      : credentials.length > 0
+        ? "pending"
+        : "none";
 
     const d = dict.dashboard.member;
 
     return (
       <div className="flex flex-col gap-6">
+        {/* Client request: check in/out straight from the dashboard — the
+            same CheckinClient as /checkin (GPS → selfie → biometric), so
+            every policy applies here too. Device management stays on /checkin. */}
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="text-base font-bold">{d.checkinTitle}</h2>
+              <p className="text-sm text-muted">{d.checkinHint}</p>
+            </div>
+            <Link href="/checkin" className="text-sm font-medium text-brand-ink hover:underline">
+              {d.checkinMore}
+            </Link>
+          </div>
+          <CheckinClient
+            attendance={
+              attendance
+                ? {
+                    status: attendance.status,
+                    checkinAt: attendance.checkinAt?.toISOString() ?? null,
+                    checkoutAt: attendance.checkoutAt?.toISOString() ?? null,
+                  }
+                : null
+            }
+            credentialState={credentialState}
+            policy={policy}
+          />
+          <p className="mt-3 text-center text-xs text-faint">
+            {site.kind === "no_site" ? (
+              <span className="text-danger">{dict.actions.checkin.noSiteAssigned}</span>
+            ) : (
+              <>📍 {site.site.name}</>
+            )}
+          </p>
+        </div>
+
         <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
           <StatTile label={d.statusToday} value={<AttendanceBadge status={attendance?.status ?? "PENDING"} dict={dict} />} />
           <StatTile label={d.checkinTime} value={formatTime(attendance?.checkinAt, locale) ?? "—"} />
