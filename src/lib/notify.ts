@@ -14,6 +14,8 @@ import { sendPushToUsers } from "./push";
  *   the same phone checks in for two teachers             → every active Admin
  *   Admin adds / removes a class on a teacher's timetable → that teacher
  *   Admin changes a teacher's role or assigned site       → that teacher
+ *   anyone files an issue report about the app            → every active Admin
+ *   Admin changes its status / replies                     → the reporter
  *
  * The row stores a `kind` plus the raw facts (names, dates, decision) and the
  * text is produced at read time in the *reader's* language (renderNotification
@@ -37,7 +39,9 @@ export type NotificationKind =
   | "SCHEDULE_REMOVED"
   | "ROLE_CHANGED"
   | "SITE_ASSIGNED"
-  | "PASSWORD_TEMP";
+  | "PASSWORD_TEMP"
+  | "ISSUE_REPORTED"
+  | "ISSUE_UPDATED";
 
 export type NotificationParams = Record<string, string | number | boolean | null>;
 
@@ -112,6 +116,9 @@ export function renderNotification(
     leaveType: (v) => (dict.leave.types as Record<string, string>)[String(v)] ?? String(v ?? "-"),
     attestType: (v) => (dict.attest.types as Record<string, string>)[String(v)] ?? String(v ?? "-"),
     dayName: (v) => dict.day.full[Number(v)] ?? "-",
+    issueCategory: (v) => (dict.feedback.categories as Record<string, string>)[String(v)] ?? String(v ?? "-"),
+    issueArea: (v) => (dict.feedback.areas as Record<string, string>)[String(v)] ?? String(v ?? "-"),
+    issueStatus: (v) => (dict.feedback.status as Record<string, string>)[String(v)] ?? String(v ?? "-"),
   };
   const render = kinds[row.kind];
   const text = render ? render(p, helpers) : { title: dict.notifications.genericTitle, body: "" };
@@ -131,6 +138,9 @@ export type RenderHelpers = {
   leaveType: (v: NotificationParams[string]) => string;
   attestType: (v: NotificationParams[string]) => string;
   dayName: (v: NotificationParams[string]) => string;
+  issueCategory: (v: NotificationParams[string]) => string;
+  issueArea: (v: NotificationParams[string]) => string;
+  issueStatus: (v: NotificationParams[string]) => string;
 };
 
 export async function countUnread(userId: string) {

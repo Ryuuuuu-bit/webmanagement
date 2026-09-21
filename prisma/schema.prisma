@@ -132,6 +132,8 @@ model User {
   passwordResetTokens PasswordResetToken[]
   notifications       Notification[]
   pushSubscriptions   PushSubscription[]
+  issueReports        IssueReport[]        @relation("IssueReporter")
+  handledIssues       IssueReport[]        @relation("IssueHandler")
 }
 
 // "Forgot password" / "set your password" email link. Single-use,
@@ -553,4 +555,51 @@ model PushSubscription {
   lastUsedAt DateTime?
 
   @@index([userId])
+}
+
+// "รายงานปัญหา": feedback about the web app itself (bug, suggestion,
+// question) filed by anyone signed in. Each report names the menu/area it
+// concerns so Admin can triage by feature; an optional screenshot is stored
+// inline like the other attachments (served via /api/feedback/<id>/attachment).
+// Admin moves it OPEN → IN_PROGRESS → RESOLVED / CLOSED and can leave a reply
+// the reporter sees on their own list (and as a notification).
+enum IssueCategory {
+  BUG
+  SUGGESTION
+  QUESTION
+  OTHER
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model IssueReport {
+  id          String        @id @default(cuid())
+  reporterId  String
+  reporter    User          @relation("IssueReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  category    IssueCategory @default(BUG)
+  // Menu/feature key (dictionary feedback.areas): dashboard, schedule, checkin, leave, attest, lessonPlans, notifications, account, admin, other
+  area        String        @default("other")
+  title       String
+  detail      String
+  // Where they were and what they used when filing — filled in automatically.
+  pageUrl     String?
+  device      String?
+  attachmentName String?
+  attachmentMime String?
+  attachmentSize Int?
+  attachmentData Bytes?
+  status      IssueStatus   @default(OPEN)
+  adminNote   String?
+  handlerId   String?
+  handler     User?         @relation("IssueHandler", fields: [handlerId], references: [id], onDelete: SetNull)
+  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime      @default(now())
+
+  @@index([status, createdAt])
+  @@index([reporterId, createdAt])
 }

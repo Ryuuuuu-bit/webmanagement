@@ -11,5 +11,6 @@ export const config = {
     "/lesson-plans/:path*",
     "/admin/:path*",
     "/change-password/:path*",
+    "/feedback/:path*",
   ],
 };

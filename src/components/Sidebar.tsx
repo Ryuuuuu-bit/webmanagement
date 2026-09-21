@@ -47,9 +47,13 @@ const ICON: Record<string, string> = {
   masterdata:
     '<rect x="1.5" y="2" width="5.5" height="5.5" rx="1"/><rect x="9" y="2" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="8.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="8.5" width="5.5" height="5.5" rx="1"/>',
   audit: '<path d="M8 1.5l5.5 2.5v4c0 3.2-2.3 5.6-5.5 6.5C4.8 13.6 2.5 11.2 2.5 8V4L8 1.5z"/><path d="M5.8 8l1.6 1.6L10.5 6.4"/>',
+  feedback:
+    '<path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v6a1.5 1.5 0 0 1-1.5 1.5H6.5L3 14v-3H3.5A1.5 1.5 0 0 1 2 9.5v-6Z" stroke-linejoin="round"/><line x1="8" y1="4.6" x2="8" y2="7.2" stroke-linecap="round"/><circle cx="8" cy="9" r=".5" fill="currentColor" stroke="none"/>',
 };
 
 type NavItem = [href: string, icon: string, label: string];
+/** A titled block of links — the menu is grouped by what the person is doing (daily work / requests / admin / help). */
+type NavGroup = { title: string; items: NavItem[] };
 
 /**
  * The actual logo/nav-links/footer content, shared between the always-visible
@@ -59,12 +63,12 @@ type NavItem = [href: string, icon: string, label: string];
  * on desktop, where there's no drawer to close).
  */
 function SidebarContent({
-  items,
+  groups,
   isAdmin,
   userName,
   onNavigate,
 }: {
-  items: NavItem[];
+  groups: NavGroup[];
   isAdmin: boolean;
   userName: string;
   onNavigate?: () => void;
@@ -84,27 +88,31 @@ function SidebarContent({
         </div>
       </div>
 
-      <div className="px-2 pb-1.5 pt-3 text-[11px] font-semibold uppercase tracking-wide text-faint">{dict.sidebar.menu}</div>
-      <nav className="flex flex-col gap-0.5">
+      <nav className="flex flex-col gap-0.5" aria-label={dict.sidebar.menu}>
         <NotificationBell variant="nav" onNavigate={onNavigate} />
-        {items.map(([href, icon, label]) => {
-          const active = pathname === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={onNavigate}
-              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium ${
-                active ? "bg-brand-soft text-brand-ink" : "text-subtle hover:bg-line-soft"
-              }`}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"
-                className={active ? "text-brand" : "text-faint"}
-                dangerouslySetInnerHTML={{ __html: ICON[icon] }} />
-              <span>{label}</span>
-            </Link>
-          );
-        })}
+        {groups.map((g) => (
+          <div key={g.title} className="flex flex-col gap-0.5">
+            <div className="px-2 pb-1 pt-3.5 text-[11px] font-semibold uppercase tracking-wide text-faint">{g.title}</div>
+            {g.items.map(([href, icon, label]) => {
+              const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={onNavigate}
+                  className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium ${
+                    active ? "bg-brand-soft text-brand-ink" : "text-subtle hover:bg-line-soft"
+                  }`}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"
+                    className={active ? "text-brand" : "text-faint"}
+                    dangerouslySetInnerHTML={{ __html: ICON[icon] }} />
+                  <span>{label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="mt-auto flex flex-col gap-1.5">
@@ -141,28 +149,56 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
   const { dict } = useLanguage();
   const [open, setOpen] = useState(false);
   const nav = dict.sidebar.nav;
+  const gt = dict.sidebar.groups;
 
-  const items: NavItem[] = isAdmin
+  const groups: NavGroup[] = isAdmin
     ? [
-        ["/dashboard", "dashboard", nav.dashboard],
-        ["/schedule", "schedule", nav.scheduleAll],
-        ["/checkin", "checkin", nav.checkinAll],
-        ["/attest", "attest", nav.attestApprove],
-        ["/leave", "leave", nav.leaveApprove],
-        ["/teachers", "teachers", nav.teachers],
-        ["/lesson-plans", "lessonplans", nav.lessonPlansAll],
-        ["/admin/master-data", "masterdata", nav.masterData],
-        ["/admin/users", "users", nav.users],
-        ["/admin/locations", "locations", nav.locations],
-        ["/admin/audit", "audit", nav.audit],
+        {
+          title: gt.daily,
+          items: [
+            ["/dashboard", "dashboard", nav.dashboard],
+            ["/schedule", "schedule", nav.scheduleAll],
+            ["/checkin", "checkin", nav.checkinAll],
+            ["/teachers", "teachers", nav.teachers],
+          ],
+        },
+        {
+          title: gt.approvals,
+          items: [
+            ["/leave", "leave", nav.leaveApprove],
+            ["/attest", "attest", nav.attestApprove],
+            ["/lesson-plans", "lessonplans", nav.lessonPlansAll],
+          ],
+        },
+        {
+          title: gt.manage,
+          items: [
+            ["/admin/users", "users", nav.users],
+            ["/admin/locations", "locations", nav.locations],
+            ["/admin/master-data", "masterdata", nav.masterData],
+            ["/admin/audit", "audit", nav.audit],
+          ],
+        },
+        { title: gt.help, items: [["/feedback", "feedback", nav.feedback]] },
       ]
     : [
-        ["/dashboard", "dashboard", nav.dashboard],
-        ["/schedule", "schedule", nav.scheduleMine],
-        ["/checkin", "checkin", nav.checkinMine],
-        ["/attest", "attest", nav.attestMine],
-        ["/leave", "leave", nav.leaveMine],
-        ["/lesson-plans", "lessonplans", nav.lessonPlansMine],
+        {
+          title: gt.daily,
+          items: [
+            ["/dashboard", "dashboard", nav.dashboard],
+            ["/checkin", "checkin", nav.checkinMine],
+            ["/schedule", "schedule", nav.scheduleMine],
+          ],
+        },
+        {
+          title: gt.requests,
+          items: [
+            ["/leave", "leave", nav.leaveMine],
+            ["/attest", "attest", nav.attestMine],
+            ["/lesson-plans", "lessonplans", nav.lessonPlansMine],
+          ],
+        },
+        { title: gt.help, items: [["/feedback", "feedback", nav.feedback]] },
       ];
 
   return (
@@ -209,14 +245,14 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
                 ✕
               </button>
             </div>
-            <SidebarContent items={items} isAdmin={isAdmin} userName={userName} onNavigate={() => setOpen(false)} />
+            <SidebarContent groups={groups} isAdmin={isAdmin} userName={userName} onNavigate={() => setOpen(false)} />
           </aside>
         </div>
       )}
 
       {/* Desktop sidebar — unchanged from before, just hidden below lg now. */}
       <aside className="sticky top-0 hidden h-screen w-56 flex-none flex-col border-r border-line bg-surface p-3 lg:flex">
-        <SidebarContent items={items} isAdmin={isAdmin} userName={userName} />
+        <SidebarContent groups={groups} isAdmin={isAdmin} userName={userName} />
       </aside>
     </>
   );
