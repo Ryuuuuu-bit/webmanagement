@@ -4,6 +4,9 @@ import { useRef, useState, useTransition } from "react";
 import type { LeaveType } from "@prisma/client";
 import { useLanguage } from "./LanguageProvider";
 import { useRouter } from "next/navigation";
+import { encodeFileName, FileReadError, frameUpload, readFileBytes, xhrPost } from "@/lib/uploadClient";
+
+const MAX_ATTACHMENT = 5 * 1024 * 1024;
 
 type QuotaStatus = { type: LeaveType; quota: number; used: number; remaining: number | null };
 type ActionResult = { ok: boolean; message: string };
@@ -28,26 +31,49 @@ export default function LeaveForm({
   const [halfDay, setHalfDay] = useState("");
   const [from, setFrom] = useState("");
 
-  // Posts multipart to a Route Handler (not a Server Action) so the optional
-  // attachment uploads reliably from phones — same lesson as lesson plans.
+  // Posts to a Route Handler (not a Server Action) as one framed body: the
+  // text fields as length-prefixed JSON, then the optional attachment's
+  // bytes read into memory first — see src/lib/uploadClient.ts (iOS Safari).
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
     const formData = new FormData(form);
-    if (halfDay) formData.set("to", String(formData.get("from") ?? ""));
+    const fields = {
+      type: String(formData.get("type") ?? ""),
+      from: String(formData.get("from") ?? ""),
+      to: halfDay ? String(formData.get("from") ?? "") : String(formData.get("to") ?? ""),
+      halfDay: String(formData.get("halfDay") ?? ""),
+      reason: String(formData.get("reason") ?? ""),
+    };
+    const picked = formData.get("file");
+    const file = picked instanceof File && picked.size > 0 ? picked : null;
+    if (file && file.size > MAX_ATTACHMENT) {
+      setResult({ ok: false, message: dict.actions.leave.fileTooLarge });
+      return;
+    }
     startTransition(async () => {
+      let res: ActionResult;
       try {
-        const res = await fetch("/api/leave/request", { method: "POST", body: formData });
-        const json = (await res.json()) as ActionResult;
-        setResult(json);
-        if (json.ok) {
-          form.reset();
-          setHalfDay("");
-          setFrom("");
-          router.refresh();
+        const bytes = file ? await readFileBytes(file) : null;
+        const headers: Record<string, string> = { "Content-Type": "application/octet-stream", "X-Upload-Framed": "1" };
+        if (file) {
+          headers["X-File-Name"] = encodeFileName(file.name);
+          headers["X-File-Type"] = file.type || "";
         }
-      } catch {
-        setResult({ ok: false, message: dict.actions.leave.uploadInterrupted });
+        const r = await xhrPost<ActionResult>("/api/leave/request", frameUpload(fields, bytes), { headers });
+        res =
+          r.json && typeof r.json.message === "string"
+            ? r.json
+            : { ok: false, message: r.status === 413 ? dict.actions.leave.fileTooLarge : dict.actions.upload.serverError(r.status) };
+      } catch (err) {
+        res = { ok: false, message: err instanceof FileReadError ? dict.actions.upload.readFailed : dict.actions.leave.uploadInterrupted };
+      }
+      setResult(res);
+      if (res.ok) {
+        form.reset();
+        setHalfDay("");
+        setFrom("");
+        router.refresh();
       }
     });
   }

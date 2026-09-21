@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "./LanguageProvider";
+import { encodeFileName, FileReadError, readFileBytes, xhrPost } from "@/lib/uploadClient";
 
 type Plan = {
   id: string;
@@ -15,9 +16,10 @@ type Plan = {
 const MAX_SIZE = 8 * 1024 * 1024;
 
 /**
- * Uploads with a plain XMLHttpRequest to /api/lesson-plans/upload so a large
- * file on a phone gets a progress bar and a readable error, never a
- * full-page crash (see the route for why not a Server Action).
+ * Reads the chosen file into memory, then XHR-POSTs the bytes raw to
+ * /api/lesson-plans/upload (progress bar, readable errors, no multipart
+ * parser in the loop — see src/lib/uploadClient.ts for the iOS Safari
+ * background).
  */
 export default function LessonPlanUploadForm({
   courseId,
@@ -51,31 +53,33 @@ export default function LessonPlanUploadForm({
     }
     setBusy(true);
     setProgress(0);
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/lesson-plans/upload");
-    xhr.upload.onprogress = (ev) => {
-      if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 100));
-    };
-    xhr.onload = () => {
-      setBusy(false);
-      let res: { ok: boolean; message: string } | null = null;
+    void (async () => {
+      let res: { ok: boolean; message: string };
       try {
-        res = JSON.parse(xhr.responseText);
-      } catch {
-        res = null;
+        // Read into memory first — see src/lib/uploadClient.ts for the iOS story.
+        const bytes = await readFileBytes(file);
+        const r = await xhrPost<{ ok: boolean; message: string }>(
+          `/api/lesson-plans/upload?courseId=${encodeURIComponent(courseId)}`,
+          bytes,
+          {
+            headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeFileName(file.name), "X-File-Type": file.type || "" },
+            onProgress: setProgress,
+          }
+        );
+        res =
+          r.json && typeof r.json.message === "string"
+            ? r.json
+            : { ok: false, message: r.status === 413 ? dict.actions.lessonPlans.fileTooLarge : dict.actions.upload.serverError(r.status) };
+      } catch (err) {
+        res = { ok: false, message: err instanceof FileReadError ? dict.actions.upload.readFailed : dict.actions.lessonPlans.uploadInterrupted };
       }
-      if (!res) res = { ok: false, message: dict.actions.lessonPlans.uploadInterrupted };
+      setBusy(false);
       setResult(res);
       if (res.ok) {
         form.reset();
         router.refresh();
       }
-    };
-    xhr.onerror = () => {
-      setBusy(false);
-      setResult({ ok: false, message: dict.actions.lessonPlans.uploadInterrupted });
-    };
-    xhr.send(formData);
+    })();
   }
 
   const STATUS_LABEL: Record<string, { text: string; cls: string }> = {

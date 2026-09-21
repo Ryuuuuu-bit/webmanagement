@@ -881,6 +881,12 @@ const th = {
     unauthorized: "ไม่มีสิทธิ์ดำเนินการนี้",
     pleaseSignIn: "กรุณาเข้าสู่ระบบ",
     pleaseSignInAgain: "กรุณาเข้าสู่ระบบใหม่",
+    upload: {
+      readFailed: "อ่านไฟล์จากเครื่องไม่ได้ (ได้ 0 byte) — กรุณาแตะเลือกไฟล์ใหม่อีกครั้ง ถ้าไฟล์อยู่ใน iCloud ให้ดาวน์โหลดลงเครื่องก่อน",
+      emptyBody: "ไฟล์ที่ส่งมาว่างเปล่า (0 byte) — มักเกิดกับ Safari/iOS กรุณาเลือกไฟล์ใหม่แล้วส่งอีกครั้ง",
+      parseFailed: "เซิร์ฟเวอร์อ่านข้อมูลที่ส่งมาไม่ได้ — กรุณารีเฟรชหน้า (หรือปิด-เปิดแอป) แล้วลองใหม่",
+      serverError: (status: number) => `ส่งไม่สำเร็จ (เซิร์ฟเวอร์ตอบ ${status}) กรุณาลองใหม่`,
+    },
     schedule: {
       invalidTime: "กรอกเวลาเริ่ม-สิ้นสุดให้ถูกต้อง (HH:MM)",
       endBeforeStart: "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม",
@@ -1919,6 +1925,12 @@ const en: typeof th = {
     unauthorized: "You don't have permission to do this",
     pleaseSignIn: "Please sign in",
     pleaseSignInAgain: "Please sign in again",
+    upload: {
+      readFailed: "Could not read the file from your device (got 0 bytes) — please pick the file again; if it lives in iCloud, download it first",
+      emptyBody: "The uploaded file arrived empty (0 bytes) — a known Safari/iOS quirk; please pick the file again and resend",
+      parseFailed: "The server could not read what was sent — please refresh the page (or close and reopen the app) and try again",
+      serverError: (status: number) => `Upload failed (server answered ${status}), please try again`,
+    },
     schedule: {
       invalidTime: "Enter a valid start/end time (HH:MM)",
       endBeforeStart: "End time must be after the start time",
