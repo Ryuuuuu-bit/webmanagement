@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { AttendanceBadge } from "@/components/StatusBadge";
+import TableFilter from "@/components/TableFilter";
 import CheckinClient, { type CredentialState } from "@/components/CheckinClient";
 import { listMyCredentials } from "@/actions/webauthn";
 import { getCheckinPolicy } from "@/lib/settings";
@@ -91,7 +92,7 @@ export default async function DashboardPage() {
             <p className="text-sm text-muted">{d.noClassToday}</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-0 text-sm">
+              <table className="table-stack w-full min-w-0 text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase text-faint">
                     <th className="pb-2">{d.colPeriod}</th>
@@ -128,6 +129,9 @@ export default async function DashboardPage() {
   }
 
   const d = dict.dashboard.admin;
+  const deptOptions = Array.from(new Map(teachers.map((t) => [t.departmentId ?? "-", t.department?.name ?? "—"] as [string, string])).entries())
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, "th"));
 
   return (
     <div className="flex flex-col gap-6">
@@ -139,11 +143,19 @@ export default async function DashboardPage() {
         <StatTile label={d.onLeave} value={String(counts.LEAVE ?? 0)} tone="info" />
       </div>
 
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+      <div id="dashboard-today" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <h2 className="text-base font-bold">{d.statusTodayTitle}</h2>
         <p className="mb-3 text-sm text-muted">{d.statusTodayHint}</p>
+        <TableFilter
+          targetId="dashboard-today"
+          pageSize={50}
+          selects={[
+            { attr: "status", label: dict.filter.status, options: Object.entries(dict.status.attendance).map(([value, label]) => ({ value, label })) },
+            { attr: "dept", label: dict.filter.department, options: deptOptions },
+          ]}
+        />
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="table-stack w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase text-faint">
                 <th className="pb-2">{d.colTeacher}</th>
@@ -157,7 +169,7 @@ export default async function DashboardPage() {
               {teachers.map((t) => {
                 const a = byUser.get(t.id);
                 return (
-                  <tr key={t.id} className="border-t border-line-soft">
+                  <tr key={t.id} data-status={a?.status ?? "PENDING"} data-dept={t.departmentId ?? "-"} className="border-t border-line-soft">
                     <td className="py-2">{t.name}</td>
                     <td className="py-2">{t.department?.name ?? "—"}</td>
                     <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} dict={dict} /></td>

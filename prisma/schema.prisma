@@ -358,6 +358,9 @@ model LeaveRequest {
   decidedAt   DateTime?
   cancelledAt DateTime?
   createdAt   DateTime      @default(now())
+
+  @@index([status, createdAt])
+  @@index([requesterId, type, startDate])
 }
 
 // Annual leave quota per leave type (in days), editable by Admin in Master
@@ -391,6 +394,9 @@ model TimeAttestation {
   approver      User?         @relation("AttestApprover", fields: [approverId], references: [id])
   decidedAt     DateTime?
   createdAt     DateTime      @default(now())
+
+  @@index([status, createdAt])
+  @@index([requesterId, date])
 }
 
 // FR-6: lesson plan submission — teacher uploads a file per course they

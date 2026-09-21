@@ -61,6 +61,7 @@ export default function IssueList({ id, rows, admin }: { id: string; rows: Issue
           ...(admin ? [{ attr: "area", label: t.colArea, options: opt(areas) }] : []),
         ]}
         dateRange
+        pageSize={20}
       />
       <div className="mt-3 flex flex-col gap-3">
         {rows.map((r) => (

@@ -23,13 +23,25 @@ export default async function TeachersPage() {
     prisma.attendance.findMany({ where: { date } }),
   ]);
   const byUser = new Map(attendances.map((a) => [a.userId, a]));
+  // Filter options come from the rows themselves (no extra queries).
+  const uniq = (pairs: [string, string][]) => Array.from(new Map(pairs).entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, "th"));
+  const deptOptions = uniq(teachers.map((t) => [t.departmentId ?? "-", t.department?.name ?? "—"] as [string, string]));
+  const siteOptions = uniq(teachers.map((t) => [t.campusLocationId ?? "-", t.campusLocation?.name ?? "—"] as [string, string]));
 
   return (
     <div id="teachers-table" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <h2 className="mb-3 text-base font-bold">{dict.teachers.title}</h2>
-      <TableFilter targetId="teachers-table" selects={[{ attr: "status", label: dict.filter.status, options: Object.entries(dict.status.attendance).map(([value, label]) => ({ value, label })) }]} />
+      <TableFilter
+        targetId="teachers-table"
+        pageSize={50}
+        selects={[
+          { attr: "dept", label: dict.filter.department, options: deptOptions },
+          { attr: "site", label: dict.filter.site, options: siteOptions },
+          { attr: "status", label: dict.filter.status, options: Object.entries(dict.status.attendance).map(([value, label]) => ({ value, label })) },
+        ]}
+      />
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="table-stack w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-faint">
               <th className="pb-2">{dict.teachers.colName}</th><th className="pb-2">{dict.teachers.colEmail}</th><th className="pb-2">{dict.teachers.colDepartment}</th><th className="pb-2">{dict.teachers.colSite}</th><th className="pb-2">{dict.teachers.colRole}</th><th className="pb-2">{dict.teachers.colStatusToday}</th>
@@ -37,7 +49,7 @@ export default async function TeachersPage() {
           </thead>
           <tbody>
             {teachers.map((t) => (
-              <tr key={t.id} data-status={byUser.get(t.id)?.status ?? "PENDING"} className="border-t border-line-soft">
+              <tr key={t.id} data-status={byUser.get(t.id)?.status ?? "PENDING"} data-dept={t.departmentId ?? "-"} data-site={t.campusLocationId ?? "-"} className="border-t border-line-soft">
                 <td className="py-2">{t.name}</td>
                 <td className="py-2 text-muted">{t.email}</td>
                 <td className="py-2">{t.department?.name ?? "—"}</td>

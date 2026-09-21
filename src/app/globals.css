@@ -112,3 +112,52 @@ body {
   70% { box-shadow: 0 0 0 10px rgb(255 255 255 / 0); }
   100% { box-shadow: 0 0 0 0 rgb(255 255 255 / 0); }
 }
+
+/* Phone layout for data tables: each row becomes a card, every cell shows
+   its column header as a label (StackTables fills data-label from <thead>).
+   Wide admin tables were unreadable at 390px — only 2 columns fit and the
+   rest hid behind a horizontal scroll. Desktop/tablet keep the real table. */
+@media (max-width: 639px) {
+  .table-stack thead { display: none; }
+  .table-stack, .table-stack tbody, .table-stack tr, .table-stack td { display: block; width: 100%; }
+  .table-stack { min-width: 0; }
+  .table-stack tr {
+    border: 1px solid var(--color-line);
+    border-radius: 12px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: var(--color-surface);
+  }
+  .table-stack tr.hidden { display: none; }
+  .table-stack td {
+    padding: 4px 0 !important;
+    border: 0 !important;
+    max-width: none !important;
+    white-space: normal !important;
+  }
+  .table-stack td:empty { display: none; }
+  /* Labelled cell: label in a left column, every piece of the value (text,
+     badge, attachment link, icon) stacked in the right column, right-aligned. */
+  .table-stack td[data-label] {
+    display: grid;
+    grid-template-columns: 38% 1fr;
+    column-gap: 12px;
+    align-items: baseline;
+    text-align: right;
+  }
+  .table-stack td[data-label]::before {
+    content: attr(data-label);
+    grid-column: 1;
+    grid-row: 1;
+    text-align: left;
+    font-size: 11px;
+    line-height: 1.5;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+  .table-stack td[data-label] > * { grid-column: 2; min-width: 0; }
+  .table-stack td[data-label] > a, .table-stack td[data-label] > span.block, .table-stack td[data-label] > div { white-space: normal !important; }
+  /* Unlabelled cell (actions): buttons in a wrapping row. */
+  .table-stack td:not([data-label]) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; text-align: left; }
+  .table-stack td.truncate { overflow: visible; text-overflow: clip; }
+}

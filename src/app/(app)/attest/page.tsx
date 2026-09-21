@@ -49,7 +49,7 @@ export default async function AttestPage() {
             <p className="mt-2 text-sm text-muted">{dict.attest.noHistory}</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="mt-3 w-full text-sm">
+              <table className="table-stack mt-3 w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase text-faint">
                     <th className="pb-2">{dict.attest.colDate}</th><th className="pb-2">{dict.attest.colType}</th><th className="pb-2">{dict.attest.colRequestedTime}</th><th className="pb-2">{dict.attest.colReason}</th><th className="pb-2">{dict.attest.colStatus}</th>
@@ -87,9 +87,9 @@ export default async function AttestPage() {
           <p className="mt-2 text-sm text-muted">{dict.attest.noPending}</p>
         ) : (
           <>
-          <TableFilter targetId="attest-pending" dateRange />
+          <TableFilter targetId="attest-pending" dateRange pageSize={25} />
           <div className="overflow-x-auto">
-            <table className="mt-3 w-full text-sm">
+            <table className="table-stack mt-3 w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase text-faint">
                   <th className="pb-2">{dict.attest.colTeacher}</th><th className="pb-2">{dict.attest.colDate}</th><th className="pb-2">{dict.attest.colType}</th><th className="pb-2">{dict.attest.colRequestedTime}</th><th className="pb-2">{dict.attest.colReason}</th><th></th>
@@ -120,9 +120,9 @@ export default async function AttestPage() {
 
       <div id="attest-done" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <h2 className="mb-3 text-base font-bold">{dict.attest.decidedTitle}</h2>
-        <TableFilter targetId="attest-done" selects={[{ attr: "status", label: dict.filter.status, options: Object.entries(dict.status.request).map(([value, label]) => ({ value, label })) }]} dateRange />
+        <TableFilter targetId="attest-done" pageSize={25} selects={[{ attr: "status", label: dict.filter.status, options: Object.entries(dict.status.request).map(([value, label]) => ({ value, label })) }]} dateRange />
         <div className="overflow-x-auto">
-          <table className="mt-3 w-full text-sm">
+          <table className="table-stack mt-3 w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase text-faint">
                 <th className="pb-2">{dict.attest.colTeacher}</th><th className="pb-2">{dict.attest.colDate}</th><th className="pb-2">{dict.attest.colType}</th><th className="pb-2">{dict.attest.colStatus}</th>

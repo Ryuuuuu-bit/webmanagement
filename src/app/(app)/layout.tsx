@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import Sidebar from "@/components/Sidebar";
 import NotificationProvider from "@/components/NotificationProvider";
 import TempPasswordBanner from "@/components/TempPasswordBanner";
+import StackTables from "@/components/StackTables";
 import { countUnread } from "@/lib/notify";
 import { PDPA_VERSION } from "@/lib/consent";
 
@@ -33,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <NotificationProvider initialUnread={initialUnread}>
+      <StackTables />
       <div className="flex min-h-screen flex-col lg:flex-row">
         <Sidebar isAdmin={isAdmin} userName={current?.name ?? session.user.name ?? session.user.email ?? "-"} />
         <div className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6">

@@ -93,7 +93,7 @@ export default function UserHistoryClient({
         <p className="text-sm text-muted">{t.empty}</p>
       ) : (
         <>
-          <TableFilter targetId={`history-${kind}`} dateRange />
+          <TableFilter targetId={`history-${kind}`} dateRange pageSize={50} />
           <div className="overflow-x-auto">{children}</div>
         </>
       )}
@@ -108,7 +108,7 @@ export default function UserHistoryClient({
   return (
     <div className="flex flex-col gap-5">
       {Section({ kind: "attendance", count: attendance.length, children: (
-        <table className="w-full text-sm">
+        <table className="table-stack w-full text-sm">
           <thead>
             <tr>
               <th className={th}>{t.colDate}</th>
@@ -155,7 +155,7 @@ export default function UserHistoryClient({
       ) })}
 
       {Section({ kind: "leave", count: leave.length, children: (
-        <table className="w-full text-sm">
+        <table className="table-stack w-full text-sm">
           <thead>
             <tr>
               <th className={th}>{t.colType}</th>
@@ -182,7 +182,7 @@ export default function UserHistoryClient({
       ) })}
 
       {Section({ kind: "attest", count: attest.length, children: (
-        <table className="w-full text-sm">
+        <table className="table-stack w-full text-sm">
           <thead>
             <tr>
               <th className={th}>{t.colDate}</th>
@@ -214,7 +214,7 @@ export default function UserHistoryClient({
       ) })}
 
       {Section({ kind: "lessonPlan", count: lessonPlans.length, children: (
-        <table className="w-full text-sm">
+        <table className="table-stack w-full text-sm">
           <thead>
             <tr>
               <th className={th}>{t.colCourse}</th>

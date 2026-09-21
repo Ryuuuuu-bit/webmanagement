@@ -104,6 +104,10 @@ export default async function CheckinPage() {
     listPendingCredentials(),
   ]);
   const byUser = new Map(attendances.map((a) => [a.userId, a]));
+  // Filter options come from the rows themselves (no extra queries).
+  const uniq = (pairs: [string, string][]) => Array.from(new Map(pairs).entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, "th"));
+  const deptOptions = uniq(teachers.map((t) => [t.departmentId ?? "-", t.department?.name ?? "—"] as [string, string]));
+  const siteOptions = uniq(teachers.map((t) => [t.campusLocationId ?? "-", t.campusLocation?.name ?? "—"] as [string, string]));
   const hhmm = (d: Date | null) =>
     d ? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Bangkok" }) : "";
 
@@ -127,9 +131,17 @@ export default async function CheckinPage() {
     <div id="checkin-overview" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <h2 className="text-base font-bold">{dict.checkin.overviewTitle}</h2>
       <p className="mb-3 text-sm text-muted">{dict.checkin.overviewHint}</p>
-      <TableFilter targetId="checkin-overview" selects={[{ attr: "status", label: dict.filter.status, options: Object.entries(dict.status.attendance).map(([value, label]) => ({ value, label })) }]} />
+      <TableFilter
+        targetId="checkin-overview"
+        pageSize={50}
+        selects={[
+          { attr: "status", label: dict.filter.status, options: Object.entries(dict.status.attendance).map(([value, label]) => ({ value, label })) },
+          { attr: "dept", label: dict.filter.department, options: deptOptions },
+          { attr: "site", label: dict.filter.site, options: siteOptions },
+        ]}
+      />
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="table-stack w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-faint">
               <th className="pb-2">{dict.dashboard.admin.colTeacher}</th>
@@ -144,7 +156,7 @@ export default async function CheckinPage() {
             {teachers.map((t) => {
               const a = byUser.get(t.id);
               return (
-                <tr key={t.id} data-status={a?.status ?? "PENDING"} className="border-t border-line-soft">
+                <tr key={t.id} data-status={a?.status ?? "PENDING"} data-dept={t.departmentId ?? "-"} data-site={t.campusLocationId ?? "-"} className="border-t border-line-soft">
                   <td className="py-2">
                     {t.name}
                     {a?.flagSharedDevice && (

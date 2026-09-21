@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { formatDayTime } from "@/lib/date";
 import { useLanguage } from "./LanguageProvider";
 
-type Option = { id: string; name?: string; code?: string; building?: string; campusLocationId?: string | null; siteName?: string | null };
+type Option = { id: string; name?: string; code?: string; building?: string; campusLocationId?: string | null; siteName?: string | null; groupName?: string | null };
 type SemesterOption = { id: string; name: string; startDate: string; endDate: string };
 type ScheduleRow = {
   id: string;
@@ -431,12 +431,11 @@ export default function ScheduleCalendar({
           <span className="hidden text-xs text-faint sm:inline">{dict.calendar.noSemesterInRange}</span>
         )}
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           {isAdmin && (
-            <select value={viewTeacherId} onChange={(e) => setViewTeacherId(e.target.value)} className="input w-auto max-w-[240px] truncate py-1.5 text-sm">
-              {teachers!.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
+            // 100 instructors: grouped by department so the list is scannable; full width on phones.
+            <select value={viewTeacherId} onChange={(e) => setViewTeacherId(e.target.value)} className="input w-full truncate py-1.5 text-sm sm:w-auto sm:max-w-[240px]">
+              <TeacherOptions teachers={teachers!} />
             </select>
           )}
 
@@ -607,7 +606,7 @@ export default function ScheduleCalendar({
               {isAdmin ? (
                 <Field label={dict.schedule.fieldTeacher}>
                   <select value={viewTeacherId} onChange={(e) => setViewTeacherId(e.target.value)} className="input w-full">
-                    {teachers!.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    <TeacherOptions teachers={teachers!} />
                   </select>
                 </Field>
               ) : (
@@ -790,5 +789,26 @@ function CheckIcon() {
     <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M3 8.5l3 3 7-7" />
     </svg>
+  );
+}
+
+/** <option>s grouped by department (optgroup) when the list has one; plain list otherwise. */
+function TeacherOptions({ teachers }: { teachers: Option[] }) {
+  const groups = new Map<string, Option[]>();
+  for (const t of teachers) {
+    const g = t.groupName ?? "";
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g)!.push(t);
+  }
+  if (groups.size <= 1) return <>{teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</>;
+  const keys = Array.from(groups.keys()).sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b, "th")));
+  return (
+    <>
+      {keys.map((g) => (
+        <optgroup key={g || "-"} label={g || "—"}>
+          {groups.get(g)!.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </optgroup>
+      ))}
+    </>
   );
 }

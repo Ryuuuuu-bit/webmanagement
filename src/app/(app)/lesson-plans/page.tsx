@@ -28,9 +28,9 @@ export default async function LessonPlansPage() {
           <p className="mt-6 text-sm text-faint">{dict.lessonPlans.noneSubmitted}</p>
         ) : (
           <div id="lesson-plans-table" className="mt-4">
-          <TableFilter targetId="lesson-plans-table" selects={[{ attr: "status", label: dict.filter.status, options: Object.entries(dict.history.lessonStatus).map(([value, label]) => ({ value, label })) }]} />
+          <TableFilter targetId="lesson-plans-table" pageSize={50} selects={[{ attr: "status", label: dict.filter.status, options: Object.entries(dict.history.lessonStatus).map(([value, label]) => ({ value, label })) }]} />
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="table-stack w-full text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-wide text-faint">
                   <th className="pb-2 font-semibold">{dict.lessonPlans.colTeacher}</th>

@@ -60,7 +60,7 @@ export default function NotificationList({ initialItems }: { initialItems: Notif
 
       {items.length > 0 && (
         <div className="px-1">
-          <TableFilter targetId="notification-list" />
+          <TableFilter targetId="notification-list" pageSize={30} />
         </div>
       )}
       <div id="notification-list" className="rounded-2xl border border-line bg-surface shadow-sm">

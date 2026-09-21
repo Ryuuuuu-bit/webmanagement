@@ -300,6 +300,7 @@ export default function UserManagement({
             and a laptop, and nothing gets crushed into vertical word-wrap. */}
         <div className="mt-3" id="users-list">
         <TableFilter
+          pageSize={25}
           targetId="users-list"
           selects={[
             { attr: "role", label: dict.filter.role, options: [{ value: "ADMIN", label: "ADMIN" }, { value: "MEMBER", label: "MEMBER" }] },

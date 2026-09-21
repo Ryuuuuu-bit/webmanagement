@@ -50,12 +50,12 @@ export default async function AdminAuditPage({ searchParams }: { searchParams?: 
         </p>
       </div>
       <div id="audit-table" className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        <TableFilter targetId="audit-table" selects={[{ attr: "action", label: dict.filter.event, options: actionOptions }]} dateRange />
+        <TableFilter targetId="audit-table" pageSize={100} selects={[{ attr: "action", label: dict.filter.event, options: actionOptions }]} dateRange />
         {rows.length === 0 ? (
           <p className="text-sm text-muted">{dict.audit.empty}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="table-stack w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase text-faint">
                   <th className="pb-2 pr-3">{dict.audit.colTime}</th>
