@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { LeaveType } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
-import { countLeaveDays, getLeaveQuotaMap, getLeaveUsedDays, LEAVE_TYPES } from "@/lib/leaveQuota";
+import { countLeaveDays, countLeaveDaysInYear, getLeaveQuotaMap, getLeaveUsedDays, LEAVE_TYPES } from "@/lib/leaveQuota";
 import { notifyAdmins } from "@/lib/notify";
 
 export const LEAVE_ATTACHMENT_MAX = 5 * 1024 * 1024; // 5MB
@@ -49,27 +49,37 @@ export async function createLeaveRequest(
 
   const days = countLeaveDays(startDate, endDate, halfDay);
   const year = startDate.getUTCFullYear();
-  const [quotaMap, usedBefore, requester] = await Promise.all([
+  const [quotaMap, usedBefore, requester, overlapping] = await Promise.all([
     getLeaveQuotaMap(),
     getLeaveUsedDays(userId, type, year),
     prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+    // Soft check only (warn, never block, matching the quota policy above) —
+    // lets Admin see at a glance that two requests cover the same day(s)
+    // instead of silently approving both and double-counting the overlap.
+    prisma.leaveRequest.findFirst({
+      where: { requesterId: userId, status: { in: ["PENDING", "APPROVED"] }, startDate: { lte: endDate }, endDate: { gte: startDate } },
+      select: { id: true },
+    }),
   ]);
   const quota = quotaMap[type];
+  const hasOverlap = !!overlapping;
 
   await prisma.leaveRequest.create({
     data: { requesterId: userId, type, startDate, endDate, halfDay, reason: input.reason.trim() || "-", ...(attachment ?? {}) },
   });
 
-  const usedAfter = usedBefore + days;
+  // Only the portion of this request that actually falls in `year` counts
+  // toward that year's quota (a request spanning New Year's has some days in
+  // each year — see countLeaveDaysInYear).
+  const usedAfter = usedBefore + countLeaveDaysInYear(startDate, endDate, halfDay, year);
   const overQuota = quota > 0 && usedAfter > quota;
   await notifyAdmins(
     "LEAVE_REQUESTED",
-    { requesterName: requester?.name ?? "-", type, from: startDate.toISOString(), to: endDate.toISOString(), days, halfDay, overQuota, hasAttachment: !!attachment },
+    { requesterName: requester?.name ?? "-", type, from: startDate.toISOString(), to: endDate.toISOString(), days, halfDay, overQuota, hasOverlap, hasAttachment: !!attachment },
     "/leave",
     { excludeUserId: userId }
   );
 
-  return overQuota
-    ? { ok: true, message: dict.actions.leave.submittedOverQuota(usedAfter, quota) }
-    : { ok: true, message: dict.actions.leave.submitted };
+  const base = overQuota ? dict.actions.leave.submittedOverQuota(usedAfter, quota) : dict.actions.leave.submitted;
+  return { ok: true, message: hasOverlap ? `${base} ${dict.actions.leave.overlapNote}` : base };
 }

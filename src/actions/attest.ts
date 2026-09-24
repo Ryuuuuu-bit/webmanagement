@@ -84,6 +84,7 @@ export async function decideAttestation(id: string, decision: "APPROVED" | "REJE
   if (!session?.user || session.user.role !== "ADMIN") {
     throw new Error("Unauthorized");
   }
+  const dict = getDictionary(getLocale());
 
   // Only a pending request can be decided (stale tab / double click / a
   // second admin) — never flip a decided one.
@@ -97,13 +98,6 @@ export async function decideAttestation(id: string, decision: "APPROVED" | "REJE
   }
   const req = await prisma.timeAttestation.findUniqueOrThrow({ where: { id }, include: { approver: { select: { name: true } } } });
 
-  await notifyUser(
-    req.requesterId,
-    "ATTEST_DECIDED",
-    { decision, type: req.type, date: req.date.toISOString(), approverName: req.approver?.name ?? session.user.name ?? "-" },
-    "/attest"
-  );
-
   if (decision === "APPROVED") {
     const date = new Date(req.date);
     date.setHours(0, 0, 0, 0);
@@ -115,11 +109,32 @@ export async function decideAttestation(id: string, decision: "APPROVED" | "REJE
       return d;
     }
 
+    const touchesCheckin = req.type !== "FORGOT_CHECKOUT";
+    const touchesCheckout = req.type !== "FORGOT_CHECKIN";
+
+    // An attestation fills in a *forgotten* check-in/out — it must never be
+    // the thing that overwrites a real GPS-verified time or flips an
+    // approved leave day back into a normal workday. Check the existing
+    // Attendance row before touching anything; if there's a real conflict,
+    // undo the claim above (back to PENDING) and stop, so admin has to
+    // resolve it (fix the record, or the leave) before deciding again.
+    const existing = await prisma.attendance.findUnique({ where: { userId_date: { userId: req.requesterId, date } } });
+    const leaveConflict = existing?.status === "LEAVE";
+    const attendanceConflict =
+      (touchesCheckin && !!existing?.checkinAt && !existing.attestedCheckin) ||
+      (touchesCheckout && !!existing?.checkoutAt && !existing.attestedCheckout);
+
+    if (leaveConflict || attendanceConflict) {
+      await prisma.timeAttestation.update({ where: { id }, data: { status: "PENDING", approverId: null, decidedAt: null } });
+      revalidatePath("/attest");
+      throw new Error(leaveConflict ? dict.actions.attest.conflictLeave : dict.actions.attest.conflictAttendance);
+    }
+
     // "ลืมทั้งสองอย่าง" (forgot both) has two distinct real times — check-in
     // and check-out — recorded separately (requestedTime / requestedCheckoutTime),
     // not the same moment applied to both.
     const data: Record<string, unknown> = {};
-    if (req.type !== "FORGOT_CHECKOUT") {
+    if (touchesCheckin) {
       data.checkinAt = atTime(req.requestedTime);
       data.attestedCheckin = true;
       // Same late rule as a real check-in: after the site's start + grace = LATE.
@@ -127,7 +142,7 @@ export async function decideAttestation(id: string, decision: "APPROVED" | "REJE
       const cutoff = new Date(atTimeOfDay(date, hours.start).getTime() + hours.graceMinutes * 60_000);
       data.status = (data.checkinAt as Date) <= cutoff ? "ON_TIME" : "LATE";
     }
-    if (req.type !== "FORGOT_CHECKIN") {
+    if (touchesCheckout) {
       data.checkoutAt = atTime(req.type === "FORGOT_BOTH" ? req.requestedCheckoutTime! : req.requestedTime);
       data.attestedCheckout = true;
     }
@@ -138,6 +153,13 @@ export async function decideAttestation(id: string, decision: "APPROVED" | "REJE
       update: data,
     });
   }
+
+  await notifyUser(
+    req.requesterId,
+    "ATTEST_DECIDED",
+    { decision, type: req.type, date: req.date.toISOString(), approverName: req.approver?.name ?? session.user.name ?? "-" },
+    "/attest"
+  );
 
   revalidatePath("/attest");
   revalidatePath("/checkin");

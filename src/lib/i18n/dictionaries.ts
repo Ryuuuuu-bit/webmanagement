@@ -99,7 +99,7 @@ const th = {
     kinds: {
       LEAVE_REQUESTED: (p: NotifParams, h: NotifHelpers) => ({
         title: `${p.requesterName} ขอ${h.leaveType(p.type)}`,
-        body: `${p.halfDay ? `${h.date(p.from)} (ครึ่งวัน${p.halfDay === "AM" ? "เช้า" : "บ่าย"})` : `${h.date(p.from)} – ${h.date(p.to)} (${p.days} วัน)`}${p.hasAttachment ? " 📎" : ""}${p.overQuota ? " ⚠ เกินโควตา" : ""} — รออนุมัติ`,
+        body: `${p.halfDay ? `${h.date(p.from)} (ครึ่งวัน${p.halfDay === "AM" ? "เช้า" : "บ่าย"})` : `${h.date(p.from)} – ${h.date(p.to)} (${p.days} วัน)`}${p.hasAttachment ? " 📎" : ""}${p.overQuota ? " ⚠ เกินโควตา" : ""}${p.hasOverlap ? " ⚠ ทับซ้อนคำขออื่น" : ""} — รออนุมัติ`,
       }),
       LEAVE_CANCELLED: (p: NotifParams, h: NotifHelpers) => ({
         title: `${p.requesterName} ยกเลิกคำขอ${h.leaveType(p.type)}`,
@@ -755,6 +755,7 @@ const th = {
     importCreated: "สร้างแล้ว",
     importDeptNotFound: (d: string) => `ไม่พบภาควิชา “${d}” — เว้นว่างไว้`,
     importSiteNotFound: (s: string) => `ไม่พบ site “${s}” — เว้นว่างไว้`,
+    importRowFailed: "เกิดข้อผิดพลาดขณะสร้างบัญชีนี้ — แถวอื่นในไฟล์ไม่ได้รับผลกระทบ ลองนำเข้าแถวนี้ใหม่อีกครั้ง",
     importSummary: (ok: number, failed: number) => `สร้างบัญชีแล้ว ${ok} คน${failed ? ` · ข้าม ${failed} แถว (ดูสาเหตุด้านล่าง)` : ""}`,
     importDownloadResults: "ดาวน์โหลดผลลัพธ์ (CSV)",
     importColTemp: "รหัสผ่านชั่วคราว",
@@ -980,6 +981,8 @@ const th = {
         `ไม่สามารถบันทึกได้ — ${who} ถูกจองไว้แล้วในวัน-เวลานี้ (${start}–${end})`,
       conflictWhoTeacher: (name: string) => `อาจารย์ ${name}`,
       conflictWhoRoom: (name: string) => `ห้อง ${name}`,
+      conflictWhoTeacherSemester: (name: string, semester: string) => `อาจารย์ ${name} (ภาคเรียน ${semester})`,
+      conflictWhoRoomSemester: (name: string, semester: string) => `ห้อง ${name} (ภาคเรียน ${semester})`,
       created: "บันทึกคาบสอนแล้ว",
       notFound: "ไม่พบคาบสอนนี้",
       noteUnauthorized: "ไม่มีสิทธิ์แก้ไขคาบสอนนี้",
@@ -987,6 +990,7 @@ const th = {
       deleteUnauthorized: "ไม่มีสิทธิ์ลบคาบสอนนี้",
       deleted: "ลบคาบสอนแล้ว",
       roomOtherSite: (site: string) => `ห้องนี้อยู่ที่ site “${site}” ซึ่งไม่ใช่ site ประจำของอาจารย์ — เลือกห้องใน site เดียวกัน`,
+      teacherNoSiteWarning: (site: string) => `⚠ อาจารย์คนนี้ยังไม่มี site ประจำ ระบบไม่สามารถยืนยันได้ว่าห้องนี้ (site “${site}”) ตรงกับ site ที่อาจารย์จะสอนจริง — ตรวจสอบก่อนบันทึก`,
     },
     attest: {
       invalidCheckinTime: "กรอกเวลาเช็คอินให้ถูกต้อง (HH:MM)",
@@ -995,6 +999,8 @@ const th = {
       invalidCheckoutTime: "กรอกเวลาเช็คเอาต์ให้ถูกต้อง (HH:MM)",
       checkoutBeforeCheckin: "เวลาเช็คเอาต์ต้องอยู่หลังเวลาเช็คอิน",
       submitted: "ส่งคำขอรับรองเวลาแล้ว",
+      conflictLeave: "ไม่สามารถอนุมัติได้ — วันนี้มีการลาที่อนุมัติแล้วอยู่ กรุณาจัดการวันลาก่อน คำขอนี้ถูกส่งกลับไปเป็นสถานะรออนุมัติ",
+      conflictAttendance: "ไม่สามารถอนุมัติได้ — วันนี้มีการเช็คอิน/เอาต์จริงบันทึกไว้แล้ว กรุณาแก้ไขบันทึกเวลาด้วยตนเองแทน คำขอนี้ถูกส่งกลับไปเป็นสถานะรออนุมัติ",
     },
     leave: {
       invalidDates: "กรอกวันที่เริ่ม-สิ้นสุดให้ถูกต้อง",
@@ -1008,6 +1014,7 @@ const th = {
       cancelled: "ยกเลิกคำขอลาแล้ว",
       submittedOverQuota: (used: number, quota: number) =>
         `ส่งคำขอลาแล้ว — แต่เกินโควตาที่กำหนดไว้ (ใช้ไปแล้ว ${used} จาก ${quota} วันในปีนี้) ผู้ดูแลระบบจะเห็นการแจ้งเตือนนี้ตอนพิจารณาอนุมัติ ยังส่งคำขอได้ตามปกติ`,
+      overlapNote: "⚠ ช่วงวันที่นี้ทับซ้อนกับคำขอลาอื่นของคุณที่ยังรออนุมัติหรืออนุมัติแล้ว ผู้ดูแลระบบจะเห็นคำเตือนนี้ตอนพิจารณาด้วย",
     },
     leaveQuota: {
       invalidDays: "จำนวนวันต้องเป็นเลขจำนวนเต็มตั้งแต่ 0 ขึ้นไป",
@@ -1110,6 +1117,9 @@ const th = {
       updated: (name: string) => `บันทึกจุดเช็คอิน "${name}" แล้ว`,
       searchTooShort: "กรุณาพิมพ์อย่างน้อย 3 ตัวอักษร",
       searchFailed: "ค้นหาสถานที่ไม่สำเร็จ กรุณาลองใหม่ หรือกรอกพิกัดเอง",
+      notFound: "ไม่พบจุดเช็คอินนี้",
+      inUse: (count: number) => `ลบไม่ได้ — ยังมีอาจารย์/ห้อง ${count} รายการผูกกับ site นี้อยู่ ย้ายออกก่อนแล้วค่อยลบ`,
+      deleted: (name: string) => `ลบจุดเช็คอิน "${name}" แล้ว`,
     },
     users: {
       fillRequired: "กรอกชื่อ ชื่อผู้ใช้ และอีเมลให้ครบ",
@@ -1237,7 +1247,7 @@ const en: typeof th = {
     kinds: {
       LEAVE_REQUESTED: (p: NotifParams, h: NotifHelpers) => ({
         title: `${p.requesterName} requested ${h.leaveType(p.type)}`,
-        body: `${p.halfDay ? `${h.date(p.from)} (half day, ${p.halfDay === "AM" ? "morning" : "afternoon"})` : `${h.date(p.from)} – ${h.date(p.to)} (${p.days} day${Number(p.days) === 1 ? "" : "s"})`}${p.hasAttachment ? " 📎" : ""}${p.overQuota ? " ⚠ over quota" : ""} — awaiting approval`,
+        body: `${p.halfDay ? `${h.date(p.from)} (half day, ${p.halfDay === "AM" ? "morning" : "afternoon"})` : `${h.date(p.from)} – ${h.date(p.to)} (${p.days} day${Number(p.days) === 1 ? "" : "s"})`}${p.hasAttachment ? " 📎" : ""}${p.overQuota ? " ⚠ over quota" : ""}${p.hasOverlap ? " ⚠ overlaps another request" : ""} — awaiting approval`,
       }),
       LEAVE_CANCELLED: (p: NotifParams, h: NotifHelpers) => ({
         title: `${p.requesterName} cancelled their ${h.leaveType(p.type)} request`,
@@ -1885,6 +1895,7 @@ const en: typeof th = {
     importCreated: "Created",
     importDeptNotFound: (d: string) => `Department “${d}” not found — left blank`,
     importSiteNotFound: (s: string) => `Site “${s}” not found — left blank`,
+    importRowFailed: "Something went wrong creating this account — other rows in the file were not affected. Try importing this row again.",
     importSummary: (ok: number, failed: number) => `Created ${ok} account${ok === 1 ? "" : "s"}${failed ? ` · skipped ${failed} row${failed === 1 ? "" : "s"} (see below)` : ""}`,
     importDownloadResults: "Download results (CSV)",
     importColTemp: "Temporary password",
@@ -2107,6 +2118,8 @@ const en: typeof th = {
         `Couldn't save — ${who} is already booked at this day/time (${start}–${end})`,
       conflictWhoTeacher: (name: string) => `Instructor ${name}`,
       conflictWhoRoom: (name: string) => `Room ${name}`,
+      conflictWhoTeacherSemester: (name: string, semester: string) => `Instructor ${name} (${semester} semester)`,
+      conflictWhoRoomSemester: (name: string, semester: string) => `Room ${name} (${semester} semester)`,
       created: "Class saved",
       notFound: "Class not found",
       noteUnauthorized: "You don't have permission to edit this class",
@@ -2114,6 +2127,7 @@ const en: typeof th = {
       deleteUnauthorized: "You don't have permission to delete this class",
       deleted: "Class deleted",
       roomOtherSite: (site: string) => `This room is at site “${site}”, not the teacher's own site — pick a room at the same site`,
+      teacherNoSiteWarning: (site: string) => `⚠ This teacher has no assigned site yet — the system can't confirm this room (site “${site}”) matches where they'll actually teach. Please double-check before saving.`,
     },
     attest: {
       invalidCheckinTime: "Enter a valid check-in time (HH:MM)",
@@ -2122,6 +2136,8 @@ const en: typeof th = {
       invalidCheckoutTime: "Enter a valid check-out time (HH:MM)",
       checkoutBeforeCheckin: "Check-out time must be after the check-in time",
       submitted: "Attestation request submitted",
+      conflictLeave: "Can't approve — an approved leave already covers this day. Resolve the leave first. This request was sent back to pending.",
+      conflictAttendance: "Can't approve — a real check-in/out is already recorded for this day. Fix the attendance record manually instead. This request was sent back to pending.",
     },
     leave: {
       invalidDates: "Enter a valid start and end date",
@@ -2135,6 +2151,7 @@ const en: typeof th = {
       cancelled: "Leave request cancelled",
       submittedOverQuota: (used: number, quota: number) =>
         `Leave request submitted — but this exceeds your quota (used ${used} of ${quota} days this year). Admin will see this warning when deciding. The request still went through as normal.`,
+      overlapNote: "⚠ This date range overlaps another leave request of yours that's pending or already approved. Admin will see this warning too when deciding.",
     },
     leaveQuota: {
       invalidDays: "Days must be a whole number of 0 or more",
@@ -2237,6 +2254,9 @@ const en: typeof th = {
       updated: (name: string) => `Saved check-in location "${name}"`,
       searchTooShort: "Please enter at least 3 characters",
       searchFailed: "Place search failed — please try again or enter coordinates manually",
+      notFound: "Check-in location not found",
+      inUse: (count: number) => `Can't delete — ${count} teacher(s)/room(s) are still assigned to this site. Move them out first.`,
+      deleted: (name: string) => `Deleted check-in location "${name}"`,
     },
     users: {
       fillRequired: "Enter the name, username and email",

@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
+import { getClientIp } from "@/lib/security";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -52,7 +54,7 @@ export async function createLocation(
   _prev: { ok: boolean; message: string } | null,
   formData: FormData
 ): Promise<{ ok: boolean; message: string }> {
-  await requireAdmin();
+  const session = await requireAdmin();
   const dict = getDictionary(getLocale());
 
   const input = parseLocationInput(formData);
@@ -60,6 +62,12 @@ export async function createLocation(
   if (error) return { ok: false, message: error };
 
   await prisma.campusLocation.create({ data: input });
+  await logAudit({
+    action: "LOCATION_CHANGED",
+    actorId: session.user.id,
+    ip: getClientIp(),
+    detail: `created "${input.name}" (${input.latitude}, ${input.longitude}) radius=${input.radiusMeters}m`,
+  });
   revalidatePath("/admin/locations");
   return { ok: true, message: dict.actions.locations.created(input.name) };
 }
@@ -69,7 +77,7 @@ export async function updateLocation(
   _prev: { ok: boolean; message: string } | null,
   formData: FormData
 ): Promise<{ ok: boolean; message: string }> {
-  await requireAdmin();
+  const session = await requireAdmin();
   const dict = getDictionary(getLocale());
 
   const input = parseLocationInput(formData);
@@ -77,14 +85,39 @@ export async function updateLocation(
   if (error) return { ok: false, message: error };
 
   await prisma.campusLocation.update({ where: { id }, data: input });
+  // Geofence coordinates/radius are a fraud-relevant control (they decide
+  // who can check in from where), so — like every other admin mutation in
+  // this codebase — this needs an audit trail even though it's "just" master
+  // data with no dedicated review UI of its own.
+  await logAudit({
+    action: "LOCATION_CHANGED",
+    actorId: session.user.id,
+    ip: getClientIp(),
+    detail: `updated "${input.name}" (${input.latitude}, ${input.longitude}) radius=${input.radiusMeters}m`,
+  });
   revalidatePath("/admin/locations");
   return { ok: true, message: dict.actions.locations.updated(input.name) };
 }
 
-export async function deleteLocation(id: string) {
-  await requireAdmin();
+/** Blocked if any teacher or room is still assigned — avoids silently orphaning their site. */
+export async function deleteLocation(id: string): Promise<{ ok: boolean; message: string }> {
+  const session = await requireAdmin();
+  const dict = getDictionary(getLocale());
+
+  const loc = await prisma.campusLocation.findUnique({
+    where: { id },
+    include: { _count: { select: { teachers: true, rooms: true } } },
+  });
+  if (!loc) return { ok: false, message: dict.actions.locations.notFound };
+  const inUseCount = loc._count!.teachers + loc._count!.rooms;
+  if (inUseCount > 0) {
+    return { ok: false, message: dict.actions.locations.inUse(inUseCount) };
+  }
+
   await prisma.campusLocation.delete({ where: { id } });
+  await logAudit({ action: "LOCATION_CHANGED", actorId: session.user.id, ip: getClientIp(), detail: `deleted "${loc.name}"` });
   revalidatePath("/admin/locations");
+  return { ok: true, message: dict.actions.locations.deleted(loc.name) };
 }
 
 /**

@@ -47,28 +47,50 @@ export async function createSchedule(formData: FormData) {
   }
 
   // A room at another site than the teacher's own can't be used (client
-  // request) — rooms with no site yet are allowed for everyone.
-  const [teacher, room] = await Promise.all([
+  // request) — rooms with no site yet are allowed for everyone. A teacher
+  // with NO assigned site yet can't be checked either way — rather than
+  // silently skip the check (which let a room get booked at the wrong
+  // campus with no signal to Admin), warn so it gets a manual look.
+  const [teacher, room, semester] = await Promise.all([
     prisma.user.findUnique({ where: { id: teacherId }, select: { campusLocationId: true } }),
     prisma.room.findUnique({ where: { id: roomId }, select: { campusLocationId: true, campusLocation: { select: { name: true } } } }),
+    prisma.semester.findUnique({ where: { id: semesterId }, select: { id: true, name: true, startDate: true, endDate: true } }),
   ]);
-  if (!teacher || !room) return { ok: false, message: dict.actions.schedule.notFound };
+  if (!teacher || !room || !semester) return { ok: false, message: dict.actions.schedule.notFound };
   if (room.campusLocationId && teacher.campusLocationId && room.campusLocationId !== teacher.campusLocationId) {
     return { ok: false, message: dict.actions.schedule.roomOtherSite(room.campusLocation?.name ?? "-") };
   }
+  const teacherNoSiteWarning =
+    room.campusLocationId && !teacher.campusLocationId ? dict.actions.schedule.teacherNoSiteWarning(room.campusLocation?.name ?? "-") : null;
 
   // Two ranges [s1,e1) and [s2,e2) overlap iff s1 < e2 && s2 < e1 — "HH:MM"
   // strings compare correctly as plain strings since they're zero-padded.
+  // A weekly slot repeats for as long as its semester runs, so a conflict
+  // isn't limited to slots in the SAME semester record — two semesters
+  // whose date ranges overlap (e.g. a short remedial term inside a regular
+  // term) would otherwise let the same teacher/room get double-booked with
+  // no warning at all, because each check only ever looked at its own
+  // semesterId.
+  const overlappingSemesters = await prisma.semester.findMany({
+    where: { startDate: { lte: semester.endDate }, endDate: { gte: semester.startDate } },
+    select: { id: true },
+  });
+  const semesterIds = overlappingSemesters.map((s) => s.id);
   const sameDay = await prisma.schedule.findMany({
-    where: { semesterId, dayOfWeek, OR: [{ teacherId }, { roomId }] },
-    include: { teacher: true, room: true },
+    where: { semesterId: { in: semesterIds }, dayOfWeek, OR: [{ teacherId }, { roomId }] },
+    include: { teacher: true, room: true, semester: true },
   });
   const conflict = sameDay.find((s) => startTime < s.endTime && s.startTime < endTime);
   if (conflict) {
+    const sameSemester = conflict.semesterId === semesterId;
     const who =
       conflict.teacherId === teacherId
-        ? dict.actions.schedule.conflictWhoTeacher(conflict.teacher!.name)
-        : dict.actions.schedule.conflictWhoRoom(conflict.room!.name);
+        ? sameSemester
+          ? dict.actions.schedule.conflictWhoTeacher(conflict.teacher!.name)
+          : dict.actions.schedule.conflictWhoTeacherSemester(conflict.teacher!.name, conflict.semester!.name)
+        : sameSemester
+          ? dict.actions.schedule.conflictWhoRoom(conflict.room!.name)
+          : dict.actions.schedule.conflictWhoRoomSemester(conflict.room!.name, conflict.semester!.name);
     return { ok: false, message: dict.actions.schedule.conflict(who, conflict.startTime, conflict.endTime) };
   }
 
@@ -89,7 +111,7 @@ export async function createSchedule(formData: FormData) {
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
-  return { ok: true, message: dict.actions.schedule.created };
+  return { ok: true, message: teacherNoSiteWarning ? `${dict.actions.schedule.created} ${teacherNoSiteWarning}` : dict.actions.schedule.created };
 }
 
 /** Admin can edit any schedule's note; a member can only edit their own. */

@@ -465,7 +465,7 @@ export async function importUsers(rows: ImportUserRow[]): Promise<{ ok: boolean;
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    const name = (r.name || "").toString().trim();
+    const name = (r.name || "").toString().trim().slice(0, 120);
     const username = normalizeUsername((r.username || "").toString());
     const email = (r.email || "").toString().trim().toLowerCase();
     const roleRaw = (r.role || "MEMBER").toString().trim().toUpperCase();
@@ -498,24 +498,38 @@ export async function importUsers(rows: ImportUserRow[]): Promise<{ ok: boolean;
     const departmentId = r.department ? deptByName.get(r.department.toString().trim().toLowerCase()) ?? null : null;
     const campusLocationId = r.site ? siteByName.get(r.site.toString().trim().toLowerCase()) ?? null : null;
 
-    const tempPassword = generateTempPassword();
-    const passwordHash = await bcrypt.hash(tempPassword, 10);
-    const user = await prisma.user.create({
-      data: {
-        name, username, email, passwordHash, role,
-        departmentId: departmentId ?? undefined,
-        campusLocationId: campusLocationId ?? undefined,
-        mustChangePassword: true,
-        tempPasswordExpiresAt: tempPasswordExpiry(),
-      },
-    });
-    await logAudit({ action: "USER_CREATED", actorId: session.user.id, targetUserId: user.id, ip: getClientIp(), detail: `${email} (import)` });
-    await notifyUser(user.id, "PASSWORD_TEMP", { expiresAt: user.tempPasswordExpiresAt?.toISOString() ?? null }, "/change-password");
-    created++;
-    const notes: string[] = [];
-    if (r.department && !departmentId) notes.push(dict.users.importDeptNotFound(r.department.toString()));
-    if (r.site && !campusLocationId) notes.push(dict.users.importSiteNotFound(r.site.toString()));
-    results.push({ ...base, ok: true, message: notes.length ? notes.join(" · ") : dict.users.importCreated, tempPassword });
+    // Each row is its own best-effort unit: an unexpected failure here (a DB
+    // blip, a race on the uniqueness pre-checks above) must not throw the
+    // whole import and lose the temp passwords already generated for rows
+    // created earlier in this same loop — those accounts exist in the DB now
+    // with no other record of their one-time password, so losing `results`
+    // here would strand them. Catch, record the row as failed, keep going.
+    try {
+      const tempPassword = generateTempPassword();
+      const passwordHash = await bcrypt.hash(tempPassword, 10);
+      const user = await prisma.user.create({
+        data: {
+          name, username, email, passwordHash, role,
+          departmentId: departmentId ?? undefined,
+          campusLocationId: campusLocationId ?? undefined,
+          mustChangePassword: true,
+          tempPasswordExpiresAt: tempPasswordExpiry(),
+        },
+      });
+      await logAudit({ action: "USER_CREATED", actorId: session.user.id, targetUserId: user.id, ip: getClientIp(), detail: `${email} (import)` });
+      await notifyUser(user.id, "PASSWORD_TEMP", { expiresAt: user.tempPasswordExpiresAt?.toISOString() ?? null }, "/change-password");
+      created++;
+      const notes: string[] = [];
+      if (r.department && !departmentId) notes.push(dict.users.importDeptNotFound(r.department.toString()));
+      if (r.site && !campusLocationId) notes.push(dict.users.importSiteNotFound(r.site.toString()));
+      results.push({ ...base, ok: true, message: notes.length ? notes.join(" · ") : dict.users.importCreated, tempPassword });
+    } catch (err) {
+      console.error(`importUsers: row ${i + 2} (${email}) failed:`, err);
+      // Free up the username/email for a retry of just this row.
+      seenUsernames.delete(username);
+      seenEmails.delete(email);
+      results.push({ ...base, ok: false, message: dict.users.importRowFailed });
+    }
   }
 
   revalidatePath("/admin/users");

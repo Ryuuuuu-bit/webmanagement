@@ -48,23 +48,47 @@ export function countLeaveDays(start: Date, end: Date, halfDay?: string | null):
 }
 
 /**
- * This requester's total day-count of `type` leave requests starting in
- * `year`, counting PENDING and APPROVED (not REJECTED) — a pending request
- * provisionally holds its days against the quota until it's decided, same as
- * an approved one, so the warning below reflects requests still awaiting a
- * decision too.
+ * Same as countLeaveDays, but clamped to the days that actually fall inside
+ * `year` — a request is charged against a SINGLE year's quota bucket by
+ * startDate elsewhere in this file, but a request spanning New Year's (e.g.
+ * Dec 30 → Jan 2) really only has some of its days in each year. Without
+ * this clamp, all 4 days would land on the previous year's total and be
+ * invisible to the new year's, making both years wrong.
+ */
+export function countLeaveDaysInYear(start: Date, end: Date, halfDay: string | null | undefined, year: number): number {
+  if (halfDay) return start.getUTCFullYear() === year ? 0.5 : 0;
+  const yearStart = Date.UTC(year, 0, 1);
+  const yearEnd = Date.UTC(year, 11, 31);
+  const clampedStart = Math.max(dateOnlyUTC(start), yearStart);
+  const clampedEnd = Math.min(dateOnlyUTC(end), yearEnd);
+  if (clampedEnd < clampedStart) return 0;
+  return Math.round((clampedEnd - clampedStart) / 86400000) + 1;
+}
+
+/**
+ * This requester's total day-count of `type` leave requests overlapping
+ * `year` (clamped to the days actually in that year — see
+ * countLeaveDaysInYear), counting PENDING and APPROVED (not REJECTED) — a
+ * pending request provisionally holds its days against the quota until it's
+ * decided, same as an approved one, so the warning below reflects requests
+ * still awaiting a decision too.
  */
 export async function getLeaveUsedDays(requesterId: string, type: LeaveType, year: number): Promise<number> {
+  const yearStart = new Date(Date.UTC(year, 0, 1));
+  const yearEnd = new Date(Date.UTC(year, 11, 31, 23, 59, 59));
   const requests = await prisma.leaveRequest.findMany({
     where: {
       requesterId,
       type,
       status: { in: [RequestStatus.PENDING, RequestStatus.APPROVED] },
-      startDate: { gte: new Date(Date.UTC(year, 0, 1)), lte: new Date(Date.UTC(year, 11, 31, 23, 59, 59)) },
+      // Overlap, not "starts in this year" — a Dec 30 → Jan 2 request must
+      // still be found when checking either year's quota.
+      startDate: { lte: yearEnd },
+      endDate: { gte: yearStart },
     },
     select: { startDate: true, endDate: true, halfDay: true },
   });
-  return requests.reduce((sum, r) => sum + countLeaveDays(r.startDate, r.endDate, r.halfDay), 0);
+  return requests.reduce((sum, r) => sum + countLeaveDaysInYear(r.startDate, r.endDate, r.halfDay, year), 0);
 }
 
 export type LeaveQuotaStatus = { type: LeaveType; quota: number; used: number; remaining: number | null };
@@ -78,13 +102,15 @@ export async function getLeaveQuotaStatusForUser(userId: string, year = new Date
     where: {
       requesterId: userId,
       status: { in: [RequestStatus.PENDING, RequestStatus.APPROVED] },
-      startDate: { gte: yearStart, lte: yearEnd },
+      // Overlap, not "starts in this year" — see getLeaveUsedDays.
+      startDate: { lte: yearEnd },
+      endDate: { gte: yearStart },
     },
     select: { type: true, startDate: true, endDate: true, halfDay: true },
   });
   const usedByType = new Map<LeaveType, number>();
   for (const r of requests) {
-    usedByType.set(r.type, (usedByType.get(r.type) ?? 0) + countLeaveDays(r.startDate, r.endDate, r.halfDay));
+    usedByType.set(r.type, (usedByType.get(r.type) ?? 0) + countLeaveDaysInYear(r.startDate, r.endDate, r.halfDay, year));
   }
   return LEAVE_TYPES.map((type) => {
     const quota = quotaMap[type];

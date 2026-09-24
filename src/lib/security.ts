@@ -66,20 +66,32 @@ export async function getLockRemainingMinutes(email: string, ip: string): Promis
 
 async function bump(key: string, max: number) {
   const now = new Date();
-  const row = await prisma.loginLock.findUnique({ where: { key } });
-  if (!row || now.getTime() - row.firstFailAt.getTime() > WINDOW_MS) {
-    await prisma.loginLock.upsert({
-      where: { key },
-      create: { key, count: 1, firstFailAt: now, lockedUntil: null },
-      update: { count: 1, firstFailAt: now, lockedUntil: null },
+  const windowStart = new Date(now.getTime() - WINDOW_MS);
+  // A single atomic INSERT ... ON CONFLICT, not a read-then-write. A previous
+  // version read the row, then upserted count:1 whenever it looked missing
+  // or expired — under a burst of concurrent wrong guesses, every request in
+  // the burst could see "no row yet" and each write count:1, so the stored
+  // count never grew past 1 no matter how many guesses actually happened.
+  // Postgres serializes concurrent ON CONFLICT upserts on the same key, so
+  // this can't lose a concurrent increment.
+  const rows = await prisma.$queryRaw<{ count: number; lockedUntil: Date | null }[]>`
+    INSERT INTO "LoginLock" ("key", "count", "firstFailAt", "lockedUntil")
+    VALUES (${key}, 1, ${now}, NULL)
+    ON CONFLICT ("key") DO UPDATE SET
+      "count" = CASE WHEN "LoginLock"."firstFailAt" < ${windowStart} THEN 1 ELSE "LoginLock"."count" + 1 END,
+      "firstFailAt" = CASE WHEN "LoginLock"."firstFailAt" < ${windowStart} THEN ${now} ELSE "LoginLock"."firstFailAt" END,
+      "lockedUntil" = CASE WHEN "LoginLock"."firstFailAt" < ${windowStart} THEN NULL ELSE "LoginLock"."lockedUntil" END
+    RETURNING "count", "lockedUntil"
+  `;
+  const { count, lockedUntil } = rows[0] ?? { count: 1, lockedUntil: null };
+  if (count >= max && !lockedUntil) {
+    // Best-effort: only trips the lock a beat after the row above landed, so
+    // a request landing in that gap can slip through — acceptable, since the
+    // count itself (the part that mattered for the race above) is correct.
+    await prisma.loginLock.updateMany({
+      where: { key, lockedUntil: null },
+      data: { lockedUntil: new Date(now.getTime() + LOCK_MS) },
     });
-    return;
-  }
-  // Atomic increment so a burst of parallel wrong guesses can't all read
-  // the same count and stay under the limit.
-  const updated = await prisma.loginLock.update({ where: { key }, data: { count: { increment: 1 } } });
-  if (updated.count >= max && !updated.lockedUntil) {
-    await prisma.loginLock.update({ where: { key }, data: { lockedUntil: new Date(now.getTime() + LOCK_MS) } });
   }
 }
 

@@ -201,7 +201,7 @@ export default function LocationManagement({
   locations: Loc[];
   createLocation: (_prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
   updateLocation: (id: string, _prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
-  deleteLocation: (id: string) => Promise<void>;
+  deleteLocation: (id: string) => Promise<ActionResult>;
   searchLocationCandidates: SearchAction;
 }) {
   const { dict } = useLanguage();
@@ -214,6 +214,7 @@ export default function LocationManagement({
   const [createResult, setCreateResult] = useState<ActionResult | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editResult, setEditResult] = useState<{ id: string } & ActionResult | null>(null);
+  const [deleteResult, setDeleteResult] = useState<{ id: string } & ActionResult | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   function onCreate(e: React.FormEvent<HTMLFormElement>) {
@@ -244,7 +245,10 @@ export default function LocationManagement({
 
   function onDelete(id: string, name: string) {
     if (!confirm(dict.locations.deleteConfirm(name))) return;
-    startTransition(() => deleteLocation(id));
+    startTransition(async () => {
+      const res = await deleteLocation(id);
+      setDeleteResult({ id, ...res });
+    });
   }
 
   return (
@@ -359,6 +363,9 @@ export default function LocationManagement({
                         <span className="ml-2 text-brand-ink">🕗 {loc.workStart || "…"}–{loc.workEnd || "…"}{loc.lateGraceMinutes !== null && loc.lateGraceMinutes !== undefined ? ` (+${loc.lateGraceMinutes})` : ""}</span>
                       )}
                     </span>
+                    {deleteResult?.id === loc.id && !deleteResult.ok && (
+                      <p className="mt-1 text-xs text-danger">{deleteResult.message}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <button

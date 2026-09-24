@@ -8,6 +8,8 @@ import { logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/security";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import { atTimeOfDay, getWorkHoursForUser } from "@/lib/settings";
+import { hasApprovedPmHalfDayLeave } from "@/actions/attendance";
 
 /**
  * Admin deletes a member's transaction history (client request: "admin
@@ -164,12 +166,29 @@ export async function updateAttendance(
   if (row.status !== input.status) changes.push(`status: ${row.status} → ${input.status}`);
   if (changes.length === 0) return { ok: true, message: dict.history.unchanged };
 
+  // Recompute earlyCheckout when the checkout time itself changed — a stale
+  // flag from before the edit (or a missing one, if this admin edit is what
+  // sets a checkout time for the first time) must not survive the edit.
+  // Same rule as the real check-out flow: an approved PM half-day leave on
+  // this date means an early checkout isn't actually early.
+  let earlyCheckout = row.earlyCheckout;
+  if (outChanged) {
+    if (nextOut) {
+      const hours = await getWorkHoursForUser(row.userId);
+      const onApprovedPmLeave = await hasApprovedPmHalfDayLeave(row.userId, day);
+      earlyCheckout = !onApprovedPmLeave && nextOut < atTimeOfDay(day, hours.end);
+    } else {
+      earlyCheckout = false;
+    }
+  }
+
   await prisma.attendance.update({
     where: { id },
     data: {
       checkinAt: nextIn,
       checkoutAt: nextOut,
       status: input.status,
+      earlyCheckout,
       attestedCheckin: row.attestedCheckin || inChanged,
       attestedCheckout: row.attestedCheckout || outChanged,
     },

@@ -9,6 +9,7 @@ import { getExpectedSite, isWithinSite } from "@/lib/geo";
 import { todayAtMidnight } from "@/lib/date";
 import { verifyAssertion } from "@/lib/webauthn";
 import { atTimeOfDay, getCheckinPolicy, getWorkHoursForUser } from "@/lib/settings";
+import { Prisma } from "@prisma/client";
 import { logAudit } from "@/lib/audit";
 import { notifyAdmins } from "@/lib/notify";
 import { getClientIp } from "@/lib/security";
@@ -134,6 +135,32 @@ async function detectSharedDevice(userId: string, date: Date, deviceId: string |
 }
 
 /**
+ * True when this teacher has an APPROVED half-day PM leave for `date` — that
+ * leave keeps the real check-in/out record (see decideLeave in
+ * src/actions/leave.ts), so checking out before the site's workEnd on that
+ * day is expected, not an "early checkout" worth flagging to Admin.
+ * LeaveRequest.startDate is stored as a raw UTC-midnight parse of the
+ * "YYYY-MM-DD" form input, not Bangkok-local midnight like Attendance.date —
+ * normalizing with the same `setHours(0,0,0,0)` decideLeave uses before
+ * writing LEAVE rows keeps the comparison correct either way.
+ */
+export async function hasApprovedPmHalfDayLeave(userId: string, date: Date): Promise<boolean> {
+  const leaves = await prisma.leaveRequest.findMany({
+    where: { requesterId: userId, status: "APPROVED", halfDay: "PM" },
+    select: { startDate: true },
+  });
+  return leaves.some((r) => {
+    const d = new Date(r.startDate);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() === date.getTime();
+  });
+}
+
+function isUniqueConstraintError(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
+}
+
+/**
  * FR-4 / site-per-teacher: check-in must happen at *this teacher's own
  * assigned site* — see getExpectedSite in src/lib/geo.ts (each teacher is
  * permanently stationed at one site, so "inside any registered location" is
@@ -171,20 +198,39 @@ export async function checkIn(lat: number, lng: number, verification: IdentityVe
   // Late = after the site's (or global) start time plus the grace window.
   const hours = await getWorkHoursForUser(userId);
   const cutoff = new Date(atTimeOfDay(date, hours.start).getTime() + hours.graceMinutes * 60_000);
-  const status = now <= cutoff ? "ON_TIME" : "LATE";
+  const status: "ON_TIME" | "LATE" = now <= cutoff ? "ON_TIME" : "LATE";
   const shared = await detectSharedDevice(userId, date, deviceId, ip);
 
   const evidence = {
+    checkinAt: now,
+    checkinLat: lat,
+    checkinLng: lng,
+    status,
     checkinMethod: verification.method,
     checkinDeviceId: deviceId,
     checkinSelfieId: selfie.id,
     ...(shared ? { flagSharedDevice: true } : {}),
   };
-  await prisma.attendance.upsert({
-    where: { userId_date: { userId, date } },
-    create: { userId, date, checkinAt: now, checkinLat: lat, checkinLng: lng, status, ...evidence },
-    update: { checkinAt: now, checkinLat: lat, checkinLng: lng, status, ...evidence },
-  });
+  // Atomic claim, same spirit as checkOut's guarded updateMany below — the
+  // `already` read above is only a fast-path UX check and doesn't stop two
+  // concurrent taps both passing it. Unlike checkOut, today's row may not
+  // exist yet, so a single updateMany isn't enough: try the guarded update
+  // first (covers a pre-existing row, e.g. an approved-leave LEAVE stub),
+  // and only create when no row exists. If two requests race to create at
+  // the same instant, the DB's unique (userId, date) constraint lets only
+  // one create through; the loser retries the guarded update, which by then
+  // sees the winner's checkinAt and correctly reports "already checked in".
+  let claimed = (await prisma.attendance.updateMany({ where: { userId, date, checkinAt: null }, data: evidence })).count > 0;
+  if (!claimed) {
+    try {
+      await prisma.attendance.create({ data: { userId, date, ...evidence } });
+      claimed = true;
+    } catch (err) {
+      if (!isUniqueConstraintError(err)) throw err;
+      claimed = (await prisma.attendance.updateMany({ where: { userId, date, checkinAt: null }, data: evidence })).count > 0;
+    }
+  }
+  if (!claimed) return { ok: false, message: dict.actions.checkin.alreadyCheckedIn };
 
   revalidatePath("/checkin");
   revalidatePath("/dashboard");
@@ -221,7 +267,8 @@ export async function checkOut(lat: number, lng: number, verification: IdentityV
 
   const now = new Date();
   const hours = await getWorkHoursForUser(userId);
-  const earlyCheckout = now < atTimeOfDay(date, hours.end);
+  const onApprovedPmLeave = await hasApprovedPmHalfDayLeave(userId, date);
+  const earlyCheckout = !onApprovedPmLeave && now < atTimeOfDay(date, hours.end);
   const shared = await detectSharedDevice(userId, date, deviceId, ip);
   // Atomic: only the first of two concurrent taps wins.
   const claimed = await prisma.attendance.updateMany({

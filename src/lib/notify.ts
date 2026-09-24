@@ -46,7 +46,7 @@ export type NotificationKind =
 export type NotificationParams = Record<string, string | number | boolean | null>;
 
 const RETENTION_DAYS = 90;
-const MAX_PER_USER_PAGE = 50;
+export const MAX_PER_USER_PAGE = 50;
 
 async function pruneOld() {
   const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);

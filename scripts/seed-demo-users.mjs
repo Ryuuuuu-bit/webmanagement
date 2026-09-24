@@ -1,10 +1,13 @@
 // One-off demo reset, run from the `start` script and gated by the
 // SEED_DEMO_USERS variable: when it is set to a value that AppSetting.seedToken
-// has not recorded yet, every MEMBER account (and its schedules, attendance,
-// leave/attest requests, lesson plans, devices) is removed and three mock
-// teachers are created with a known temporary password. The token is then
-// stored so restarts never repeat it; changing the variable's value runs it
-// again on purpose. ADMIN accounts are never touched.
+// has not recorded yet, every MEMBER account this script could have created
+// (matched by the @demo.local email domain below — never real teacher
+// accounts, whatever their role) is removed and three mock teachers are
+// created with a known temporary password. The token is then stored so
+// restarts never repeat it; changing the variable's value runs it again on
+// purpose. ADMIN accounts and any real (non-@demo.local) MEMBER account are
+// never touched, so this is safe to leave wired into `start` even once real
+// teachers are using the app.
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -12,6 +15,7 @@ const prisma = new PrismaClient();
 const token = process.env.SEED_DEMO_USERS?.trim();
 
 const DEMO_PASSWORD = "Teach2569";
+const DEMO_EMAIL_DOMAIN = "@demo.local";
 const DEMO_USERS = [
   { name: "อ.สมชาย ใจดี", username: "somchai", email: "somchai@demo.local" },
   { name: "อ.สมหญิง รักเรียน", username: "somying", email: "somying@demo.local" },
@@ -26,7 +30,14 @@ try {
     if (setting.seedToken === token) {
       console.log("[seed-demo] token already applied — skipping");
     } else {
-      const members = await prisma.user.findMany({ where: { role: "MEMBER" }, select: { id: true, email: true } });
+      // Only ever touch accounts this same script could have created. A real
+      // teacher account can never end up with a @demo.local email (nothing
+      // else in the app issues that domain), so this can't reach production
+      // data no matter what SEED_DEMO_USERS is set to.
+      const members = await prisma.user.findMany({
+        where: { role: "MEMBER", email: { endsWith: DEMO_EMAIL_DOMAIN } },
+        select: { id: true, email: true },
+      });
       const ids = members.map((m) => m.id);
       if (ids.length) {
         await prisma.$transaction([
@@ -41,7 +52,7 @@ try {
           prisma.selfie.deleteMany({ where: { userId: { in: ids } } }),
           prisma.user.deleteMany({ where: { id: { in: ids } } }),
         ]);
-        console.log(`[seed-demo] removed ${ids.length} member account(s): ${members.map((m) => m.email).join(", ")}`);
+        console.log(`[seed-demo] removed ${ids.length} demo member account(s): ${members.map((m) => m.email).join(", ")}`);
       }
       const [dept, site] = await Promise.all([
         prisma.department.findFirst({ orderBy: { name: "asc" } }),

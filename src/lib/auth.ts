@@ -54,23 +54,31 @@ export const authOptions: AuthOptions = {
         const ip = getClientIp(req?.headers as Record<string, string | undefined> | undefined);
         const device = describeDevice(req?.headers as Record<string, string | undefined> | undefined);
 
-        const lockedMinutes = await getLockRemainingMinutes(identifier, ip);
+        const user = await prisma.user.findFirst({
+          where: identifier.includes("@") ? { email: identifier } : { username: identifier },
+        });
+        // Lock by the account's own id once we know which account this
+        // identifier maps to, so typing the username vs. the email for the
+        // same account shares one attempt budget instead of getting two
+        // independent ones. An identifier matching no account just locks by
+        // the literal string typed — there's no real account to protect
+        // beyond the coarser per-IP cap in that case anyway.
+        const lockId = user ? `u:${user.id}` : identifier;
+
+        const lockedMinutes = await getLockRemainingMinutes(lockId, ip);
         if (lockedMinutes > 0) {
           await logAudit({ action: "LOGIN_LOCKED", ip, device, detail: identifier });
           throw new Error(`${AUTH_ERRORS.tooManyAttempts}:${lockedMinutes}`);
         }
 
-        const user = await prisma.user.findFirst({
-          where: identifier.includes("@") ? { email: identifier } : { username: identifier },
-        });
         if (!user) {
-          await recordLoginFailure(identifier, ip);
+          await recordLoginFailure(lockId, ip);
           await logAudit({ action: "LOGIN_FAILED", ip, device, detail: `${identifier} (no such account)` });
           return null;
         }
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) {
-          await recordLoginFailure(identifier, ip);
+          await recordLoginFailure(lockId, ip);
           await logAudit({ action: "LOGIN_FAILED", targetUserId: user.id, ip, device, detail: identifier });
           return null;
         }
@@ -87,7 +95,7 @@ export const authOptions: AuthOptions = {
         }
 
         await Promise.all([
-          recordLoginSuccess(identifier, ip),
+          recordLoginSuccess(lockId, ip),
           markLoggedIn(user.id),
           logAudit({ action: "LOGIN_SUCCESS", actorId: user.id, targetUserId: user.id, ip, device }),
         ]);
@@ -146,12 +154,17 @@ export const authOptions: AuthOptions = {
         // Every other request: if the account's tokenVersion has moved on
         // (password reset/changed, role changed, "sign out everywhere") or
         // the account was suspended, this JWT is stale — reject it instead
-        // of trusting claims baked into the token.
+        // of trusting claims baked into the token. Also re-check the temp
+        // password's 7-day expiry here, not just at the original sign-in:
+        // sessions last up to SESSION_MAX_AGE_SECONDS, far longer than 7
+        // days, so without this an account could keep working on an expired
+        // temp password for the rest of the session's lifetime.
         const fresh = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { tokenVersion: true, isActive: true },
+          select: { tokenVersion: true, isActive: true, passwordSetAt: true, tempPasswordExpiresAt: true },
         });
-        token.invalid = !fresh || !fresh.isActive || fresh.tokenVersion !== token.tokenVersion;
+        const tempExpired = !!fresh && !fresh.passwordSetAt && !!fresh.tempPasswordExpiresAt && fresh.tempPasswordExpiresAt < new Date();
+        token.invalid = !fresh || !fresh.isActive || fresh.tokenVersion !== token.tokenVersion || tempExpired;
       }
       return token;
     },
