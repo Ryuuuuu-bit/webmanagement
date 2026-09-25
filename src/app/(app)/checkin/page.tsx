@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/session";
+import { hasPendingCheckinAttestation } from "@/lib/attest";
 import { prisma } from "@/lib/prisma";
-import { AttendanceBadge } from "@/components/StatusBadge";
+import { AttendanceBadge, attendanceDisplayStatus } from "@/components/StatusBadge";
 import CheckinClient from "@/components/CheckinClient";
 import WebauthnManager from "@/components/WebauthnManager";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -54,13 +55,15 @@ export default async function CheckinPage() {
       : credentials.length > 0
         ? "pending"
         : "none";
+    const attestPending =
+      !!attendance && !attendance.checkinAt && !!attendance.checkoutAt && (await hasPendingCheckinAttestation(session.user.id, date));
 
     return (
       <div className="flex flex-col gap-6">
         <InstallPrompt />
         <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <div className="mb-4 flex justify-center">
-            <AttendanceBadge status={attendance?.status ?? "PENDING"} dict={dict} />
+            <AttendanceBadge status={attendance?.status ?? "PENDING"} row={attendance} dict={dict} />
           </div>
           <CheckinClient
             attendance={
@@ -74,6 +77,7 @@ export default async function CheckinPage() {
             }
             credentialState={credentialState}
             policy={policy}
+            attestPending={attestPending}
           />
           <div className="mt-4 flex justify-center gap-6 text-sm text-subtle">
             <span>{dict.checkin.checkinShort}: {formatTime(attendance?.checkinAt, locale) ?? "—"}</span>
@@ -156,7 +160,7 @@ export default async function CheckinPage() {
             {teachers.map((t) => {
               const a = byUser.get(t.id);
               return (
-                <tr key={t.id} data-status={a?.status ?? "PENDING"} data-dept={t.departmentId ?? "-"} data-site={t.campusLocationId ?? "-"} className="border-t border-line-soft">
+                <tr key={t.id} data-status={attendanceDisplayStatus(a?.status ?? "PENDING", a)} data-dept={t.departmentId ?? "-"} data-site={t.campusLocationId ?? "-"} className="border-t border-line-soft">
                   <td className="py-2">
                     {t.name}
                     {a?.flagSharedDevice && (
@@ -172,7 +176,7 @@ export default async function CheckinPage() {
                       <span className="text-faint">{dict.teachers.siteUnset}</span>
                     )}
                   </td>
-                  <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} dict={dict} /></td>
+                  <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} row={a} dict={dict} /></td>
                   <td className="py-2">
                     {formatTime(a?.checkinAt, locale) ?? "—"} {a?.attestedCheckin && <span className="text-[10px] text-warn">{dict.checkin.attested}</span>}
                     <Method m={a?.checkinMethod} />

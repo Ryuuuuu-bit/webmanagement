@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { AttendanceBadge } from "@/components/StatusBadge";
+import { AttendanceBadge, attendanceDisplayStatus } from "@/components/StatusBadge";
 import { todayAtMidnight } from "@/lib/date";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
@@ -49,7 +49,7 @@ export default async function TeachersPage() {
           </thead>
           <tbody>
             {teachers.map((t) => (
-              <tr key={t.id} data-status={byUser.get(t.id)?.status ?? "PENDING"} data-dept={t.departmentId ?? "-"} data-site={t.campusLocationId ?? "-"} className="border-t border-line-soft">
+              <tr key={t.id} data-status={attendanceDisplayStatus(byUser.get(t.id)?.status ?? "PENDING", byUser.get(t.id))} data-dept={t.departmentId ?? "-"} data-site={t.campusLocationId ?? "-"} className="border-t border-line-soft">
                 <td className="py-2">{t.name}</td>
                 <td className="py-2 text-muted">{t.email}</td>
                 <td className="py-2">{t.department?.name ?? "—"}</td>
@@ -57,7 +57,7 @@ export default async function TeachersPage() {
                   {t.campusLocation ? `📍 ${t.campusLocation.name}` : <span className="text-faint">{dict.teachers.siteUnset}</span>}
                 </td>
                 <td className="py-2"><span className="badge bg-info-soft text-info">{t.role}</span></td>
-                <td className="py-2"><AttendanceBadge status={byUser.get(t.id)?.status ?? "PENDING"} dict={dict} /></td>
+                <td className="py-2"><AttendanceBadge status={byUser.get(t.id)?.status ?? "PENDING"} row={byUser.get(t.id)} dict={dict} /></td>
               </tr>
             ))}
           </tbody>

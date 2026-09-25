@@ -21,7 +21,12 @@ function requestedTimeLabel(
   return formatTimeLabel(r.requestedTime, locale);
 }
 
-export default async function AttestPage() {
+const ATTEST_TYPES = ["FORGOT_CHECKIN", "FORGOT_CHECKOUT", "FORGOT_BOTH"] as const;
+
+export default async function AttestPage({ searchParams }: { searchParams?: { type?: string; date?: string } }) {
+  // Prefill links (only well-formed values; anything else is ignored).
+  const qType = ATTEST_TYPES.find((t) => t === searchParams?.type);
+  const qDate = /^\d{4}-\d{2}-\d{2}$/.test(searchParams?.date ?? "") ? searchParams!.date : undefined;
   const session = await requireUser();
   const canApprove = session.user.role === "ADMIN";
   const locale = getLocale();
@@ -40,7 +45,7 @@ export default async function AttestPage() {
           <p className="mb-3 text-sm text-muted">
             {dict.attest.requestHint}
           </p>
-          <AttestForm requestAttestation={requestAttestation} />
+          <AttestForm requestAttestation={requestAttestation} defaultType={qType} defaultDate={qDate} />
         </div>
 
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">

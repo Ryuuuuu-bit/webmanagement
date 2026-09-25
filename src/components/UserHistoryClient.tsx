@@ -135,7 +135,7 @@ export default function UserHistoryClient({
                   {a.checkoutSelfieId && <Thumb id={a.checkoutSelfieId} />}
                 </td>
                 <td className={td}>
-                  <AttendanceBadge status={a.status} dict={dict} />
+                  <AttendanceBadge status={a.status} row={a} dict={dict} />
                   {a.flagSharedDevice && <span className="badge ml-1 bg-danger-soft text-danger">{t.sharedDevice}</span>}
                 </td>
                 <td className={`${td} whitespace-nowrap text-right`}>

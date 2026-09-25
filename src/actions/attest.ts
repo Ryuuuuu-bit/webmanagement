@@ -45,6 +45,21 @@ export async function requestAttestation(formData: FormData): Promise<{ ok: bool
     }
   }
 
+  // A forgotten check-in on a day with a real check-out (the "checked out
+  // without checking in" flow): the claimed arrival must come before it.
+  if (type === "FORGOT_CHECKIN") {
+    const day = new Date(date);
+    day.setHours(0, 0, 0, 0);
+    const att = await prisma.attendance.findUnique({
+      where: { userId_date: { userId: session.user.id, date: day } },
+      select: { checkoutAt: true, attestedCheckout: true },
+    });
+    if (att?.checkoutAt && !att.attestedCheckout) {
+      const out = att.checkoutAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Bangkok" });
+      if (time >= out) return { ok: false, message: dict.actions.attest.checkinAfterRealCheckout(out) };
+    }
+  }
+
   const created = await prisma.timeAttestation.create({
     data: {
       requesterId: session.user.id,
@@ -70,6 +85,7 @@ export async function requestAttestation(formData: FormData): Promise<{ ok: bool
   );
 
   revalidatePath("/attest");
+  revalidatePath("/checkin");
   revalidatePath("/dashboard");
   return { ok: true, message: dict.actions.attest.submitted };
 }

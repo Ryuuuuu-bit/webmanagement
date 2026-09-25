@@ -30,10 +30,13 @@ export default function CheckinClient({
   attendance,
   credentialState,
   policy,
+  attestPending = false,
 }: {
   attendance: Attendance;
   credentialState: CredentialState;
   policy: CheckinPolicy;
+  /** A check-in attestation for today is already waiting — don't nag. */
+  attestPending?: boolean;
 }) {
   const { dict, locale } = useLanguage();
   const [pending, startTransition] = useTransition();
@@ -47,8 +50,15 @@ export default function CheckinClient({
   const [selfieFor, setSelfieFor] = useState<{ kind: ActionKind; lat: number; lng: number } | null>(null);
 
 
-  const canCheckin = !attendance?.checkinAt;
-  const canCheckout = !!attendance?.checkinAt && !attendance?.checkoutAt;
+  // Forgetting to check in no longer blocks checking out (the real
+  // check-out is kept; the arrival time comes from an attestation). Once
+  // checked out, check-in is closed for the day.
+  const canCheckin = !attendance?.checkinAt && !attendance?.checkoutAt;
+  const canCheckout = !attendance?.checkoutAt;
+  const missingCheckin = !attendance?.checkinAt && !!attendance?.checkoutAt;
+  // Checking out without a check-in is final for the day, so ask first —
+  // a teacher who just arrived and tapped the wrong tile must not get stuck.
+  const [confirmNoIn, setConfirmNoIn] = useState(false);
   const busy = pending || locatingFallback || verifying || !!selfieFor;
 
   // The biometric policy blocks anyone without an approved device outright.
@@ -115,9 +125,14 @@ export default function CheckinClient({
     verifyAndSubmit(kind, lat, lng, null);
   }
 
-  function run(kind: ActionKind) {
+  function run(kind: ActionKind, confirmed = false) {
     setGeoError(null);
     setMessage(null);
+    if (kind === "checkout" && !attendance?.checkinAt && !confirmed) {
+      setConfirmNoIn(true);
+      return;
+    }
+    setConfirmNoIn(false);
     if (blockedReason) {
       setMessage({ ok: false, text: blockedReason });
       return;
@@ -165,7 +180,11 @@ export default function CheckinClient({
     const isIn = kind === "checkin";
     const done = isIn ? doneIn : doneOut;
     const enabled = !busy && !blockedReason && (isIn ? canCheckin : canCheckout);
-    const next = enabled;
+    // Check-out is tappable before check-in (forgot), but it isn't "the next
+    // step" until check-in is done — keep it quiet so check-in stays the
+    // obvious tap in the morning.
+    const next = enabled && (isIn || doneIn);
+    const quietOut = enabled && !next;
     const label = isIn ? dict.checkin.checkinButton : dict.checkin.checkoutButton;
     const sub = done
       ? `${dict.checkin.tileDone} ${timeOf(isIn ? attendance?.checkinAt : attendance?.checkoutAt) ?? ""}`
@@ -175,7 +194,11 @@ export default function CheckinClient({
           ? dict.checkin.tileBusy
           : next
             ? dict.checkin.tileTap
-            : dict.checkin.tileWaitOut;
+            : quietOut
+              ? dict.checkin.tileOutWithoutIn
+              : isIn && doneOut
+                ? dict.checkin.tileInAfterOut
+                : dict.checkin.tileWaitOut;
     const base = "relative flex flex-col items-center justify-center gap-1.5 rounded-2xl px-3 py-5 text-center transition-all duration-150 select-none";
     const look = done
       ? "border border-ok bg-ok-soft text-ok"
@@ -183,7 +206,9 @@ export default function CheckinClient({
         ? isIn
           ? "text-white shadow-lg active:scale-[0.97]"
           : "text-white shadow-lg active:scale-[0.97]"
-        : "border border-line bg-surface text-faint";
+        : quietOut
+          ? "border border-line-strong bg-surface text-ink hover:border-warn"
+          : "border border-line bg-surface text-faint";
     const style: React.CSSProperties | undefined = !done && next
       ? isIn
         ? { background: "linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-ink) 100%)" }
@@ -192,7 +217,7 @@ export default function CheckinClient({
     return (
       <button type="button" onClick={() => run(kind)} disabled={!enabled} className={`${base} ${look} disabled:cursor-not-allowed`} style={style} aria-label={label}>
         {next && <span className="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-white/30 animate-[pulseRing_2s_ease-out_infinite]" aria-hidden />}
-        <span className={`flex h-12 w-12 items-center justify-center rounded-full ${done ? "bg-ok text-white" : next ? "bg-white/20" : "bg-line-soft"}`}>
+        <span className={`flex h-12 w-12 items-center justify-center rounded-full ${done ? "bg-ok text-white" : next ? "bg-white/20" : quietOut ? "bg-warn-soft text-warn" : "bg-line-soft"}`}>
           {done ? <CheckIcon /> : isIn ? <EnterIcon /> : <ExitIcon />}
         </span>
         <span className="text-base font-bold leading-tight">{label}</span>
@@ -207,6 +232,37 @@ export default function CheckinClient({
         {tile("checkin")}
         {tile("checkout")}
       </div>
+
+      {confirmNoIn && !busy && (
+        <div role="alertdialog" aria-labelledby="noin-title" className="w-full max-w-sm rounded-xl border border-warn bg-warn-soft p-3.5 text-left text-sm">
+          <p id="noin-title" className="font-semibold text-warn">{dict.checkin.confirmNoInTitle}</p>
+          <p className="mt-1 text-xs text-subtle">{dict.checkin.confirmNoInBody}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => run("checkin")} className="rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white">
+              {dict.checkin.confirmNoInCheckin}
+            </button>
+            <button type="button" onClick={() => run("checkout", true)} className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm font-semibold">
+              {dict.checkin.confirmNoInCheckout}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {missingCheckin && (
+        <div className="w-full max-w-sm rounded-xl border border-warn bg-warn-soft p-3.5 text-left text-sm">
+          {attestPending ? (
+            <p className="font-semibold text-warn">{dict.checkin.missingCheckinPending}</p>
+          ) : (
+            <>
+              <p className="font-semibold text-warn">{dict.checkin.missingCheckinTitle}</p>
+              <p className="mt-1 text-xs text-subtle">{dict.checkin.missingCheckinBody}</p>
+              <a href={`/attest?type=FORGOT_CHECKIN&date=${todayBangkok()}`} className="mt-3 inline-block rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white">
+                {dict.checkin.requestAttestCta}
+              </a>
+            </>
+          )}
+        </div>
+      )}
 
       {blockedReason && (
         <div className="w-full max-w-xs rounded-xl border border-warn bg-warn-soft p-3 text-left text-xs text-warn">
@@ -231,6 +287,11 @@ export default function CheckinClient({
 
     </div>
   );
+}
+
+/** YYYY-MM-DD in Thailand time — the attestation form's date value for "today". */
+function todayBangkok() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
 }
 
 function CheckIcon() {

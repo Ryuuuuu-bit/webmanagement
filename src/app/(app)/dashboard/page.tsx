@@ -1,7 +1,8 @@
 import { requireUser } from "@/lib/session";
+import { hasPendingCheckinAttestation } from "@/lib/attest";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { AttendanceBadge } from "@/components/StatusBadge";
+import { AttendanceBadge, attendanceDisplayStatus } from "@/components/StatusBadge";
 import TableFilter from "@/components/TableFilter";
 import CheckinClient, { type CredentialState } from "@/components/CheckinClient";
 import { listMyCredentials } from "@/actions/webauthn";
@@ -38,6 +39,8 @@ export default async function DashboardPage() {
       : credentials.length > 0
         ? "pending"
         : "none";
+    const attestPending =
+      !!attendance && !attendance.checkinAt && !!attendance.checkoutAt && (await hasPendingCheckinAttestation(session.user.id, date));
 
     const d = dict.dashboard.member;
 
@@ -68,6 +71,7 @@ export default async function DashboardPage() {
             }
             credentialState={credentialState}
             policy={policy}
+            attestPending={attestPending}
           />
           <p className="mt-3 text-center text-xs text-faint">
             {site.kind === "no_site" ? (
@@ -79,7 +83,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
-          <StatTile label={d.statusToday} value={<AttendanceBadge status={attendance?.status ?? "PENDING"} dict={dict} />} />
+          <StatTile label={d.statusToday} value={<AttendanceBadge status={attendance?.status ?? "PENDING"} row={attendance} dict={dict} />} />
           <StatTile label={d.checkinTime} value={formatTime(attendance?.checkinAt, locale) ?? "—"} />
           <StatTile label={d.checkoutTime} value={formatTime(attendance?.checkoutAt, locale) ?? "—"} />
           <StatTile label={d.pendingRequests} value={String(pendingLeave + pendingAttest)} />
@@ -124,7 +128,7 @@ export default async function DashboardPage() {
   const byUser = new Map(attendances.map((a) => [a.userId, a]));
   const counts: Record<string, number> = {};
   for (const t of teachers) {
-    const s = byUser.get(t.id)?.status ?? "PENDING";
+    const s = attendanceDisplayStatus(byUser.get(t.id)?.status ?? "PENDING", byUser.get(t.id));
     counts[s] = (counts[s] ?? 0) + 1;
   }
 
@@ -169,10 +173,10 @@ export default async function DashboardPage() {
               {teachers.map((t) => {
                 const a = byUser.get(t.id);
                 return (
-                  <tr key={t.id} data-status={a?.status ?? "PENDING"} data-dept={t.departmentId ?? "-"} className="border-t border-line-soft">
+                  <tr key={t.id} data-status={attendanceDisplayStatus(a?.status ?? "PENDING", a)} data-dept={t.departmentId ?? "-"} className="border-t border-line-soft">
                     <td className="py-2">{t.name}</td>
                     <td className="py-2">{t.department?.name ?? "—"}</td>
-                    <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} dict={dict} /></td>
+                    <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} row={a} dict={dict} /></td>
                     <td className="py-2">{formatTime(a?.checkinAt, locale) ?? "—"}</td>
                     <td className="py-2">{formatTime(a?.checkoutAt, locale) ?? "—"}</td>
                   </tr>

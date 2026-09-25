@@ -12,13 +12,20 @@ type ActionResult = { ok: boolean; message: string };
  * moments to attest to. This form shows one time field for a one-sided
  * request and two (check-in / check-out) when "forgot both" is selected.
  */
+type AttestTypeKey = keyof Dictionary["attest"]["types"];
+
 export default function AttestForm({
   requestAttestation,
+  defaultType,
+  defaultDate,
 }: {
   requestAttestation: (formData: FormData) => Promise<ActionResult>;
+  /** Prefill from a link (e.g. "checked out without checking in" on /checkin). */
+  defaultType?: AttestTypeKey;
+  defaultDate?: string;
 }) {
   const { dict } = useLanguage();
-  const [type, setType] = useState<keyof Dictionary["attest"]["types"]>("FORGOT_BOTH");
+  const [type, setType] = useState<AttestTypeKey>(defaultType ?? "FORGOT_BOTH");
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -42,7 +49,7 @@ export default function AttestForm({
     <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
         <Field label={dict.attest.fieldDate}>
-          <input type="date" name="date" required className="input" />
+          <input type="date" name="date" required defaultValue={defaultDate} className="input" />
         </Field>
         <Field label={dict.attest.fieldType}>
           <select

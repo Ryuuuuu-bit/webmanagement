@@ -182,8 +182,12 @@ export async function checkIn(lat: number, lng: number, verification: IdentityVe
   const date = todayAtMidnight();
   // One check-in per day: a second call (stale tab, scripted) must not
   // overwrite the first stamp, an admin edit or the day's status.
-  const already = await prisma.attendance.findUnique({ where: { userId_date: { userId, date } }, select: { checkinAt: true } });
+  const already = await prisma.attendance.findUnique({ where: { userId_date: { userId, date } }, select: { checkinAt: true, checkoutAt: true } });
   if (already?.checkinAt) return { ok: false, message: dict.actions.checkin.alreadyCheckedIn };
+  // Checked out without ever checking in (forgot) — a check-in stamped
+  // AFTER the check-out would be nonsense; the arrival time comes from a
+  // check-in attestation instead.
+  if (already?.checkoutAt) return { ok: false, message: dict.actions.checkin.checkinAfterCheckout };
 
   const expected = await getExpectedSite(userId);
   if (expected.kind === "no_site") return { ok: false, message: dict.actions.checkin.noSiteAssigned };
@@ -220,14 +224,15 @@ export async function checkIn(lat: number, lng: number, verification: IdentityVe
   // the same instant, the DB's unique (userId, date) constraint lets only
   // one create through; the loser retries the guarded update, which by then
   // sees the winner's checkinAt and correctly reports "already checked in".
-  let claimed = (await prisma.attendance.updateMany({ where: { userId, date, checkinAt: null }, data: evidence })).count > 0;
+  const openRow = { userId, date, checkinAt: null, checkoutAt: null };
+  let claimed = (await prisma.attendance.updateMany({ where: openRow, data: evidence })).count > 0;
   if (!claimed) {
     try {
       await prisma.attendance.create({ data: { userId, date, ...evidence } });
       claimed = true;
     } catch (err) {
       if (!isUniqueConstraintError(err)) throw err;
-      claimed = (await prisma.attendance.updateMany({ where: { userId, date, checkinAt: null }, data: evidence })).count > 0;
+      claimed = (await prisma.attendance.updateMany({ where: openRow, data: evidence })).count > 0;
     }
   }
   if (!claimed) return { ok: false, message: dict.actions.checkin.alreadyCheckedIn };
@@ -253,8 +258,13 @@ export async function checkOut(lat: number, lng: number, verification: IdentityV
 
   const date = todayAtMidnight();
   const existing = await prisma.attendance.findUnique({ where: { userId_date: { userId, date } } });
-  if (!existing?.checkinAt) return { ok: false, message: dict.actions.checkin.notCheckedInYet };
-  if (existing.checkoutAt) return { ok: false, message: dict.actions.checkin.alreadyCheckedOut };
+  if (existing?.checkoutAt) return { ok: false, message: dict.actions.checkin.alreadyCheckedOut };
+  // Client decision (2026-09-25): forgetting to check in must not also cost
+  // the real, GPS/biometric-verified check-out. The check-out is recorded
+  // as usual; the day stays status PENDING with no checkinAt (shown as
+  // "awaiting check-in attestation") until a FORGOT_CHECKIN attestation is
+  // approved, which fills checkinAt and sets ON_TIME/LATE.
+  const missedCheckin = !existing?.checkinAt;
 
   const expected = await getExpectedSite(userId);
   if (expected.kind === "no_site") return { ok: false, message: dict.actions.checkin.noSiteAssigned };
@@ -270,23 +280,33 @@ export async function checkOut(lat: number, lng: number, verification: IdentityV
   const onApprovedPmLeave = await hasApprovedPmHalfDayLeave(userId, date);
   const earlyCheckout = !onApprovedPmLeave && now < atTimeOfDay(date, hours.end);
   const shared = await detectSharedDevice(userId, date, deviceId, ip);
-  // Atomic: only the first of two concurrent taps wins.
-  const claimed = await prisma.attendance.updateMany({
-    where: { userId, date, checkoutAt: null },
-    data: {
-      checkoutAt: now,
-      checkoutLat: lat,
-      checkoutLng: lng,
-      checkoutMethod: verification.method,
-      checkoutDeviceId: deviceId,
-      checkoutSelfieId: selfie.id,
-      earlyCheckout,
-      ...(shared ? { flagSharedDevice: true } : {}),
-    },
-  });
-  if (claimed.count === 0) return { ok: false, message: dict.actions.checkin.alreadyCheckedOut };
+  const outData = {
+    checkoutAt: now,
+    checkoutLat: lat,
+    checkoutLng: lng,
+    checkoutMethod: verification.method,
+    checkoutDeviceId: deviceId,
+    checkoutSelfieId: selfie.id,
+    earlyCheckout,
+    ...(shared ? { flagSharedDevice: true } : {}),
+  };
+  // Atomic: only the first of two concurrent taps wins. Same claim → create
+  // → retry shape as checkIn, since with a missed check-in there may be no
+  // row for today yet.
+  let claimed = (await prisma.attendance.updateMany({ where: { userId, date, checkoutAt: null }, data: outData })).count > 0;
+  if (!claimed && !existing) {
+    try {
+      await prisma.attendance.create({ data: { userId, date, ...outData } });
+      claimed = true;
+    } catch (err) {
+      if (!isUniqueConstraintError(err)) throw err;
+      claimed = (await prisma.attendance.updateMany({ where: { userId, date, checkoutAt: null }, data: outData })).count > 0;
+    }
+  }
+  if (!claimed) return { ok: false, message: dict.actions.checkin.alreadyCheckedOut };
 
   revalidatePath("/checkin");
   revalidatePath("/dashboard");
+  if (missedCheckin) return { ok: true, message: dict.actions.checkin.outSuccessNoCheckin, needsAttestation: true };
   return { ok: true, message: earlyCheckout ? dict.actions.checkin.outSuccessEarly(hours.end) : dict.actions.checkin.outSuccess };
 }
