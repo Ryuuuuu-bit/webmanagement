@@ -17,7 +17,10 @@ import {
 
 export type WorkspaceLoc = { id: string; name: string; latitude: number; longitude: number; radiusMeters: number; unused: boolean };
 export type Draft = { lat: number; lng: number; radius: number; label: string };
-export type FlyTarget = { lat: number; lng: number; zoom: number; key: number };
+/** `radius` set → fit that circle into view (edit); otherwise just center on the point. */
+export type FlyTarget = { lat: number; lng: number; zoom: number; key: number; radius?: number };
+/** Pixels of the map covered by floating panels (site list on the left, edit panel on the right). */
+export type MapInsets = { left: number; right: number };
 export type MapLayer = "street" | "satellite";
 
 const IN_USE = "#2f9e86";
@@ -61,6 +64,7 @@ export default function LocationsWorkspaceMap({
   pickMode,
   layer,
   flyTarget,
+  insets = { left: 0, right: 0 },
   onMapClick,
   onDraftMove,
   onSelect,
@@ -73,6 +77,7 @@ export default function LocationsWorkspaceMap({
   pickMode: boolean;
   layer: MapLayer;
   flyTarget: FlyTarget | null;
+  insets?: MapInsets;
   onMapClick: (lat: number, lng: number) => void;
   onDraftMove: (lat: number, lng: number) => void;
   onSelect: (id: string) => void;
@@ -86,6 +91,8 @@ export default function LocationsWorkspaceMap({
   const draftMarkerRef = useRef<L.Marker | null>(null);
   const draftCircleRef = useRef<L.Circle | null>(null);
   const didFitRef = useRef(false);
+  const insetsRef = useRef(insets);
+  insetsRef.current = insets;
   const cb = useRef({ onMapClick, onDraftMove, onSelect });
   cb.current = { onMapClick, onDraftMove, onSelect };
 
@@ -209,7 +216,17 @@ export default function LocationsWorkspaceMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !flyTarget) return;
-    map.flyTo([flyTarget.lat, flyTarget.lng], Math.max(map.getZoom(), flyTarget.zoom), { duration: 0.6 });
+    // Aim at the part of the map that isn't under the site list / edit
+    // panel — centering on the whole container put the pin behind the panel.
+    const { left, right } = insetsRef.current;
+    if (flyTarget.radius) {
+      const bounds = L.latLng(flyTarget.lat, flyTarget.lng).toBounds(flyTarget.radius * 2.3);
+      map.flyToBounds(bounds, { paddingTopLeft: [left + 24, 48], paddingBottomRight: [right + 24, 48], maxZoom: flyTarget.zoom, duration: 0.6 });
+      return;
+    }
+    const z = Math.max(map.getZoom(), flyTarget.zoom);
+    const center = map.unproject(map.project([flyTarget.lat, flyTarget.lng], z).add([(right - left) / 2, 0]), z);
+    map.flyTo(center, z, { duration: 0.6 });
   }, [flyTarget]);
 
   return <div ref={containerRef} className="h-full w-full" />;

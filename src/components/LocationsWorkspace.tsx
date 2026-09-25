@@ -5,6 +5,19 @@ import dynamic from "next/dynamic";
 import { useLanguage } from "@/components/LanguageProvider";
 import type { Draft, FlyTarget, MapLayer } from "@/components/LocationsWorkspaceMap";
 
+/** matchMedia as state (false during SSR / first paint). */
+function useMediaQuery(query: string) {
+  const [match, setMatch] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setMatch(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [query]);
+  return match;
+}
+
 // Leaflet touches `window` at import time — browser only.
 const WorkspaceMap = dynamic(() => import("@/components/LocationsWorkspaceMap"), {
   ssr: false,
@@ -70,7 +83,16 @@ export default function LocationsWorkspace({
   const [filter, setFilter] = useState("");
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
   const flyKey = useRef(0);
-  const fly = (lat: number, lng: number, zoom = 16) => setFlyTarget({ lat, lng, zoom, key: ++flyKey.current });
+  const fly = (lat: number, lng: number, zoom = 16, radius?: number) => setFlyTarget({ lat, lng, zoom, radius, key: ++flyKey.current });
+  // Desktop layout: the site list (left, 340px) and the edit panel (right,
+  // 380px) float over the map. Below 1536px both together leave almost no
+  // map between them, so the list steps aside while the panel is open.
+  const isLg = useMediaQuery("(min-width: 1024px)");
+  const is2xl = useMediaQuery("(min-width: 1536px)");
+  // Phones: the form is a bottom sheet over the map — it can be minimized to
+  // its header so the pin can be placed / dragged.
+  const [sheetMin, setSheetMin] = useState(false);
+  const mapBoxRef = useRef<HTMLDivElement>(null);
 
   // Drawer (add / edit) state.
   const [drawer, setDrawer] = useState<{ mode: "add" } | { mode: "edit"; id: string } | null>(null);
@@ -115,14 +137,21 @@ export default function LocationsWorkspace({
     setQuery("");
     setResults(null);
     setSearchError(null);
+    setSheetMin(false);
     if (loc) {
       setSelectedId(loc.id);
-      fly(loc.latitude, loc.longitude, 17);
+      fly(loc.latitude, loc.longitude, 18, loc.radiusMeters);
     }
   }
   function closeDrawer() {
     setDrawer(null);
     setPin(null);
+    setSheetMin(false);
+  }
+  function toggleSheet() {
+    const next = !sheetMin;
+    setSheetMin(next);
+    if (next) mapBoxRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
   function selectSite(id: string) {
@@ -205,6 +234,8 @@ export default function LocationsWorkspace({
   }
 
   const drawerOpen = drawer !== null;
+  const listCollapsed = drawerOpen && isLg && !is2xl;
+  const insets = { left: isLg && !listCollapsed ? 356 : 0, right: isLg && drawerOpen ? 396 : 0 };
   const drawerTitle = drawer?.mode === "edit" ? w.drawerEditTitle(locations.find((l) => l.id === drawer.id)?.name ?? "") : w.drawerAddTitle;
 
   return (
@@ -249,7 +280,7 @@ export default function LocationsWorkspace({
             child, and uses small z-indexes (list z-10, panel z-20, bottom
             sheet / toast z-40 — above the sticky header z-30, below the
             menu z-50). */}
-        <div className="relative isolate z-0 h-[320px] overflow-hidden rounded-2xl border border-line sm:h-[380px] lg:absolute lg:inset-0 lg:h-auto">
+        <div ref={mapBoxRef} className="relative isolate z-0 h-[320px] scroll-mt-20 overflow-hidden rounded-2xl border border-line sm:h-[380px] lg:absolute lg:inset-0 lg:h-auto">
           <WorkspaceMap
             locations={mapLocs}
             selectedId={selectedId}
@@ -258,6 +289,7 @@ export default function LocationsWorkspace({
             pickMode={drawerOpen}
             layer={layer}
             flyTarget={flyTarget}
+            insets={insets}
             onMapClick={(lat, lng) => {
               if (drawerOpen) setPin({ lat, lng });
             }}
@@ -271,7 +303,7 @@ export default function LocationsWorkspace({
         </div>
 
         {/* Site list */}
-        <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm lg:absolute lg:bottom-4 lg:left-4 lg:top-4 lg:z-10 lg:w-[340px] lg:shadow-xl">
+        <aside className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm lg:absolute lg:bottom-4 lg:left-4 lg:top-4 lg:z-10 lg:w-[340px] lg:shadow-xl ${listCollapsed ? "lg:hidden" : ""}`}>
           <div className="border-b border-line px-4 pb-3 pt-4">
             <div className="flex items-center justify-between">
               <div className="text-sm font-bold">{w.listTitle}</div>
@@ -354,16 +386,27 @@ export default function LocationsWorkspace({
           }`}
         >
           <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
-            <div>
-              <h2 className="text-[15px] font-bold">{drawerTitle}</h2>
-              <p className="mt-0.5 text-xs text-muted">{w.drawerHint}</p>
+            <div className="min-w-0">
+              <h2 className="truncate text-[15px] font-bold">{drawerTitle}</h2>
+              <p className={`mt-0.5 text-xs text-muted ${sheetMin ? "max-lg:hidden" : ""}`}>{w.drawerHint}</p>
+              {sheetMin && <p className="mt-0.5 text-xs text-muted lg:hidden">{w.minimizedHint}</p>}
             </div>
-            <button type="button" aria-label={dict.common.cancel} onClick={closeDrawer} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-line text-muted hover:bg-page hover:text-ink">
-              {Icon.close}
-            </button>
+            <div className="flex flex-shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleSheet}
+                aria-expanded={!sheetMin}
+                className="flex h-8 items-center gap-1 rounded-lg border border-brand px-2.5 text-xs font-semibold text-brand-ink hover:bg-brand-soft lg:hidden"
+              >
+                {sheetMin ? w.showForm : w.showMap}
+              </button>
+              <button type="button" aria-label={dict.common.cancel} onClick={closeDrawer} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-line text-muted hover:bg-page hover:text-ink">
+                {Icon.close}
+              </button>
+            </div>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
+          <div className={`flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4 ${sheetMin ? "max-lg:hidden" : ""}`}>
             {/* Search */}
             <div>
               <div className="relative">
@@ -501,7 +544,7 @@ export default function LocationsWorkspace({
             </div>
           </div>
 
-          <div className="flex gap-2 border-t border-line px-5 py-3.5">
+          <div className={`flex gap-2 border-t border-line px-5 py-3.5 ${sheetMin ? "max-lg:hidden" : ""}`}>
             <button type="button" onClick={closeDrawer} className="flex-1 rounded-lg border border-line px-4 py-2.5 text-sm font-semibold text-muted hover:bg-page">
               {dict.common.cancel}
             </button>
