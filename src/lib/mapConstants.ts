@@ -21,6 +21,14 @@ export const OSM_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 export const OSM_MAX_ZOOM = 19;
 
+// Satellite imagery for the "does the radius actually cover the building?"
+// check on the locations workspace — Esri's World Imagery tile service is
+// free to use with attribution and needs no API key (unlike Google's tiles).
+export const SATELLITE_TILE_URL =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+export const SATELLITE_ATTRIBUTION = "Imagery &copy; Esri, Maxar, Earthstar Geographics";
+export const SATELLITE_MAX_ZOOM = 19;
+
 // Leaflet's default marker images are resolved relative to its own bundled
 // CSS by default, which breaks under Next.js's bundler. Pointing the icon at
 // a CDN copy of the package sidesteps that entirely — no bundler asset
