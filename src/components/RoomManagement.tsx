@@ -87,7 +87,7 @@ export default function RoomManagement({
                 ))}
               </select>
               <button type="submit" disabled={pending} className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60">{dict.common.save}</button>
-              <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-muted">{dict.common.cancel}</button>
+              <button type="button" onClick={() => setEditingId(null)} className="rounded px-1.5 py-1.5 text-xs font-semibold text-muted hover:bg-line-soft">{dict.common.cancel}</button>
             </form>
           ) : (
             <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-2 text-sm first:border-t-0 first:pt-0">
@@ -100,8 +100,8 @@ export default function RoomManagement({
                 )}
               </span>
               <div className="flex items-center gap-3">
-                <button onClick={() => setEditingId(r.id)} className="text-xs font-semibold text-brand-ink underline">{dict.common.edit}</button>
-                <button disabled={pending} onClick={() => onDelete(r.id, r.name)} className="text-xs font-semibold text-danger disabled:opacity-40">{dict.common.delete}</button>
+                <button onClick={() => setEditingId(r.id)} className="rounded px-1.5 py-1.5 text-xs font-semibold text-brand-ink underline hover:bg-line-soft">{dict.common.edit}</button>
+                <button disabled={pending} onClick={() => onDelete(r.id, r.name)} className="rounded px-1.5 py-1.5 text-xs font-semibold text-danger disabled:opacity-40 hover:bg-line-soft">{dict.common.delete}</button>
               </div>
               {editResult?.id === r.id && !editResult.ok && <p className="w-full text-xs text-danger">{editResult.message}</p>}
               {deleteResult?.id === r.id && !deleteResult.ok && <p className="w-full text-xs text-danger">{deleteResult.message}</p>}

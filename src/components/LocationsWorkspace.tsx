@@ -240,7 +240,7 @@ export default function LocationsWorkspace({
       </div>
 
       {/* Workspace */}
-      <div className="relative flex min-h-0 flex-1 flex-col gap-3 lg:block">
+      <div className="relative flex min-h-0 flex-1 flex-col gap-3 lg:block lg:overflow-hidden">
         {/* Map. `isolate z-0` gives Leaflet its own stacking context: its
             panes/controls use z-index 400–1000 internally, which otherwise
             compete with the app shell (mobile menu overlay is z-50) and the
@@ -349,8 +349,8 @@ export default function LocationsWorkspace({
         {/* Add / edit drawer — bottom sheet on phones, side panel on desktop */}
         <section
           aria-hidden={!drawerOpen}
-          className={`fixed inset-x-0 bottom-0 z-40 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-2xl border border-line bg-surface shadow-2xl transition-transform duration-300 lg:absolute lg:z-20 lg:inset-auto lg:bottom-4 lg:right-4 lg:top-4 lg:w-[380px] lg:max-h-none lg:rounded-2xl ${
-            drawerOpen ? "translate-y-0 lg:translate-x-0" : "translate-y-full lg:translate-x-[120%] lg:translate-y-0"
+          className={`fixed inset-x-0 bottom-0 z-40 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-2xl border border-line bg-surface shadow-2xl transition-[transform,visibility] duration-300 lg:absolute lg:z-20 lg:inset-auto lg:bottom-4 lg:right-4 lg:top-4 lg:w-[380px] lg:max-h-none lg:rounded-2xl ${
+            drawerOpen ? "visible translate-y-0 lg:translate-x-0" : "invisible translate-y-full lg:translate-x-[120%] lg:translate-y-0"
           }`}
         >
           <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">

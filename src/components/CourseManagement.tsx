@@ -72,14 +72,14 @@ export default function CourseManagement({
               <input name="code" required defaultValue={c.code} className="input w-36" />
               <input name="name" required defaultValue={c.name} className="input" />
               <button type="submit" disabled={pending} className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60">{dict.common.save}</button>
-              <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold text-muted">{dict.common.cancel}</button>
+              <button type="button" onClick={() => setEditingId(null)} className="rounded px-1.5 py-1.5 text-xs font-semibold text-muted hover:bg-line-soft">{dict.common.cancel}</button>
             </form>
           ) : (
             <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-2 text-sm first:border-t-0 first:pt-0">
               <span><span className="font-mono font-semibold">{c.code}</span> <span className="ml-1">{c.name}</span></span>
               <div className="flex items-center gap-3">
-                <button onClick={() => setEditingId(c.id)} className="text-xs font-semibold text-brand-ink underline">{dict.common.edit}</button>
-                <button disabled={pending} onClick={() => onDelete(c.id, `${c.code} ${c.name}`)} className="text-xs font-semibold text-danger disabled:opacity-40">{dict.common.delete}</button>
+                <button onClick={() => setEditingId(c.id)} className="rounded px-1.5 py-1.5 text-xs font-semibold text-brand-ink underline hover:bg-line-soft">{dict.common.edit}</button>
+                <button disabled={pending} onClick={() => onDelete(c.id, `${c.code} ${c.name}`)} className="rounded px-1.5 py-1.5 text-xs font-semibold text-danger disabled:opacity-40 hover:bg-line-soft">{dict.common.delete}</button>
               </div>
               {editResult?.id === c.id && !editResult.ok && <p className="w-full text-xs text-danger">{editResult.message}</p>}
               {deleteResult?.id === c.id && !deleteResult.ok && <p className="w-full text-xs text-danger">{deleteResult.message}</p>}

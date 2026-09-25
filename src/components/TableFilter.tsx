@@ -117,11 +117,11 @@ export default function TableFilter({
   const pager =
     pageSize && count && pages > 1 ? (
       <span className="inline-flex items-center gap-1 text-xs">
-        <button type="button" disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="rounded-lg border border-line px-2 py-1 text-subtle hover:bg-line-soft disabled:opacity-40" aria-label={t.prev}>
+        <button type="button" disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-line px-2 text-subtle hover:bg-line-soft disabled:opacity-40" aria-label={t.prev}>
           ‹
         </button>
         <span className="text-faint">{t.pageOf(page + 1, pages)}</span>
-        <button type="button" disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)} className="rounded-lg border border-line px-2 py-1 text-subtle hover:bg-line-soft disabled:opacity-40" aria-label={t.next}>
+        <button type="button" disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)} className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-line px-2 text-subtle hover:bg-line-soft disabled:opacity-40" aria-label={t.next}>
           ›
         </button>
       </span>

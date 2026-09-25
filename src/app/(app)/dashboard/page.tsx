@@ -72,6 +72,7 @@ export default async function DashboardPage() {
             credentialState={credentialState}
             policy={policy}
             attestPending={attestPending}
+            site={site.kind === "ok" ? { name: site.site.name, latitude: site.site.latitude, longitude: site.site.longitude, radiusMeters: site.site.radiusMeters } : null}
           />
           <p className="mt-3 text-center text-xs text-faint">
             {site.kind === "no_site" ? (

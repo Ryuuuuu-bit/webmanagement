@@ -47,18 +47,24 @@ export default function LessonPlanReviewRow({
     <tr data-status={plan.status} className="border-t border-line-soft align-top">
       <td className="py-2">{plan.teacher.name}</td>
       <td className="py-2">{plan.course.code} {plan.course.name}</td>
-      <td className="py-2">
-        <a href={`/api/lesson-plans/${plan.id}`} className="font-semibold text-brand-ink underline">{plan.fileName}</a>
+      <td className="py-2 pr-3">
+        <a
+          href={`/api/lesson-plans/${plan.id}`}
+          title={plan.fileName}
+          className="inline-block max-w-[240px] truncate align-bottom font-semibold text-brand-ink underline max-sm:max-w-full max-sm:break-all"
+        >
+          {plan.fileName}
+        </a>
       </td>
-      <td className="py-2 text-faint">{formatDate(plan.submittedAt, locale)}</td>
+      <td className="whitespace-nowrap py-2 pr-3 text-faint">{formatDate(plan.submittedAt, locale)}</td>
       <td className="py-2"><span className={`badge ${status.cls}`}>{status.text}</span></td>
       <td className="py-2">
         <div className="flex flex-col gap-1.5">
           <div className="flex gap-2">
-            <button disabled={pending} onClick={() => decide("APPROVED")} className="text-xs font-semibold text-ok underline disabled:opacity-40">
+            <button disabled={pending} onClick={() => decide("APPROVED")} className="rounded-lg border border-ok px-2.5 py-1 text-xs font-semibold text-ok hover:bg-ok-soft disabled:opacity-40">
               {dict.lessonPlans.approveAction}
             </button>
-            <button disabled={pending} onClick={() => setShowNoteBox((v) => !v)} className="text-xs font-semibold text-warn underline disabled:opacity-40">
+            <button disabled={pending} onClick={() => setShowNoteBox((v) => !v)} className="rounded-lg border border-warn px-2.5 py-1 text-xs font-semibold text-warn hover:bg-warn-soft disabled:opacity-40">
               {dict.lessonPlans.requestChangesAction}
             </button>
           </div>

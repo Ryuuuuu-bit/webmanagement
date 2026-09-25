@@ -106,7 +106,7 @@ export default function WebauthnManager({
               <button
                 onClick={() => onRemove(c.id, c.label || dict.checkin.unnamedDevice)}
                 disabled={busy}
-                className="text-xs font-semibold text-danger underline disabled:opacity-40"
+                className="rounded-lg border border-danger px-2.5 py-1 text-xs font-semibold text-danger hover:bg-danger-soft disabled:opacity-40"
               >
                 {dict.checkin.removeDevice}
               </button>

@@ -78,6 +78,7 @@ export default async function CheckinPage() {
             credentialState={credentialState}
             policy={policy}
             attestPending={attestPending}
+            site={site.kind === "ok" ? { name: site.site.name, latitude: site.site.latitude, longitude: site.site.longitude, radiusMeters: site.site.radiusMeters } : null}
           />
           <div className="mt-4 flex justify-center gap-6 text-sm text-subtle">
             <span>{dict.checkin.checkinShort}: {formatTime(attendance?.checkinAt, locale) ?? "—"}</span>

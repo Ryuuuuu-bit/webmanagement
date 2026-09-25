@@ -448,6 +448,8 @@ const th = {
     helpText: "ต้องอยู่ในรัศมีของ site ที่คุณประจำอยู่ถึงจะเช็คอิน/เช็คเอาต์ได้ ระบบจะขอสิทธิ์เข้าถึงตำแหน่งของคุณ",
     geoUnsupported: "อุปกรณ์นี้ไม่รองรับการอ่านตำแหน่ง GPS",
     geoError: "ไม่สามารถอ่านตำแหน่งได้ — กรุณาอนุญาตการเข้าถึงตำแหน่งในเบราว์เซอร์",
+    tooFar: (siteName: string, meters: number, radius: number) =>
+      `ตอนนี้คุณอยู่นอกพื้นที่ site "${siteName}" — ห่างประมาณ ${meters.toLocaleString("th-TH")} ม. (ต้องอยู่ในรัศมี ${radius.toLocaleString("th-TH")} ม.) เข้าไปในพื้นที่แล้วลองใหม่ หรือถ้า GPS คลาดเคลื่อน ให้ออกไปที่โล่งสักครู่`,
     // Anti "buddy punching" — device biometric (fingerprint/Face ID) setup
     // and the password-fallback prompt shown at check-in/out time.
     deviceSectionTitle: "อุปกรณ์สำหรับยืนยันตัวตน",
@@ -1642,6 +1644,8 @@ const en: typeof th = {
     helpText: "You must be within the radius of the site you're stationed at to check in/out. The app will ask for your location.",
     geoUnsupported: "This device doesn't support GPS location",
     geoError: "Couldn't read your location — please allow location access in your browser",
+    tooFar: (siteName: string, meters: number, radius: number) =>
+      `You're outside the "${siteName}" site — about ${meters.toLocaleString("en-US")} m away (must be within ${radius.toLocaleString("en-US")} m). Move inside and try again; if GPS is off, step into the open for a moment`,
     deviceSectionTitle: "Identity Verification Devices",
     deviceSectionHint:
       "Register this device's fingerprint/Face ID to verify your identity at check-in/out instead of typing your password — helps prevent buddy check-ins.",

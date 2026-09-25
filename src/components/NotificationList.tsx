@@ -85,7 +85,9 @@ export default function NotificationList({ initialItems }: { initialItems: Notif
                     <div className="flex items-start justify-between gap-2">
                       <div className={`text-sm ${isNew ? "font-semibold text-ink" : "font-medium text-subtle"}`}>{n.title}</div>
                       <div className="flex flex-none items-center gap-1.5 text-[11px] text-faint">
-                        <time dateTime={n.createdAt} title={new Date(n.createdAt).toLocaleString(locale === "en" ? "en-US" : "th-TH")}>
+                        {/* Relative time depends on "now" and the device clock/time zone, so
+                            it legitimately differs between server render and hydration. */}
+                        <time suppressHydrationWarning dateTime={n.createdAt} title={new Date(n.createdAt).toLocaleString(locale === "en" ? "en-US" : "th-TH")}>
                           {timeAgo(n.createdAt, t)}
                         </time>
                         {isNew && <span className="h-2 w-2 rounded-full bg-brand" aria-hidden />}
