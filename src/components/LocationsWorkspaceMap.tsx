@@ -153,8 +153,12 @@ export default function LocationsWorkspaceMap({
     }
     if (!didFitRef.current && locations.length > 0) {
       didFitRef.current = true;
+      // On desktop the site list floats over the left ~360px of the map —
+      // keep the fitted sites out from under it.
+      const wide = map.getSize().x >= 900;
       map.fitBounds(L.latLngBounds(locations.map((l) => [l.latitude, l.longitude] as [number, number])), {
-        padding: [60, 60],
+        paddingTopLeft: [wide ? 400 : 40, 60],
+        paddingBottomRight: [60, 60],
         maxZoom: MAP_ZOOM_FOCUSED,
       });
     }

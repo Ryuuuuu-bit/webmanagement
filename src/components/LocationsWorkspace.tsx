@@ -241,8 +241,15 @@ export default function LocationsWorkspace({
 
       {/* Workspace */}
       <div className="relative flex min-h-0 flex-1 flex-col gap-3 lg:block">
-        {/* Map */}
-        <div className="relative h-[320px] overflow-hidden rounded-2xl border border-line sm:h-[380px] lg:absolute lg:inset-0 lg:h-auto">
+        {/* Map. `isolate z-0` gives Leaflet its own stacking context: its
+            panes/controls use z-index 400–1000 internally, which otherwise
+            compete with the app shell (mobile menu overlay is z-50) and the
+            map painted on top of the open sidebar. Everything on this page
+            that must float above the map is a sibling of this box, not a
+            child, and uses small z-indexes (list z-10, panel z-20, bottom
+            sheet / toast z-40 — above the sticky header z-30, below the
+            menu z-50). */}
+        <div className="relative isolate z-0 h-[320px] overflow-hidden rounded-2xl border border-line sm:h-[380px] lg:absolute lg:inset-0 lg:h-auto">
           <WorkspaceMap
             locations={mapLocs}
             selectedId={selectedId}
@@ -257,14 +264,14 @@ export default function LocationsWorkspace({
             onDraftMove={(lat, lng) => setPin({ lat, lng })}
             onSelect={selectSite}
           />
-          <div className="pointer-events-none absolute right-3 top-3 z-[500] flex flex-col gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-[11px] text-muted shadow-lg">
+          <div className="pointer-events-none absolute right-3 top-3 z-[1000] flex flex-col gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-[11px] text-muted shadow-lg">
             <div className="flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[#2f9e86]" />{w.legendInUse}</div>
             <div className="flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[#e2984b]" />{w.legendUnused}</div>
           </div>
         </div>
 
         {/* Site list */}
-        <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm lg:absolute lg:bottom-4 lg:left-4 lg:top-4 lg:z-[500] lg:w-[340px] lg:shadow-xl">
+        <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm lg:absolute lg:bottom-4 lg:left-4 lg:top-4 lg:z-10 lg:w-[340px] lg:shadow-xl">
           <div className="border-b border-line px-4 pb-3 pt-4">
             <div className="flex items-center justify-between">
               <div className="text-sm font-bold">{w.listTitle}</div>
@@ -272,7 +279,7 @@ export default function LocationsWorkspace({
             </div>
             <div className="relative mt-2.5">
               <span className="pointer-events-none absolute left-3 top-2.5 text-muted">{Icon.search}</span>
-              <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={w.filterPlaceholder} className="input w-full rounded-full pl-9 text-sm" />
+              <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={w.filterPlaceholder} className="input w-full rounded-full !pl-9 text-sm" />
             </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-3 max-lg:max-h-[360px]">
@@ -342,7 +349,7 @@ export default function LocationsWorkspace({
         {/* Add / edit drawer — bottom sheet on phones, side panel on desktop */}
         <section
           aria-hidden={!drawerOpen}
-          className={`fixed inset-x-0 bottom-0 z-[600] flex max-h-[88dvh] flex-col overflow-hidden rounded-t-2xl border border-line bg-surface shadow-2xl transition-transform duration-300 lg:absolute lg:inset-auto lg:bottom-4 lg:right-4 lg:top-4 lg:w-[380px] lg:max-h-none lg:rounded-2xl ${
+          className={`fixed inset-x-0 bottom-0 z-40 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-2xl border border-line bg-surface shadow-2xl transition-transform duration-300 lg:absolute lg:z-20 lg:inset-auto lg:bottom-4 lg:right-4 lg:top-4 lg:w-[380px] lg:max-h-none lg:rounded-2xl ${
             drawerOpen ? "translate-y-0 lg:translate-x-0" : "translate-y-full lg:translate-x-[120%] lg:translate-y-0"
           }`}
         >
@@ -371,7 +378,7 @@ export default function LocationsWorkspace({
                     }
                   }}
                   placeholder={w.searchPlaceholder}
-                  className="input w-full rounded-full pl-9 text-sm"
+                  className="input w-full rounded-full !pl-9 text-sm"
                 />
               </div>
               {searching && <p className="mt-1.5 text-xs text-faint">{w.searching}</p>}
@@ -408,7 +415,7 @@ export default function LocationsWorkspace({
             {/* Name */}
             <label className="block">
               <span className="mb-1 block text-[11px] text-muted">{w.nameLabel}</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={w.namePlaceholder} className="input w-full" />
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={w.namePlaceholder} className="input w-full min-w-0" />
             </label>
 
             {/* Lat / lng (editable for the copy-paste-from-Google-Maps path) */}
@@ -476,18 +483,18 @@ export default function LocationsWorkspace({
             {/* Working hours */}
             <div>
               <span className="mb-1 block text-[11px] text-muted">{t.hoursLabel}</span>
-              <div className="grid grid-cols-[1fr_1fr_84px] gap-2">
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_76px] gap-2">
                 <label className="block">
                   <span className="mb-1 block text-[11px] text-faint">{t.hoursStart}</span>
-                  <input type="time" value={workStart} onChange={(e) => setWorkStart(e.target.value)} className="input w-full" />
+                  <input type="time" value={workStart} onChange={(e) => setWorkStart(e.target.value)} className="input w-full min-w-0" />
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-[11px] text-faint">{t.hoursEnd}</span>
-                  <input type="time" value={workEnd} onChange={(e) => setWorkEnd(e.target.value)} className="input w-full" />
+                  <input type="time" value={workEnd} onChange={(e) => setWorkEnd(e.target.value)} className="input w-full min-w-0" />
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-[11px] text-faint">{t.hoursGrace}</span>
-                  <input type="number" min={0} max={180} value={grace} onChange={(e) => setGrace(e.target.value)} placeholder="—" className="input w-full" />
+                  <input type="number" min={0} max={180} value={grace} onChange={(e) => setGrace(e.target.value)} placeholder="—" className="input w-full min-w-0" />
                 </label>
               </div>
               <p className="mt-1 text-[11px] text-faint">{t.hoursHint}</p>
@@ -508,7 +515,7 @@ export default function LocationsWorkspace({
         {toast && (
           <div
             role="status"
-            className={`pointer-events-none fixed bottom-6 left-1/2 z-[700] -translate-x-1/2 rounded-lg border bg-surface px-4 py-2.5 text-sm shadow-xl lg:absolute ${toast.ok ? "border-line text-brand-ink" : "border-danger text-danger"}`}
+            className={`pointer-events-none fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-lg border bg-surface px-4 py-2.5 text-sm shadow-xl lg:absolute ${toast.ok ? "border-line text-brand-ink" : "border-danger text-danger"}`}
           >
             {toast.message}
           </div>
