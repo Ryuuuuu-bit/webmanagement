@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { Role } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
@@ -29,6 +30,21 @@ function tempPasswordExpiry() {
  */
 function isValidEmail(email: string) {
   return /^\S+@\S+\.\S+$/.test(email) && !email.toLowerCase().endsWith("@demo.local");
+}
+
+/**
+ * Changes that could leave the system without an active Admin (demote,
+ * delete) run one at a time behind a transaction-scoped advisory lock, and
+ * re-check — inside the lock — that the acting Admin is still an active
+ * Admin and that another one remains. Two Admins demoting each other at the
+ * same instant can no longer both succeed.
+ */
+const ADMIN_LOCK = 774_211;
+async function withAdminLock<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ADMIN_LOCK})`;
+    return fn(tx);
+  });
 }
 
 async function requireAdmin() {
@@ -171,11 +187,17 @@ export async function updateUserRole(
 
   // Bump tokenVersion so the change takes effect immediately (forces
   // re-login) instead of waiting for their current session to expire.
-  if (user.role === "ADMIN" && role === "MEMBER") {
-    const otherAdmins = await prisma.user.count({ where: { role: "ADMIN", isActive: true, id: { not: userId } } });
-    if (otherAdmins === 0) return { ok: false, message: dict.actions.users.lastAdmin };
-  }
-  await prisma.user.update({ where: { id: userId }, data: { role, tokenVersion: { increment: 1 } } });
+  const blocked = await withAdminLock(async (tx) => {
+    const me = await tx.user.findUnique({ where: { id: session.user.id }, select: { role: true, isActive: true } });
+    if (!me || me.role !== "ADMIN" || !me.isActive) return dict.actions.unauthorized;
+    if (user.role === "ADMIN" && role === "MEMBER") {
+      const otherAdmins = await tx.user.count({ where: { role: "ADMIN", isActive: true, id: { not: userId } } });
+      if (otherAdmins === 0) return dict.actions.users.lastAdmin;
+    }
+    await tx.user.update({ where: { id: userId }, data: { role, tokenVersion: { increment: 1 } } });
+    return null;
+  });
+  if (blocked) return { ok: false, message: blocked };
   // Sessions are void now — so are the devices' push subscriptions (re-subscribed after the next sign-in).
   await prisma.pushSubscription.deleteMany({ where: { userId } });
   if (role === "MEMBER") {
@@ -276,25 +298,27 @@ export async function deleteUser(userId: string): Promise<{ ok: boolean; message
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { ok: false, message: dict.actions.users.notFound };
-  if (user.role === "ADMIN" && user.isActive) {
-    const otherAdmins = await prisma.user.count({ where: { role: "ADMIN", isActive: true, id: { not: userId } } });
-    if (otherAdmins === 0) return { ok: false, message: dict.actions.users.lastAdmin };
-  }
-  // Another ADMIN may be removed: the admin doing it can't delete themselves
-  // (checked above), so at least one admin always remains.
-
-  await prisma.$transaction([
-    prisma.schedule.deleteMany({ where: { teacherId: userId } }),
-    prisma.attendance.deleteMany({ where: { userId } }),
-    prisma.leaveRequest.updateMany({ where: { approverId: userId }, data: { approverId: null } }),
-    prisma.leaveRequest.deleteMany({ where: { requesterId: userId } }),
-    prisma.timeAttestation.updateMany({ where: { approverId: userId }, data: { approverId: null } }),
-    prisma.timeAttestation.deleteMany({ where: { requesterId: userId } }),
-    prisma.lessonPlan.updateMany({ where: { reviewerId: userId }, data: { reviewerId: null } }),
-    prisma.lessonPlan.deleteMany({ where: { teacherId: userId } }),
-    prisma.selfie.deleteMany({ where: { userId } }),
-    prisma.user.delete({ where: { id: userId } }),
-  ]);
+  // Checked and done under the admin lock (see withAdminLock).
+  const blocked = await withAdminLock(async (tx) => {
+    const me = await tx.user.findUnique({ where: { id: session.user.id }, select: { role: true, isActive: true } });
+    if (!me || me.role !== "ADMIN" || !me.isActive) return dict.actions.unauthorized;
+    if (user.role === "ADMIN" && user.isActive) {
+      const otherAdmins = await tx.user.count({ where: { role: "ADMIN", isActive: true, id: { not: userId } } });
+      if (otherAdmins === 0) return dict.actions.users.lastAdmin;
+    }
+    await tx.schedule.deleteMany({ where: { teacherId: userId } });
+    await tx.attendance.deleteMany({ where: { userId } });
+    await tx.leaveRequest.updateMany({ where: { approverId: userId }, data: { approverId: null } });
+    await tx.leaveRequest.deleteMany({ where: { requesterId: userId } });
+    await tx.timeAttestation.updateMany({ where: { approverId: userId }, data: { approverId: null } });
+    await tx.timeAttestation.deleteMany({ where: { requesterId: userId } });
+    await tx.lessonPlan.updateMany({ where: { reviewerId: userId }, data: { reviewerId: null } });
+    await tx.lessonPlan.deleteMany({ where: { teacherId: userId } });
+    await tx.selfie.deleteMany({ where: { userId } });
+    await tx.user.delete({ where: { id: userId } });
+    return null;
+  });
+  if (blocked) return { ok: false, message: blocked };
   await logAudit({ action: "USER_DELETED", actorId: session.user.id, targetUserId: userId, ip: getClientIp(), detail: `${user.name} <${user.email}>` });
 
   revalidatePath("/admin/users");

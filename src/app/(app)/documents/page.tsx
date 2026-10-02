@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import DocumentsManager, { type DocumentRow } from "@/components/DocumentsManager";
-import { DOC_STATUS_TONE } from "@/lib/docStatus";
+import { DOC_STATUS_TONE, fileKind } from "@/lib/docStatus";
 import DocumentImport from "@/components/DocumentImport";
 import DocumentTypeManagement from "@/components/DocumentTypeManagement";
 import {
@@ -92,7 +92,10 @@ export default async function DocumentsPage() {
                 {r.note && (<><dt className="text-muted">{t.colNote}</dt><dd>{r.note}</dd></>)}
               </dl>
               {r.fileName && (
-                <a href={`/api/documents/${r.id}/file`} target="_blank" rel="noopener" className="mt-3 inline-block text-xs font-medium text-brand-ink underline">{t.viewFile}</a>
+                <a href={`/api/documents/${r.id}/file`} target="_blank" rel="noopener" title={r.fileName} className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-brand-ink underline">
+                  <span className="rounded bg-line-soft px-1 font-mono text-[10px]">{fileKind(r.fileName)}</span>
+                  {t.viewFile}
+                </a>
               )}
             </div>
           ))}

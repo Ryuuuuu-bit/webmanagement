@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import type { DocStatusValue as DocStatus } from "./docStatus";
+import { DOC_FILE_TYPES, type DocStatusValue as DocStatus } from "./docStatus";
 import { bangkokDateKey, daysBetweenKeys, pickedDateKey } from "./date";
 
 /**
@@ -43,14 +43,11 @@ export function docStatus(expiry: Date | null, remindDays: number[], now = new D
   return "VALID";
 }
 
-export const DOC_ATTACHMENT_MAX = 5 * 1024 * 1024;
-const ALLOWED_MIME = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"]);
-const EXT_MIME: Record<string, string> = { pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic" };
+/** Word files with pictures get big — 10 MB per attachment. */
+export const DOC_ATTACHMENT_MAX = 10 * 1024 * 1024;
 
-/** Allowed attachment MIME derived from the file name (browser-supplied type not trusted), or null. */
-export function attachmentMime(name: string, declared: string): string | null {
+/** Allowed attachment MIME from the file's extension only (see DOC_FILE_TYPES), or null. */
+export function attachmentMime(name: string, _declared?: string): string | null {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  const byExt = EXT_MIME[ext];
-  if (byExt) return byExt;
-  return ALLOWED_MIME.has(declared) ? declared : null;
+  return DOC_FILE_TYPES[ext] ?? null;
 }

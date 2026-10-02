@@ -569,6 +569,9 @@ model AppSetting {
   attachmentRetentionMonths Int       @default(0)
   seedToken                 String?
   maintenanceToken          String?
+  // reset-password.mjs keeps its own slot (sharing maintenanceToken with
+  // delete-users.mjs made one skip the other in the same deploy).
+  resetPasswordToken        String?
   updatedAt                 DateTime  @updatedAt
 }
 

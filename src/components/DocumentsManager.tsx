@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "./LanguageProvider";
 import TableFilter from "./TableFilter";
-import { DOC_STATUS_TONE, type DocStatusValue } from "@/lib/docStatus";
+import { DOC_FILE_ACCEPT, DOC_STATUS_TONE, fileKind, type DocStatusValue } from "@/lib/docStatus";
 import { encodeFileName, FileReadError, readFileBytes, xhrPost } from "@/lib/uploadClient";
 
 export type DocumentRow = {
@@ -171,7 +171,7 @@ export default function DocumentsManager({
             </label>
             <label className="flex flex-col gap-1 text-xs text-muted sm:col-span-2">
               {row?.fileName ? t.replaceFile(row.fileName) : t.attachFile}
-              <input name="file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic" className="text-sm text-muted file:mr-3 file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-brand-ink" />
+              <input name="file" type="file" accept={DOC_FILE_ACCEPT} className="text-sm text-muted file:mr-3 file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-brand-ink" />
             </label>
           </div>
           <p className="text-[11px] text-faint">{t.renewHint}</p>
@@ -231,7 +231,10 @@ export default function DocumentsManager({
                   <td className="py-2">
                     {r.fileName ? (
                       <span className="flex items-center gap-2">
-                        <a href={`/api/documents/${r.id}/file`} target="_blank" rel="noopener" className="text-xs font-medium text-brand-ink underline">{t.viewFile}</a>
+                        <a href={`/api/documents/${r.id}/file`} target="_blank" rel="noopener" title={r.fileName} className="inline-flex items-center gap-1 text-xs font-medium text-brand-ink underline">
+                          <span className="rounded bg-line-soft px-1 font-mono text-[10px] no-underline">{fileKind(r.fileName)}</span>
+                          {t.viewFile}
+                        </a>
                         <button type="button" disabled={pending} onClick={() => onRemoveFile(r)} className="text-xs text-faint hover:text-danger" aria-label={t.removeFile}>✕</button>
                       </span>
                     ) : (

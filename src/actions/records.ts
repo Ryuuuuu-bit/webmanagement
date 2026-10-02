@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { bangkokDateKey } from "@/lib/date";
 import { logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/security";
 import { getLocale } from "@/lib/i18n/locale";
@@ -48,8 +49,26 @@ async function deleteAttendanceRows(where: { id?: string; userId?: string }) {
   });
   if (rows.length === 0) return rows;
   const selfieIds = rows.flatMap((r) => [r.checkinSelfieId, r.checkoutSelfieId]).filter((x): x is string => !!x);
+  // Days the automatic-absence jobs can still reach (today and the 7-day
+  // look-back) would simply be marked ABSENT again once deleted. Those are
+  // kept as an empty day owned by the Admin (no times, PENDING, adminEdited)
+  // which the jobs never touch; older days are really deleted.
+  const reachable = new Date(`${bangkokDateKey()}T00:00:00+07:00`);
+  reachable.setDate(reachable.getDate() - 8);
+  const recent = rows.filter((r) => r.date >= reachable).map((r) => r.id);
+  const old = rows.filter((r) => r.date < reachable).map((r) => r.id);
   await prisma.$transaction([
-    prisma.attendance.deleteMany({ where: { id: { in: rows.map((r) => r.id) } } }),
+    prisma.attendance.deleteMany({ where: { id: { in: old } } }),
+    prisma.attendance.updateMany({
+      where: { id: { in: recent } },
+      data: {
+        status: "PENDING",
+        adminEdited: true,
+        checkinAt: null, checkinLat: null, checkinLng: null, checkinMethod: null, checkinDeviceId: null, checkinSelfieId: null, checkinSiteId: null, checkinSiteName: null,
+        checkoutAt: null, checkoutLat: null, checkoutLng: null, checkoutMethod: null, checkoutDeviceId: null, checkoutSelfieId: null, checkoutSiteId: null, checkoutSiteName: null,
+        attestedCheckin: false, attestedCheckout: false, flagSharedDevice: false, earlyCheckout: false,
+      },
+    }),
     ...(selfieIds.length > 0 ? [prisma.selfie.deleteMany({ where: { id: { in: selfieIds } } })] : []),
   ]);
   return rows;

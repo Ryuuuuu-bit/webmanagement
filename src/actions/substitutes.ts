@@ -55,21 +55,35 @@ export async function assignSubstitute(dateKey: string, scheduleId: string, subs
   if (!schedule || schedule.dayOfWeek !== weekdayOfKey(dateKey) || !semesterIds.includes(schedule.semesterId)) return { ok: false, message: t.invalid };
   if (!sub || !sub.isActive || sub.role !== "MEMBER" || sub.id === schedule.teacherId) return { ok: false, message: t.badSubstitute };
 
-  const verdict = await substituteEligibility(dateKey, scheduleId, sub.id, schedule.teacherId);
-  if (!verdict.ok) {
-    if (verdict.reason === "NO_SLOT") return { ok: false, message: t.invalid };
-    if (verdict.reason === "AWAY") return { ok: false, message: t.onLeave(sub.name) };
-    if (verdict.reason === "OWN_CLASS" || verdict.reason === "COVERING") return { ok: false, message: t.busy(sub.name) };
+  // Bookings for one date are made one at a time (a transaction-scoped
+  // Postgres advisory lock): two Admins clicking at the same instant can't
+  // both pass the check and put one teacher into two overlapping classes.
+  // The check runs after the lock is held, so it sees the other booking.
+  const outcome = await prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`substitute:${dateKey}`}))`;
+      const verdict = await substituteEligibility(dateKey, scheduleId, sub.id, schedule.teacherId);
+      if (!verdict.ok) return { kind: "rejected" as const, reason: verdict.reason };
+      const previous = await tx.substituteAssignment.findUnique({ where: { date_scheduleId: { date: day, scheduleId } }, select: { substituteId: true } });
+      if (previous?.substituteId === sub.id) return { kind: "same" as const };
+      await tx.substituteAssignment.upsert({
+        where: { date_scheduleId: { date: day, scheduleId } },
+        create: { date: day, scheduleId, absentTeacherId: schedule.teacherId, substituteId: sub.id, createdById: session.user.id },
+        update: { substituteId: sub.id, absentTeacherId: schedule.teacherId, createdById: session.user.id },
+      });
+      return { kind: "booked" as const, previous };
+    },
+    { timeout: 30_000, maxWait: 30_000 }
+  );
+  if (outcome.kind === "rejected") {
+    const reason = outcome.reason;
+    if (reason === "NO_SLOT") return { ok: false, message: t.invalid };
+    if (reason === "AWAY") return { ok: false, message: t.onLeave(sub.name) };
+    if (reason === "OWN_CLASS" || reason === "COVERING") return { ok: false, message: t.busy(sub.name) };
     return { ok: false, message: t.badSubstitute };
   }
-
-  const previous = await prisma.substituteAssignment.findUnique({ where: { date_scheduleId: { date: day, scheduleId } }, select: { substituteId: true } });
-  if (previous?.substituteId === sub.id) return { ok: true, message: t.assigned(sub.name) };
-  await prisma.substituteAssignment.upsert({
-    where: { date_scheduleId: { date: day, scheduleId } },
-    create: { date: day, scheduleId, absentTeacherId: schedule.teacherId, substituteId: sub.id, createdById: session.user.id },
-    update: { substituteId: sub.id, absentTeacherId: schedule.teacherId, createdById: session.user.id },
-  });
+  if (outcome.kind === "same") return { ok: true, message: t.assigned(sub.name) };
+  const previous = outcome.previous;
 
   // Tell the people involved — unless the day is already over (record keeping only).
   if (dateKey >= bangkokDateKey()) {

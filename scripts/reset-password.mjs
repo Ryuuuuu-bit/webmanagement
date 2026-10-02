@@ -1,7 +1,7 @@
 // One-off password reset run from the `start` script, gated like the other
 // maintenance scripts: RESET_PASSWORD_USER = username, RESET_PASSWORD_VALUE =
 // the new (temporary) password, MAINTENANCE_TOKEN = any new value (recorded in
-// AppSetting.maintenanceToken so restarts never repeat it). For the day the
+// AppSetting.resetPasswordToken — its own slot, separate from delete-users — so restarts never repeat it). For the day the
 // only Admin forgets their password — there is no self-service reset by
 // design. The account gets a 7-day temporary password, must change it,
 // every existing session is signed out, and login lockouts are cleared.
@@ -18,7 +18,7 @@ try {
     console.log("[reset-password] nothing requested — skipping");
   } else {
     const setting = await prisma.appSetting.upsert({ where: { id: "default" }, create: { id: "default" }, update: {} });
-    if (setting.maintenanceToken === token) {
+    if (setting.resetPasswordToken === token) {
       console.log("[reset-password] token already applied — skipping");
     } else {
       const user = await prisma.user.findUnique({ where: { username }, select: { id: true, email: true } });
@@ -42,7 +42,7 @@ try {
           prisma.loginLock.deleteMany({
             where: { OR: [{ key: { startsWith: `e:u:${user.id}|` } }, { key: { startsWith: `e:${user.email.toLowerCase()}|` } }, { key: { startsWith: `e:${username.toLowerCase()}|` } }] },
           }),
-          prisma.appSetting.update({ where: { id: "default" }, data: { maintenanceToken: token } }),
+          prisma.appSetting.update({ where: { id: "default" }, data: { resetPasswordToken: token } }),
         ]);
         console.log(`[reset-password] temporary password set for ${username} (7 days, must change)`);
       }

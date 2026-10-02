@@ -90,8 +90,17 @@ function demoPdf(title) {
 
 // ---------------------------------------------------------------- removal
 async function removeDemoData() {
-  const users = await prisma.user.findMany({ where: { role: "MEMBER", email: { endsWith: DEMO_DOMAIN } }, select: { id: true } });
-  const ids = users.map((u) => u.id);
+  const users = await prisma.user.findMany({ where: { role: "MEMBER", email: { endsWith: DEMO_DOMAIN } }, select: { id: true, name: true } });
+  const all = users.map((u) => u.id);
+  // A demo teacher an Admin has booked to cover a REAL class (or who covers
+  // for a real teacher) stays: deleting them would cascade-delete that real
+  // booking. Removed on a later run once the booking is gone.
+  const realBookings = await prisma.substituteAssignment.findMany({
+    where: { substituteId: { in: all }, absentTeacherId: { notIn: all } },
+    select: { substituteId: true },
+  });
+  const busy = new Set(realBookings.map((b) => b.substituteId));
+  const ids = all.filter((id) => !busy.has(id));
   if (ids.length) {
     await prisma.$transaction([
       prisma.schedule.deleteMany({ where: { teacherId: { in: ids } } }),
@@ -130,6 +139,15 @@ async function removeDemoData() {
   }
   const demoSites = await prisma.campusLocation.findMany({ where: { name: { startsWith: P } }, select: { id: true, name: true } });
   for (const l of demoSites) {
+    // A real teacher stationed at (or with an extra site at) a demo school
+    // would silently lose it — the delete "succeeds", so check first.
+    const realUse = await prisma.user.count({
+      where: { email: { not: { endsWith: DEMO_DOMAIN } }, OR: [{ campusLocationId: l.id }, { extraSites: { some: { locationId: l.id } } }] },
+    });
+    if (realUse > 0) {
+      kept.push(l.name);
+      continue;
+    }
     await tryDelete(l.name, () => prisma.campusLocation.delete({ where: { id: l.id } }));
   }
   // Real events that were pointed at a demo school lose that school (an
@@ -142,6 +160,7 @@ async function removeDemoData() {
       if (left.length) await prisma.schoolEvent.update({ where: { id: e.id }, data: { siteIds: left } });
     }
   }
+  for (const u of users) if (busy.has(u.id)) kept.push(u.name);
   console.log(`[demo-data] removed ${ids.length} demo teacher(s)${kept.length ? ` · kept (still referenced by real data): ${kept.join(", ")}` : ""}`);
 }
 
