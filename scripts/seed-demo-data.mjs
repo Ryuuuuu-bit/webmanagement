@@ -167,8 +167,14 @@ async function removeDemoData() {
 // ---------------------------------------------------------------- creation
 async function createDemoData() {
   const now = new Date();
-  const today = bkKey(now);
-  const nowMin = mins(new Date(+now + 7 * 3_600_000).toISOString().slice(11, 16));
+  // The demo is built around "today" (substitute cases, not-checked-in, leave
+  // today, …). Seeded on a weekend, it is built for the next work day instead;
+  // seeded at night or before school, "now" is taken as 10:30 so the morning
+  // check-ins already exist when the demo is shown.
+  const realToday = bkKey(now);
+  const today = weekday(realToday) < 5 ? realToday : workdayFrom(realToday, 1);
+  const realMin = mins(new Date(+now + 7 * 3_600_000).toISOString().slice(11, 16));
+  const nowMin = today !== realToday || realMin < 8 * 60 ? 10 * 60 + 30 : realMin;
   const admin = await prisma.user.findFirst({ where: { role: "ADMIN", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } });
   const adminName = admin?.name ?? "ผู้ดูแลระบบ";
 
