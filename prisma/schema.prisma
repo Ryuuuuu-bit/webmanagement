@@ -43,6 +43,15 @@ enum AttendanceStatus {
   LEAVE
 }
 
+// Thai school grade bands (client list): อนุบาล 1–3, ป.1–3, ป.4–6, ม.1–3, ม.4–6.
+enum GradeLevel {
+  KG
+  P1_3
+  P4_6
+  M1_3
+  M4_6
+}
+
 enum AttestType {
   FORGOT_CHECKIN
   FORGOT_CHECKOUT
@@ -62,20 +71,20 @@ model Department {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
+  id                    String          @id @default(cuid())
+  name                  String
   // Sign-in name (client request: teachers log in with a username, not
   // their email). Admin sets it when creating the account; the login page
   // also accepts the email. Stored lowercase. Nullable only so existing
   // rows can be backfilled from the email's local part on first deploy
   // (scripts/backfill-usernames.mjs, run from the start script).
-  username      String?   @unique
+  username              String?         @unique
   // Kept as the recovery channel: "forgot password" emails go here.
-  email         String    @unique
-  passwordHash  String
-  role          Role      @default(MEMBER)
-  departmentId  String?
-  department    Department? @relation(fields: [departmentId], references: [id])
+  email                 String          @unique
+  passwordHash          String
+  role                  Role            @default(MEMBER)
+  departmentId          String?
+  department            Department?     @relation(fields: [departmentId], references: [id])
   // The one site this teacher is permanently stationed at (client concept:
   // "ประจำ" — the system now spans many organizations'/campuses' sites, each
   // teacher assigned to exactly one). This is the sole source of truth for
@@ -84,20 +93,20 @@ model User {
   // required full course/room data entry and didn't fit a teacher simply
   // stationed at one site. Nullable so existing/new teachers keep working
   // (check-in/out blocked with a clear message) until Admin assigns one.
-  campusLocationId String?
-  campusLocation   CampusLocation? @relation(fields: [campusLocationId], references: [id])
+  campusLocationId      String?
+  campusLocation        CampusLocation? @relation(fields: [campusLocationId], references: [id])
   // Admin-created accounts (no self-registration): true right after an admin
   // creates or resets the account, until the user sets their own password.
-  mustChangePassword Boolean @default(false)
+  mustChangePassword    Boolean         @default(false)
   // Bumped on password reset/change or role change so existing JWT sessions
   // (which otherwise keep working until they expire) are forced to log in
   // again and pick up the change immediately.
-  tokenVersion  Int       @default(0)
+  tokenVersion          Int             @default(0)
   // Admin can suspend an account (teacher left, on long leave) instead of
   // deleting it — keeps their attendance/leave history intact while
   // blocking login immediately (checked at sign-in and on every request via
   // the jwt callback, alongside tokenVersion).
-  isActive      Boolean   @default(true)
+  isActive              Boolean         @default(true)
   // A temporary password (admin created/reset the account) is only good for
   // a limited time — after this the person must ask Admin for a new one or
   // use an enrollment link instead. null once they've set their own password.
@@ -108,24 +117,24 @@ model User {
   // form doesn't ask for a "current" password they can't know, and an
   // expired temporary password is refused at sign-in regardless of the
   // mustChangePassword banner flag.
-  passwordSetAt DateTime?
-  lastLoginAt   DateTime?
+  passwordSetAt         DateTime?
+  lastLoginAt           DateTime?
   // PDPA: when (and which version of) the privacy notice this person
   // accepted. The app collects selfies and GPS positions, so the notice is
   // shown once after login and again whenever PDPA_VERSION changes
   // (src/lib/consent.ts). Null = not yet accepted → /consent gate.
-  consentAt      DateTime?
-  consentVersion String?
-  createdAt     DateTime  @default(now())
+  consentAt             DateTime?
+  consentVersion        String?
+  createdAt             DateTime        @default(now())
 
-  schedules          Schedule[]
-  attendances        Attendance[]
-  leaveRequests      LeaveRequest[]       @relation("LeaveRequester")
-  decidedLeaves      LeaveRequest[]       @relation("LeaveApprover")
-  attestRequests     TimeAttestation[]    @relation("AttestRequester")
-  decidedAttests     TimeAttestation[]    @relation("AttestApprover")
-  lessonPlans        LessonPlan[]         @relation("LessonPlanTeacher")
-  reviewedLessonPlans LessonPlan[]        @relation("LessonPlanReviewer")
+  schedules           Schedule[]
+  attendances         Attendance[]
+  leaveRequests       LeaveRequest[]       @relation("LeaveRequester")
+  decidedLeaves       LeaveRequest[]       @relation("LeaveApprover")
+  attestRequests      TimeAttestation[]    @relation("AttestRequester")
+  decidedAttests      TimeAttestation[]    @relation("AttestApprover")
+  lessonPlans         LessonPlan[]         @relation("LessonPlanTeacher")
+  reviewedLessonPlans LessonPlan[]         @relation("LessonPlanReviewer")
   webauthnCredentials WebauthnCredential[]
   enrollmentTokens    EnrollmentToken[]
   loginTickets        LoginTicket[]
@@ -137,6 +146,10 @@ model User {
   // in/out — for teachers who move between sites on the same day.
   extraSites          UserSite[]
   handledIssues       IssueReport[]        @relation("IssueHandler")
+  // Grade bands this teacher can teach (substitute-teacher matching).
+  gradeLevels         GradeLevel[]
+  documents           TeacherDocument[]
+  createdEvents       SchoolEvent[]        @relation("EventCreator")
 }
 
 // "Forgot password" / "set your password" email link. Single-use,
@@ -230,14 +243,16 @@ model Course {
   id          String       @id @default(cuid())
   code        String       @unique
   name        String
+  // Grade band this course is taught to (optional; drives substitute matching).
+  gradeLevel  GradeLevel?
   schedules   Schedule[]
   lessonPlans LessonPlan[]
 }
 
 model Room {
-  id        String     @id @default(cuid())
-  name      String
-  building  String
+  id               String          @id @default(cuid())
+  name             String
+  building         String
   // Which registered check-in geofence this room's classes happen at.
   // Nullable so existing rooms keep working after this column is added —
   // Admin assigns a site per room in Master Data. A room with no site set
@@ -246,35 +261,36 @@ model Room {
   // contact the admin, rather than silently allowing check-in from anywhere.
   campusLocationId String?
   campusLocation   CampusLocation? @relation(fields: [campusLocationId], references: [id])
-  schedules Schedule[]
+  schedules        Schedule[]
 }
 
 model Semester {
-  id        String     @id @default(cuid())
-  name      String // e.g. "1/2569"
-  startDate DateTime
-  endDate   DateTime
+  id                String       @id @default(cuid())
+  name              String // e.g. "1/2569"
+  startDate         DateTime
+  endDate           DateTime
   /// Lesson plans for this semester are due by the end of this day (optional).
   lessonPlanDueDate DateTime?
-  schedules Schedule[]
-  lessonPlans LessonPlan[]
+  schedules         Schedule[]
+  lessonPlans       LessonPlan[]
 }
 
 // FR-17: configurable check-in/out geofence locations (not hardcoded)
 model CampusLocation {
-  id           String @id @default(cuid())
-  name         String
-  latitude     Float
-  longitude    Float
-  radiusMeters Int    @default(150)
+  id               String        @id @default(cuid())
+  name             String
+  latitude         Float
+  longitude        Float
+  radiusMeters     Int           @default(150)
   // Optional per-site working hours; null = use the AppSetting defaults.
   workStart        String?
   workEnd          String?
   lateGraceMinutes Int?
-  rooms        Room[]
+  rooms            Room[]
   // Teachers permanently stationed at this site (see User.campusLocationId).
-  teachers     User[]
-  extraTeachers UserSite[]
+  teachers         User[]
+  extraTeachers    UserSite[]
+  events           SchoolEvent[]
 }
 
 /// Additional check-in sites for a teacher (primary site = User.campusLocationId).
@@ -361,28 +377,28 @@ model Attendance {
 
 // FR-5 / FR-8: leave request + approval workflow
 model LeaveRequest {
-  id          String        @id @default(cuid())
-  requesterId String
-  requester   User          @relation("LeaveRequester", fields: [requesterId], references: [id])
-  type        LeaveType
-  startDate   DateTime
-  endDate     DateTime
-  reason      String
+  id             String        @id @default(cuid())
+  requesterId    String
+  requester      User          @relation("LeaveRequester", fields: [requesterId], references: [id])
+  type           LeaveType
+  startDate      DateTime
+  endDate        DateTime
+  reason         String
   // "AM" | "PM" for a half-day request (start == end); null = whole day(s).
   // Counts 0.5 against the quota (src/lib/leaveQuota.ts).
-  halfDay     String?
+  halfDay        String?
   // Optional supporting document (medical certificate etc.), stored inline
   // like lesson-plan files; served to Admin/owner via /api/leave/<id>/attachment.
   attachmentName String?
   attachmentMime String?
   attachmentSize Int?
   attachmentData Bytes?
-  status      RequestStatus @default(PENDING)
-  approverId  String?
-  approver    User?         @relation("LeaveApprover", fields: [approverId], references: [id])
-  decidedAt   DateTime?
-  cancelledAt DateTime?
-  createdAt   DateTime      @default(now())
+  status         RequestStatus @default(PENDING)
+  approverId     String?
+  approver       User?         @relation("LeaveApprover", fields: [approverId], references: [id])
+  decidedAt      DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime      @default(now())
 
   @@index([status, createdAt])
   @@index([requesterId, type, startDate])
@@ -406,19 +422,19 @@ model LeaveQuota {
 
 // FR-13: time attestation request + approval workflow
 model TimeAttestation {
-  id            String        @id @default(cuid())
-  requesterId   String
-  requester     User          @relation("AttestRequester", fields: [requesterId], references: [id])
-  date          DateTime
-  type          AttestType
-  requestedTime String // "08:25" — check-in time (or the single time, for a one-sided request)
+  id                    String        @id @default(cuid())
+  requesterId           String
+  requester             User          @relation("AttestRequester", fields: [requesterId], references: [id])
+  date                  DateTime
+  type                  AttestType
+  requestedTime         String // "08:25" — check-in time (or the single time, for a one-sided request)
   requestedCheckoutTime String? // set only when type=FORGOT_BOTH — the check-out time
-  reason        String
-  status        RequestStatus @default(PENDING)
-  approverId    String?
-  approver      User?         @relation("AttestApprover", fields: [approverId], references: [id])
-  decidedAt     DateTime?
-  createdAt     DateTime      @default(now())
+  reason                String
+  status                RequestStatus @default(PENDING)
+  approverId            String?
+  approver              User?         @relation("AttestApprover", fields: [approverId], references: [id])
+  decidedAt             DateTime?
+  createdAt             DateTime      @default(now())
 
   @@index([status, createdAt])
   @@index([requesterId, date])
@@ -493,42 +509,42 @@ model WebauthnCredential {
 
 // Single-row, Admin-editable check-in security policy (Master Data).
 model AppSetting {
-  id                      String   @id @default("default")
+  id                        String   @id @default("default")
   // Check-in/out must be verified with a registered device's Face ID /
   // fingerprint — no password fallback at all. Teachers without an approved
   // device can't check in until they register one.
-  requireBiometricCheckin Boolean  @default(true)
+  requireBiometricCheckin   Boolean  @default(true)
   // Take a selfie at the moment of tapping check-in/out, kept as evidence
   // for Admin (no automatic face recognition).
-  requireSelfieCheckin    Boolean  @default(true)
+  requireSelfieCheckin      Boolean  @default(true)
   // Self-registered devices need Admin approval before use.
-  deviceApprovalRequired  Boolean  @default(true)
+  deviceApprovalRequired    Boolean  @default(true)
   // Selfies older than this are deleted automatically.
-  selfieRetentionDays     Int      @default(90)
+  selfieRetentionDays       Int      @default(90)
   // Default working hours ("HH:MM", Thai time) and how many minutes after
   // workStart a check-in still counts as on time. A site can override all
   // three (CampusLocation.workStart/...). See getWorkHours in src/lib/settings.ts.
-  workStart               String   @default("08:30")
-  workEnd                 String   @default("17:00")
-  lateGraceMinutes        Int      @default(0)
+  workStart                 String   @default("08:30")
+  workEnd                   String   @default("17:00")
+  lateGraceMinutes          Int      @default(0)
   // One-off maintenance scripts record the token they ran with here so a
   // container restart never re-runs them (see scripts/).
   // Automatic reminders (src/lib/scheduler.ts)
-  remindCheckin           Boolean  @default(true)
-  remindCheckinAfterMin   Int      @default(15)
-  remindCheckout          Boolean  @default(true)
-  remindCheckoutAfterMin  Int      @default(30)
-  remindWeekdays          String   @default("0,1,2,3,4")
-  pendingDigest           Boolean  @default(true)
-  pendingDigestDays       Int      @default(2)
-  pendingDigestTime       String   @default("09:00")
-  lessonPlanReminders     Boolean  @default(true)
+  remindCheckin             Boolean  @default(true)
+  remindCheckinAfterMin     Int      @default(15)
+  remindCheckout            Boolean  @default(true)
+  remindCheckoutAfterMin    Int      @default(30)
+  remindWeekdays            String   @default("0,1,2,3,4")
+  pendingDigest             Boolean  @default(true)
+  pendingDigestDays         Int      @default(2)
+  pendingDigestTime         String   @default("09:00")
+  lessonPlanReminders       Boolean  @default(true)
   // PDPA retention in months (0 = keep)
-  attendanceRetentionMonths Int    @default(0)
-  attachmentRetentionMonths Int    @default(0)
-  seedToken               String?
-  maintenanceToken        String?
-  updatedAt               DateTime @updatedAt
+  attendanceRetentionMonths Int      @default(0)
+  attachmentRetentionMonths Int      @default(0)
+  seedToken                 String?
+  maintenanceToken          String?
+  updatedAt                 DateTime @updatedAt
 }
 
 // Check-in/out selfie, stored in the database like lesson-plan files.
@@ -591,15 +607,15 @@ model Notification {
 // matches what they'd see in the app. Rows are dropped when the push
 // service answers 404/410 (unsubscribed / expired).
 model PushSubscription {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint   String   @unique
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint   String    @unique
   p256dh     String
   auth       String
-  locale     String   @default("th")
+  locale     String    @default("th")
   userAgent  String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
 
   @@index([userId])
@@ -626,27 +642,27 @@ enum IssueStatus {
 }
 
 model IssueReport {
-  id          String        @id @default(cuid())
-  reporterId  String
-  reporter    User          @relation("IssueReporter", fields: [reporterId], references: [id], onDelete: Cascade)
-  category    IssueCategory @default(BUG)
+  id             String        @id @default(cuid())
+  reporterId     String
+  reporter       User          @relation("IssueReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  category       IssueCategory @default(BUG)
   // Menu/feature key (dictionary feedback.areas): dashboard, schedule, checkin, leave, attest, lessonPlans, notifications, account, admin, other
-  area        String        @default("other")
-  title       String
-  detail      String
+  area           String        @default("other")
+  title          String
+  detail         String
   // Where they were and what they used when filing — filled in automatically.
-  pageUrl     String?
-  device      String?
+  pageUrl        String?
+  device         String?
   attachmentName String?
   attachmentMime String?
   attachmentSize Int?
   attachmentData Bytes?
-  status      IssueStatus   @default(OPEN)
-  adminNote   String?
-  handlerId   String?
-  handler     User?         @relation("IssueHandler", fields: [handlerId], references: [id], onDelete: SetNull)
-  updatedAt   DateTime      @updatedAt
-  createdAt   DateTime      @default(now())
+  status         IssueStatus   @default(OPEN)
+  adminNote      String?
+  handlerId      String?
+  handler        User?         @relation("IssueHandler", fields: [handlerId], references: [id], onDelete: SetNull)
+  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime      @default(now())
 
   @@index([status, createdAt])
   @@index([reporterId, createdAt])
@@ -658,4 +674,67 @@ model ReminderLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// School calendar ("ปฏิทินโรงเรียน"), managed by Admin, read by teachers.
+// campusLocationId = null → applies to every school; otherwise only teachers
+// of that school (primary or extra site) see it. A holiday suppresses the
+// check-in reminders for the affected teachers. Dates are picked dates
+// (UTC midnight of the day, like Semester), both ends inclusive.
+model SchoolEvent {
+  id               String          @id @default(cuid())
+  title            String
+  detail           String?
+  startDate        DateTime
+  endDate          DateTime
+  isHoliday        Boolean         @default(false)
+  campusLocationId String?
+  campusLocation   CampusLocation? @relation(fields: [campusLocationId], references: [id], onDelete: Cascade)
+  createdById      String?
+  createdBy        User?           @relation("EventCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([startDate])
+  @@index([endDate])
+}
+
+// Kinds of personnel documents Admin tracks (Work Permit, Visa, Passport,
+// 90-day report, teaching licence, ...). Each kind has its own reminder
+// schedule: `remindDays` = comma list of "days before expiry" (e.g. "90,60").
+model DocumentType {
+  id            String            @id @default(cuid())
+  name          String            @unique
+  remindDays    String            @default("90,60")
+  // Also notify the teacher who owns the document (Admins always are).
+  notifyTeacher Boolean           @default(true)
+  sortOrder     Int               @default(0)
+  createdAt     DateTime          @default(now())
+  documents     TeacherDocument[]
+}
+
+// One current document per teacher per type — renewing means editing the
+// expiry date (or re-importing the sheet). Reminders key off
+// `remindedFor` = "<expiry YYYY-MM-DD>:<threshold>", so moving the expiry
+// date past the reminder window silences them automatically.
+model TeacherDocument {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  typeId         String
+  type           DocumentType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  number         String?
+  issueDate      DateTime?
+  expiryDate     DateTime?
+  note           String?
+  attachmentName String?
+  attachmentMime String?
+  attachmentSize Int?
+  attachmentData Bytes?
+  remindedFor    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([userId, typeId])
+  @@index([expiryDate])
 }

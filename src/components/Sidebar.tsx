@@ -47,6 +47,12 @@ const ICON: Record<string, string> = {
   masterdata:
     '<rect x="1.5" y="2" width="5.5" height="5.5" rx="1"/><rect x="9" y="2" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="8.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="8.5" width="5.5" height="5.5" rx="1"/>',
   audit: '<path d="M8 1.5l5.5 2.5v4c0 3.2-2.3 5.6-5.5 6.5C4.8 13.6 2.5 11.2 2.5 8V4L8 1.5z"/><path d="M5.8 8l1.6 1.6L10.5 6.4"/>',
+  calendar:
+    '<rect x="1.5" y="2.5" width="13" height="12" rx="1.6"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><line x1="4.5" y1="1" x2="4.5" y2="3.5" stroke-linecap="round"/><line x1="11.5" y1="1" x2="11.5" y2="3.5" stroke-linecap="round"/><circle cx="5" cy="9" r=".7" fill="currentColor" stroke="none"/><circle cx="8" cy="9" r=".7" fill="currentColor" stroke="none"/><circle cx="11" cy="9" r=".7" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r=".7" fill="currentColor" stroke="none"/><circle cx="8" cy="12" r=".7" fill="currentColor" stroke="none"/>',
+  documents:
+    '<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><circle cx="5.6" cy="7" r="1.6"/><path d="M3.4 11.2c.4-1.3 1.2-2 2.2-2s1.8.7 2.2 2" stroke-linecap="round"/><line x1="9.5" y1="6" x2="12" y2="6" stroke-linecap="round"/><line x1="9.5" y1="8.5" x2="12" y2="8.5" stroke-linecap="round"/>',
+  substitutes:
+    '<circle cx="5" cy="5" r="2.2"/><path d="M1.5 13c.4-2.4 1.7-3.6 3.5-3.6" stroke-linecap="round"/><path d="M9 4.5h4.5M11.5 2.5l2 2-2 2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 10.5H9.5M11.5 8.5l-2 2 2 2" stroke-linecap="round" stroke-linejoin="round"/>',
   feedback:
     '<path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v6a1.5 1.5 0 0 1-1.5 1.5H6.5L3 14v-3H3.5A1.5 1.5 0 0 1 2 9.5v-6Z" stroke-linejoin="round"/><line x1="8" y1="4.6" x2="8" y2="7.2" stroke-linecap="round"/><circle cx="8" cy="9" r=".5" fill="currentColor" stroke="none"/>',
 };
@@ -160,6 +166,8 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
             ["/schedule", "schedule", nav.scheduleAll],
             ["/checkin", "checkin", nav.checkinAll],
             ["/teachers", "teachers", nav.teachers],
+            ["/substitutes", "substitutes", nav.substitutes],
+            ["/calendar", "calendar", nav.calendar],
           ],
         },
         {
@@ -174,6 +182,7 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
           title: gt.manage,
           items: [
             ["/admin/users", "users", nav.users],
+            ["/documents", "documents", nav.documents],
             ["/admin/locations", "locations", nav.locations],
             ["/admin/master-data", "masterdata", nav.masterData],
             ["/admin/audit", "audit", nav.audit],
@@ -188,6 +197,7 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
             ["/dashboard", "dashboard", nav.dashboard],
             ["/checkin", "checkin", nav.checkinMine],
             ["/schedule", "schedule", nav.scheduleMine],
+            ["/calendar", "calendar", nav.calendar],
           ],
         },
         {
@@ -196,6 +206,7 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
             ["/leave", "leave", nav.leaveMine],
             ["/attest", "attest", nav.attestMine],
             ["/lesson-plans", "lessonplans", nav.lessonPlansMine],
+            ["/documents", "documents", nav.documentsMine],
           ],
         },
         { title: gt.help, items: [["/feedback", "feedback", nav.feedback]] },

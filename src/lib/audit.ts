@@ -46,7 +46,8 @@ export type AuditAction =
   | "SITES_CHANGED"
   | "AUTOMATION_CHANGED"
   | "RETENTION_PURGE"
-  | "PDPA_EXPORT";
+  | "PDPA_EXPORT"
+  | "DOCUMENT_CHANGED";
 
 export async function logAudit(entry: {
   action: AuditAction;

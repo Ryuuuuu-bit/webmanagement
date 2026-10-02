@@ -12,5 +12,8 @@ export const config = {
     "/admin/:path*",
     "/change-password/:path*",
     "/feedback/:path*",
+    "/calendar/:path*",
+    "/documents/:path*",
+    "/substitutes/:path*",
   ],
 };

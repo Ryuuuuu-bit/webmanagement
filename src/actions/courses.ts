@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import { parseGradeLevel } from "@/lib/grades";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -17,6 +18,7 @@ function parseCourseInput(formData: FormData) {
   return {
     code: (formData.get("code") as string || "").trim().toUpperCase(),
     name: (formData.get("name") as string || "").trim(),
+    gradeLevel: parseGradeLevel(formData.get("gradeLevel")),
   };
 }
 
@@ -28,13 +30,13 @@ export async function createCourse(
   await requireAdmin();
   const dict = getDictionary(getLocale());
 
-  const { code, name } = parseCourseInput(formData);
+  const { code, name, gradeLevel } = parseCourseInput(formData);
   if (!code || !name) return { ok: false, message: dict.actions.courses.fillRequired };
 
   const existing = await prisma.course.findUnique({ where: { code } });
   if (existing) return { ok: false, message: dict.actions.courses.codeExists };
 
-  await prisma.course.create({ data: { code, name } });
+  await prisma.course.create({ data: { code, name, gradeLevel } });
   revalidatePath("/admin/master-data");
   return { ok: true, message: dict.actions.courses.created(`${code} ${name}`) };
 }
@@ -47,13 +49,13 @@ export async function updateCourse(
   await requireAdmin();
   const dict = getDictionary(getLocale());
 
-  const { code, name } = parseCourseInput(formData);
+  const { code, name, gradeLevel } = parseCourseInput(formData);
   if (!code || !name) return { ok: false, message: dict.actions.courses.fillRequired };
 
   const conflict = await prisma.course.findFirst({ where: { code, NOT: { id } } });
   if (conflict) return { ok: false, message: dict.actions.courses.codeExists };
 
-  await prisma.course.update({ where: { id }, data: { code, name } });
+  await prisma.course.update({ where: { id }, data: { code, name, gradeLevel } });
   revalidatePath("/admin/master-data");
   return { ok: true, message: dict.actions.courses.updated(`${code} ${name}`) };
 }

@@ -3,7 +3,8 @@
 import { useRef, useState, useTransition } from "react";
 import { useLanguage } from "./LanguageProvider";
 
-type CourseRow = { id: string; code: string; name: string };
+type CourseRow = { id: string; code: string; name: string; gradeLevel: string | null };
+const GRADES = ["KG", "P1_3", "P4_6", "M1_3", "M4_6"] as const;
 type ActionResult = { ok: boolean; message: string };
 
 export default function CourseManagement({
@@ -59,6 +60,7 @@ export default function CourseManagement({
       <form ref={formRef} onSubmit={onCreate} className="mt-3 flex flex-wrap items-center gap-3">
         <input name="code" required placeholder={dict.masterData.courses.codePlaceholder} className="input w-36" />
         <input name="name" required placeholder={dict.masterData.courses.namePlaceholder} className="input" />
+        <GradeSelect />
         <button type="submit" disabled={pending} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
           {pending ? dict.common.saving : dict.common.add}
         </button>
@@ -71,12 +73,13 @@ export default function CourseManagement({
             <form key={c.id} onSubmit={(e) => onEditSubmit(c.id, e)} className="flex flex-wrap items-center gap-2 rounded-lg border border-line p-2">
               <input name="code" required defaultValue={c.code} className="input w-36" />
               <input name="name" required defaultValue={c.name} className="input" />
+              <GradeSelect value={c.gradeLevel} />
               <button type="submit" disabled={pending} className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60">{dict.common.save}</button>
               <button type="button" onClick={() => setEditingId(null)} className="rounded px-1.5 py-1.5 text-xs font-semibold text-muted hover:bg-line-soft">{dict.common.cancel}</button>
             </form>
           ) : (
             <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-2 text-sm first:border-t-0 first:pt-0">
-              <span><span className="font-mono font-semibold">{c.code}</span> <span className="ml-1">{c.name}</span></span>
+              <span><span className="font-mono font-semibold">{c.code}</span> <span className="ml-1">{c.name}</span>{c.gradeLevel && <span className="ml-2 rounded-full bg-info-soft px-2 py-0.5 text-[11px] text-info">{dict.grades[c.gradeLevel as keyof typeof dict.grades]}</span>}</span>
               <div className="flex items-center gap-3">
                 <button onClick={() => setEditingId(c.id)} className="rounded px-1.5 py-1.5 text-xs font-semibold text-brand-ink underline hover:bg-line-soft">{dict.common.edit}</button>
                 <button disabled={pending} onClick={() => onDelete(c.id, `${c.code} ${c.name}`)} className="rounded px-1.5 py-1.5 text-xs font-semibold text-danger disabled:opacity-40 hover:bg-line-soft">{dict.common.delete}</button>
@@ -89,5 +92,18 @@ export default function CourseManagement({
         {courses.length === 0 && <p className="text-sm text-faint">{dict.masterData.courses.empty}</p>}
       </div>
     </div>
+  );
+}
+
+/** Optional grade band of a course — used to find substitute teachers for its classes. */
+function GradeSelect({ value }: { value?: string | null }) {
+  const { dict } = useLanguage();
+  return (
+    <select name="gradeLevel" defaultValue={value ?? ""} className="input" aria-label={dict.masterData.courses.gradeLabel}>
+      <option value="">{dict.masterData.courses.gradeNone}</option>
+      {GRADES.map((g) => (
+        <option key={g} value={g}>{dict.grades[g]}</option>
+      ))}
+    </select>
   );
 }
