@@ -129,27 +129,30 @@ model User {
 
   schedules           Schedule[]
   attendances         Attendance[]
-  leaveRequests       LeaveRequest[]       @relation("LeaveRequester")
-  decidedLeaves       LeaveRequest[]       @relation("LeaveApprover")
-  attestRequests      TimeAttestation[]    @relation("AttestRequester")
-  decidedAttests      TimeAttestation[]    @relation("AttestApprover")
-  lessonPlans         LessonPlan[]         @relation("LessonPlanTeacher")
-  reviewedLessonPlans LessonPlan[]         @relation("LessonPlanReviewer")
+  leaveRequests       LeaveRequest[]         @relation("LeaveRequester")
+  decidedLeaves       LeaveRequest[]         @relation("LeaveApprover")
+  attestRequests      TimeAttestation[]      @relation("AttestRequester")
+  decidedAttests      TimeAttestation[]      @relation("AttestApprover")
+  lessonPlans         LessonPlan[]           @relation("LessonPlanTeacher")
+  reviewedLessonPlans LessonPlan[]           @relation("LessonPlanReviewer")
   webauthnCredentials WebauthnCredential[]
   enrollmentTokens    EnrollmentToken[]
   loginTickets        LoginTicket[]
   passwordResetTokens PasswordResetToken[]
   notifications       Notification[]
   pushSubscriptions   PushSubscription[]
-  issueReports        IssueReport[]        @relation("IssueReporter")
+  issueReports        IssueReport[]          @relation("IssueReporter")
   // Extra sites (besides campusLocation) where this teacher may also check
   // in/out — for teachers who move between sites on the same day.
   extraSites          UserSite[]
-  handledIssues       IssueReport[]        @relation("IssueHandler")
+  handledIssues       IssueReport[]          @relation("IssueHandler")
   // Grade bands this teacher can teach (substitute-teacher matching).
   gradeLevels         GradeLevel[]
   documents           TeacherDocument[]
-  createdEvents       SchoolEvent[]        @relation("EventCreator")
+  createdEvents       SchoolEvent[]          @relation("EventCreator")
+  substitutesNeeded   SubstituteAssignment[] @relation("SubAbsent")
+  substitutesTaken    SubstituteAssignment[] @relation("SubTeacher")
+  substitutesMade     SubstituteAssignment[] @relation("SubCreator")
 }
 
 // "Forgot password" / "set your password" email link. Single-use,
@@ -277,20 +280,24 @@ model Semester {
 
 // FR-17: configurable check-in/out geofence locations (not hardcoded)
 model CampusLocation {
-  id               String        @id @default(cuid())
-  name             String
-  latitude         Float
-  longitude        Float
-  radiusMeters     Int           @default(150)
+  id                 String        @id @default(cuid())
+  name               String
+  latitude           Float
+  longitude          Float
+  radiusMeters       Int           @default(150)
   // Optional per-site working hours; null = use the AppSetting defaults.
-  workStart        String?
-  workEnd          String?
-  lateGraceMinutes Int?
-  rooms            Room[]
+  workStart          String?
+  workEnd            String?
+  lateGraceMinutes   Int?
+  rooms              Room[]
   // Teachers permanently stationed at this site (see User.campusLocationId).
-  teachers         User[]
-  extraTeachers    UserSite[]
-  events           SchoolEvent[]
+  teachers           User[]
+  extraTeachers      UserSite[]
+  events             SchoolEvent[]
+  // Minutes after start (or the afternoon start on a morning half-day leave)
+  // with no check-in before the day is marked ABSENT; null = the
+  // AppSetting.absentAfterMinutes default. See src/lib/dailyAttendance.ts.
+  absentAfterMinutes Int?
 }
 
 /// Additional check-in sites for a teacher (primary site = User.campusLocationId).
@@ -306,23 +313,24 @@ model UserSite {
 }
 
 model Schedule {
-  id         String   @id @default(cuid())
-  teacherId  String
-  teacher    User     @relation(fields: [teacherId], references: [id])
-  courseId   String
-  course     Course   @relation(fields: [courseId], references: [id])
-  roomId     String
-  room       Room     @relation(fields: [roomId], references: [id])
-  semesterId String
-  semester   Semester @relation(fields: [semesterId], references: [id])
-  dayOfWeek  Int // 0=Mon .. 6=Sun (Sat/Sun for extra/make-up classes)
+  id          String                 @id @default(cuid())
+  teacherId   String
+  teacher     User                   @relation(fields: [teacherId], references: [id])
+  courseId    String
+  course      Course                 @relation(fields: [courseId], references: [id])
+  roomId      String
+  room        Room                   @relation(fields: [roomId], references: [id])
+  semesterId  String
+  semester    Semester               @relation(fields: [semesterId], references: [id])
+  dayOfWeek   Int // 0=Mon .. 6=Sun (Sat/Sun for extra/make-up classes)
   // Free-form time (like a real calendar, not fixed period slots) — a
   // teacher's class can start/end at any time, e.g. "09:15"-"10:05".
-  startTime  String // "HH:MM"
-  endTime    String // "HH:MM"
-  note       String? // free-text detail about this class session
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  startTime   String // "HH:MM"
+  endTime     String // "HH:MM"
+  note        String? // free-text detail about this class session
+  substitutes SubstituteAssignment[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 
   @@index([teacherId])
   @@index([semesterId])
@@ -509,51 +517,56 @@ model WebauthnCredential {
 
 // Single-row, Admin-editable check-in security policy (Master Data).
 model AppSetting {
-  id                        String   @id @default("default")
+  id                        String    @id @default("default")
   // Check-in/out must be verified with a registered device's Face ID /
   // fingerprint — no password fallback at all. Teachers without an approved
   // device can't check in until they register one.
-  requireBiometricCheckin   Boolean  @default(true)
+  requireBiometricCheckin   Boolean   @default(true)
   // Take a selfie at the moment of tapping check-in/out, kept as evidence
   // for Admin (no automatic face recognition).
-  requireSelfieCheckin      Boolean  @default(true)
+  requireSelfieCheckin      Boolean   @default(true)
   // Self-registered devices need Admin approval before use.
-  deviceApprovalRequired    Boolean  @default(true)
+  deviceApprovalRequired    Boolean   @default(true)
   // Selfies older than this are deleted automatically.
-  selfieRetentionDays       Int      @default(90)
+  selfieRetentionDays       Int       @default(90)
   // Default working hours ("HH:MM", Thai time) and how many minutes after
   // workStart a check-in still counts as on time. A site can override all
   // three (CampusLocation.workStart/...). See getWorkHours in src/lib/settings.ts.
-  workStart                 String   @default("08:30")
-  workEnd                   String   @default("17:00")
-  lateGraceMinutes          Int      @default(0)
+  workStart                 String    @default("08:30")
+  workEnd                   String    @default("17:00")
+  lateGraceMinutes          Int       @default(0)
   // Afternoon start ("HH:MM") — the late cut-off for someone on an approved
   // MORNING half-day leave (they're due in the afternoon, not at workStart).
-  afternoonStart            String   @default("13:00")
+  afternoonStart            String    @default("13:00")
   // One-off maintenance scripts record the token they ran with here so a
   // container restart never re-runs them (see scripts/).
   // Automatic reminders (src/lib/scheduler.ts)
-  remindCheckin             Boolean  @default(true)
-  remindCheckinAfterMin     Int      @default(15)
-  remindCheckout            Boolean  @default(true)
-  remindCheckoutAfterMin    Int      @default(30)
-  remindWeekdays            String   @default("0,1,2,3,4")
-  pendingDigest             Boolean  @default(true)
-  pendingDigestDays         Int      @default(2)
-  pendingDigestTime         String   @default("09:00")
-  lessonPlanReminders       Boolean  @default(true)
+  remindCheckin             Boolean   @default(true)
+  remindCheckinAfterMin     Int       @default(15)
+  remindCheckout            Boolean   @default(true)
+  remindCheckoutAfterMin    Int       @default(30)
+  remindWeekdays            String    @default("0,1,2,3,4")
+  pendingDigest             Boolean   @default(true)
+  pendingDigestDays         Int       @default(2)
+  pendingDigestTime         String    @default("09:00")
+  lessonPlanReminders       Boolean   @default(true)
   // Automatic ABSENT (src/lib/absence.ts): off until Admin turns it on;
   // only days from absentFromDate are marked (go-live date).
   autoAbsent                Boolean   @default(false)
   absentFromDate            DateTime?
   // true = only days the teacher has a class in the timetable count.
   absentOnlyTeachingDays    Boolean   @default(false)
+  // Same-day ABSENT: minutes after a site's start with no check-in (0 = only
+  // the nightly look-back marks absences). Sites can override.
+  absentAfterMinutes        Int       @default(0)
+  // Per-school attendance summary to Admins once that cut-off passes.
+  dailySummary              Boolean   @default(true)
   // PDPA retention in months (0 = keep)
-  attendanceRetentionMonths Int      @default(0)
-  attachmentRetentionMonths Int      @default(0)
+  attendanceRetentionMonths Int       @default(0)
+  attachmentRetentionMonths Int       @default(0)
   seedToken                 String?
   maintenanceToken          String?
-  updatedAt                 DateTime @updatedAt
+  updatedAt                 DateTime  @updatedAt
 }
 
 // Check-in/out selfie, stored in the database like lesson-plan files.
@@ -746,4 +759,25 @@ model TeacherDocument {
 
   @@unique([userId, typeId])
   @@index([expiryDate])
+}
+
+// Who covers a class for an absent teacher on one date ("ครูสอนแทน").
+// One substitute per class per date; the substitute is notified, and the
+// planner treats the slot as busy time for them.
+model SubstituteAssignment {
+  id              String   @id @default(cuid())
+  date            DateTime // picked date (UTC midnight of the day)
+  scheduleId      String
+  schedule        Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  absentTeacherId String
+  absentTeacher   User     @relation("SubAbsent", fields: [absentTeacherId], references: [id], onDelete: Cascade)
+  substituteId    String
+  substitute      User     @relation("SubTeacher", fields: [substituteId], references: [id], onDelete: Cascade)
+  note            String?
+  createdById     String?
+  createdBy       User?    @relation("SubCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+
+  @@unique([date, scheduleId])
+  @@index([substituteId, date])
 }

@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { AttendanceBadge, attendanceDisplayStatus } from "@/components/StatusBadge";
-import { todayAtMidnight } from "@/lib/date";
+import { bangkokDateKey, todayAtMidnight } from "@/lib/date";
+import { isWorkday, loadWorkCalendar } from "@/lib/workdays";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import TableFilter from "@/components/TableFilter";
@@ -23,6 +24,10 @@ export default async function TeachersPage() {
     prisma.attendance.findMany({ where: { date } }),
   ]);
   const byUser = new Map(attendances.map((a) => [a.userId, a]));
+  // Weekend / school-calendar holiday at each teacher's school → "วันหยุด", not "ยังไม่เช็คอิน".
+  const todayKey = bangkokDateKey();
+  const cal = await loadWorkCalendar(todayKey, todayKey);
+  const off = (siteId: string | null) => !isWorkday(cal, todayKey, siteId);
   // Filter options come from the rows themselves (no extra queries).
   const uniq = (pairs: [string, string][]) => Array.from(new Map(pairs).entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, "th"));
   const deptOptions = uniq(teachers.map((t) => [t.departmentId ?? "-", t.department?.name ?? "—"] as [string, string]));
@@ -49,7 +54,7 @@ export default async function TeachersPage() {
           </thead>
           <tbody>
             {teachers.map((t) => (
-              <tr key={t.id} data-status={attendanceDisplayStatus(byUser.get(t.id)?.status ?? "PENDING", byUser.get(t.id))} data-dept={t.departmentId ?? "-"} data-site={t.campusLocationId ?? "-"} className="border-t border-line-soft">
+              <tr key={t.id} data-status={attendanceDisplayStatus(byUser.get(t.id)?.status ?? "PENDING", byUser.get(t.id), off(t.campusLocationId))} data-dept={t.departmentId ?? "-"} data-site={t.campusLocationId ?? "-"} className="border-t border-line-soft">
                 <td className="py-2">{t.name}</td>
                 <td className="py-2 text-muted">{t.email}</td>
                 <td className="py-2">{t.department?.name ?? "—"}</td>
@@ -57,7 +62,7 @@ export default async function TeachersPage() {
                   {t.campusLocation ? `📍 ${t.campusLocation.name}` : <span className="text-faint">{dict.teachers.siteUnset}</span>}
                 </td>
                 <td className="py-2"><span className="badge bg-info-soft text-info">{t.role}</span></td>
-                <td className="py-2"><AttendanceBadge status={byUser.get(t.id)?.status ?? "PENDING"} row={byUser.get(t.id)} dict={dict} /></td>
+                <td className="py-2"><AttendanceBadge status={byUser.get(t.id)?.status ?? "PENDING"} row={byUser.get(t.id)} dict={dict} dayOff={off(t.campusLocationId)} /></td>
               </tr>
             ))}
           </tbody>

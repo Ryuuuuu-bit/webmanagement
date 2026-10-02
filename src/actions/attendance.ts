@@ -303,6 +303,9 @@ export async function checkOut(lat: number, lng: number, verification: IdentityV
     checkoutSiteName: site.name,
     earlyCheckout,
     ...(shared ? { flagSharedDevice: true } : {}),
+    // They were here after all: a day the scheduler already marked ABSENT
+    // goes back to "awaiting check-in attestation" (PENDING + checkoutAt).
+    ...(missedCheckin && existing?.status === "ABSENT" ? { status: "PENDING" as const } : {}),
   };
   // Atomic: only the first of two concurrent taps wins. Same claim → create
   // → retry shape as checkIn, since with a missed check-in there may be no

@@ -27,13 +27,16 @@ function parseLocationInput(formData: FormData) {
   const workEnd = ((formData.get("workEnd") as string) || "").trim() || null;
   const graceRaw = ((formData.get("lateGraceMinutes") as string) || "").trim();
   const lateGraceMinutes = graceRaw === "" ? null : Math.round(Number(graceRaw));
-  return { name, latitude, longitude, radiusMeters, workStart, workEnd, lateGraceMinutes };
+  // Optional per-site "absent after N minutes" (blank = the global setting).
+  const absentRaw = ((formData.get("absentAfterMinutes") as string) || "").trim();
+  const absentAfterMinutes = absentRaw === "" ? null : Math.round(Number(absentRaw));
+  return { name, latitude, longitude, radiusMeters, workStart, workEnd, lateGraceMinutes, absentAfterMinutes };
 }
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 function validateLocationInput(
-  { name, latitude, longitude, radiusMeters, workStart, workEnd, lateGraceMinutes }: ReturnType<typeof parseLocationInput>,
+  { name, latitude, longitude, radiusMeters, workStart, workEnd, lateGraceMinutes, absentAfterMinutes }: ReturnType<typeof parseLocationInput>,
   dict: Dictionary
 ) {
   if (!name) return dict.actions.locations.fillName;
@@ -45,6 +48,12 @@ function validateLocationInput(
   }
   if (lateGraceMinutes !== null && (!Number.isFinite(lateGraceMinutes) || lateGraceMinutes < 0 || lateGraceMinutes > 180)) {
     return dict.actions.policy.invalidGrace;
+  }
+  if (absentAfterMinutes !== null && (!Number.isFinite(absentAfterMinutes) || absentAfterMinutes < 0 || absentAfterMinutes > 600)) {
+    return dict.actions.automation.invalidAbsentAfter;
+  }
+  if (absentAfterMinutes && lateGraceMinutes !== null && absentAfterMinutes <= lateGraceMinutes) {
+    return dict.actions.locations.absentBeforeGrace;
   }
   return null;
 }

@@ -77,6 +77,8 @@ export async function updateAutomationSettings(input: AutomationSettings): Promi
   const absentFrom = String(input.absentFromDate ?? "").trim();
   if (absentFrom && !/^\d{4}-\d{2}-\d{2}$/.test(absentFrom)) return { ok: false, message: t.invalidAbsentFrom };
   if (input.autoAbsent && !absentFrom) return { ok: false, message: t.absentFromRequired };
+  const absentAfter = int(input.absentAfterMinutes);
+  if (!Number.isFinite(absentAfter) || absentAfter < 0 || absentAfter > 600) return { ok: false, message: t.invalidAbsentAfter };
   const data = {
     remindCheckin: !!input.remindCheckin,
     remindCheckinAfterMin: inMin,
@@ -92,13 +94,15 @@ export async function updateAutomationSettings(input: AutomationSettings): Promi
     autoAbsent: !!input.autoAbsent,
     absentFromDate: absentFrom ? new Date(`${absentFrom}T00:00:00.000Z`) : null,
     absentOnlyTeachingDays: !!input.absentOnlyTeachingDays,
+    absentAfterMinutes: absentAfter,
+    dailySummary: !!input.dailySummary,
   };
   await prisma.appSetting.upsert({ where: { id: "default" }, create: { id: "default", ...data }, update: data });
   await logAudit({
     action: "AUTOMATION_CHANGED",
     actorId: session.user.id,
     ip: getClientIp(),
-    detail: `in=${data.remindCheckin ? `${inMin}m` : "off"} out=${data.remindCheckout ? `${outMin}m` : "off"} days=${data.remindWeekdays} digest=${data.pendingDigest ? `${days}d@${digestTime}` : "off"} lp=${data.lessonPlanReminders} keep=${keepAtt}mo files=${keepFiles}mo absent=${data.autoAbsent ? `from ${absentFrom}${data.absentOnlyTeachingDays ? " teaching-days" : ""}` : "off"}`,
+    detail: `in=${data.remindCheckin ? `${inMin}m` : "off"} out=${data.remindCheckout ? `${outMin}m` : "off"} days=${data.remindWeekdays} digest=${data.pendingDigest ? `${days}d@${digestTime}` : "off"} lp=${data.lessonPlanReminders} keep=${keepAtt}mo files=${keepFiles}mo absent=${data.autoAbsent ? `from ${absentFrom}${data.absentOnlyTeachingDays ? " teaching-days" : ""} same-day=${absentAfter ? `${absentAfter}m` : "off"}` : "off"} summary=${data.dailySummary}`,
   });
   revalidatePath("/admin/master-data");
   return { ok: true, message: dict.actions.policy.saved };

@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "./LanguageProvider";
 import { parseDateCell } from "@/lib/parseDateCell";
+import { readWorkbook } from "@/lib/readSheet";
 import type { ImportDocumentResult, ImportDocumentRow } from "@/actions/documents";
 
 type Field = "teacher" | "type" | "number" | "issueDate" | "expiryDate" | "note";
@@ -56,11 +57,9 @@ export default function DocumentImport({
     if (file.size > 5 * 1024 * 1024) return setParseError(t.importParseError);
     try {
       const XLSX = await import("xlsx");
-      // No cellDates: SheetJS builds those Dates in the browser's timezone with
-      // historic offsets (Bangkok LMT) that can land on the previous day — the
-      // raw Excel serial is converted in UTC by parseDateCell instead. raw:true
-      // keeps CSV text as typed, so "14/01/2570" isn't re-read as month-first.
-      const wb = XLSX.read(await file.arrayBuffer(), { type: "array", raw: true });
+      // readWorkbook: Thai-ANSI CSV decoding + raw cells (see src/lib/readSheet.ts);
+      // dates stay Excel serials and are converted in UTC by parseDateCell.
+      const wb = await readWorkbook(file);
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: true });
       const headers = (XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 })[0] ?? []).map((h) => String(h ?? "").trim()).filter(Boolean);

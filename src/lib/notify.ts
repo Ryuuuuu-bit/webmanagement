@@ -17,6 +17,8 @@ import { sendPushToUsers } from "./push";
  *   anyone files an issue report about the app            → every active Admin
  *   Admin changes its status / replies                     → the reporter
  *   a teacher document (work permit, visa…) nears expiry   → its owner + every active Admin
+ *   a school's absence cut-off passes                       → each absent teacher + a summary to Admins
+ *   Admin books / cancels a substitute for a class          → the substitute (+ the absent teacher)
  *
  * The row stores a `kind` plus the raw facts (names, dates, decision) and the
  * text is produced at read time in the *reader's* language (renderNotification
@@ -52,7 +54,12 @@ export type NotificationKind =
   | "SITES_UPDATED"
   | "ABSENT_MARKED"
   | "DOC_EXPIRING"
-  | "DOCS_EXPIRING";
+  | "DOCS_EXPIRING"
+  | "ABSENT_TODAY"
+  | "ATTENDANCE_SUMMARY"
+  | "SUBSTITUTE_ASSIGNED"
+  | "SUBSTITUTE_CANCELLED"
+  | "SUBSTITUTE_COVERED";
 
 export type NotificationParams = Record<string, string | number | boolean | null>;
 

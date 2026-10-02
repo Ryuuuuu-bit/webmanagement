@@ -105,6 +105,19 @@ export default function AutomationSettingsCard({
             <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
           </span>
         </>) })}
+        {Row({ title: t.absentAfter, hint: t.absentAfterHint, children: (<>
+          <span className="flex items-center gap-1.5 text-xs">
+            <input type="number" min={0} max={600} value={draft.absentAfterMinutes} onChange={(e) => set("absentAfterMinutes", Number(e.target.value))} className="input w-20" />
+            <span className="text-faint">{t.minutesAfterStart}</span>
+          </span>
+        </>) })}
+        {Row({ title: t.dailySummary, hint: t.dailySummaryHint, children: (<>
+          <span className="relative mt-0.5 inline-flex flex-none">
+            <input type="checkbox" className="peer sr-only" checked={draft.dailySummary} onChange={(e) => set("dailySummary", e.target.checked)} aria-label={t.dailySummary} />
+            <span className="h-6 w-11 rounded-full bg-line-strong transition-colors peer-checked:bg-brand" />
+            <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+          </span>
+        </>) })}
         {Row({ title: t.absentOnlyTeachingDays, hint: t.absentOnlyTeachingDaysHint, children: (<>
           <span className="relative mt-0.5 inline-flex flex-none">
             <input type="checkbox" className="peer sr-only" checked={draft.absentOnlyTeachingDays} onChange={(e) => set("absentOnlyTeachingDays", e.target.checked)} aria-label={t.absentOnlyTeachingDays} />

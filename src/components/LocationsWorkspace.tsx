@@ -33,6 +33,7 @@ export type Loc = {
   workStart?: string | null;
   workEnd?: string | null;
   lateGraceMinutes?: number | null;
+  absentAfterMinutes?: number | null;
   teachers: number;
   rooms: number;
 };
@@ -102,6 +103,7 @@ export default function LocationsWorkspace({
   const [workStart, setWorkStart] = useState("");
   const [workEnd, setWorkEnd] = useState("");
   const [grace, setGrace] = useState("");
+  const [absentAfter, setAbsentAfter] = useState("");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -134,6 +136,7 @@ export default function LocationsWorkspace({
     setWorkStart(loc?.workStart ?? "");
     setWorkEnd(loc?.workEnd ?? "");
     setGrace(loc?.lateGraceMinutes != null ? String(loc.lateGraceMinutes) : "");
+    setAbsentAfter(loc?.absentAfterMinutes != null ? String(loc.absentAfterMinutes) : "");
     setQuery("");
     setResults(null);
     setSearchError(null);
@@ -213,6 +216,7 @@ export default function LocationsWorkspace({
     fd.set("workStart", workStart);
     fd.set("workEnd", workEnd);
     fd.set("lateGraceMinutes", grace);
+    fd.set("absentAfterMinutes", absentAfter);
     const editId = drawer.mode === "edit" ? drawer.id : null;
     startTransition(async () => {
       const res = editId ? await updateLocation(editId, null, fd) : await createLocation(null, fd);
@@ -541,6 +545,12 @@ export default function LocationsWorkspace({
                 </label>
               </div>
               <p className="mt-1 text-[11px] text-faint">{t.hoursHint}</p>
+              <label className="mt-2 flex items-center gap-2">
+                <span className="text-[11px] text-muted">{t.absentAfter}</span>
+                <input type="number" min={0} max={600} value={absentAfter} onChange={(e) => setAbsentAfter(e.target.value)} placeholder="—" className="input w-20 min-w-0" />
+                <span className="text-[11px] text-faint">{t.absentAfterUnit}</span>
+              </label>
+              <p className="mt-1 text-[11px] text-faint">{t.absentAfterHint}</p>
             </div>
           </div>
 

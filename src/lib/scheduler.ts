@@ -9,6 +9,7 @@ import { logAudit } from "./audit";
 import { holidaysOn, isHolidayFor } from "./calendar";
 import { daysLeft, parseRemindDays } from "./documents";
 import { markAbsences } from "./absence";
+import { runDailyAttendance } from "./dailyAttendance";
 
 /**
  * Background jobs, run every few minutes (src/instrumentation.ts starts the
@@ -21,6 +22,9 @@ import { markAbsences } from "./absence";
  *                          the day after: "overdue" to them + a summary to Admins
  *  - document expiry     : work permit / visa / … reminders at each type's
  *                          "days before" thresholds, then once when expired
+ *  - same-day ABSENT     : N min after a school's start with no check-in, plus
+ *                          a per-school attendance summary to Admins
+ *                          (src/lib/dailyAttendance.ts)
  *  - automatic ABSENT    : past work days with no record and no leave (opt-in,
  *                          see src/lib/absence.ts)
  *  - retention purge     : PDPA retention windows (attendance, attachments, selfies)
@@ -45,7 +49,7 @@ async function claim(key: string): Promise<boolean> {
 export type TickResult = Record<string, number>;
 
 export async function runScheduledJobs(now = new Date()): Promise<TickResult> {
-  const out: TickResult = { checkinReminders: 0, checkoutReminders: 0, digests: 0, lessonPlanReminders: 0, documentReminders: 0, absent: 0, purged: 0 };
+  const out: TickResult = { checkinReminders: 0, checkoutReminders: 0, digests: 0, lessonPlanReminders: 0, documentReminders: 0, absent: 0, absentToday: 0, summaries: 0, purged: 0 };
   const settings = await getAutomationSettings();
   const policy = await getCheckinPolicy();
   const todayKey = bangkokDateKey(now);
@@ -156,6 +160,11 @@ export async function runScheduledJobs(now = new Date()): Promise<TickResult> {
   if (now.getHours() >= 8) {
     out.documentReminders = await remindExpiringDocuments(now);
   }
+
+  // --- same-day ABSENT cut-off + per-school summary to Admins -------------
+  const daily = await runDailyAttendance(now, claim);
+  out.absentToday = daily.absent;
+  out.summaries = daily.summaries;
 
   // --- automatic ABSENT for past work days (once a day, after 01:00) -----
   if (settings.autoAbsent && now.getHours() >= 1 && (await claim(`absent:${todayKey}`))) {

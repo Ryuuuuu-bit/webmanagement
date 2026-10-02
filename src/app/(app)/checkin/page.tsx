@@ -13,7 +13,8 @@ import Link from "next/link";
 import TableFilter from "@/components/TableFilter";
 import { getCheckinPolicy, workHoursForSite } from "@/lib/settings";
 import type { CredentialState } from "@/components/CheckinClient";
-import { formatDate, formatTime, todayAtMidnight } from "@/lib/date";
+import { bangkokDateKey, formatDate, formatTime, todayAtMidnight } from "@/lib/date";
+import { isWorkday, loadWorkCalendar } from "@/lib/workdays";
 import { getAssignedSites, type AssignedSites } from "@/lib/geo";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary, type Dictionary } from "@/lib/i18n/dictionaries";
@@ -58,6 +59,8 @@ export default async function CheckinPage() {
       getCheckinPolicy(),
     ]);
     const hours = workHoursForSite(sites.primary, policy);
+    const todayKey = bangkokDateKey();
+    const dayOff = !isWorkday(await loadWorkCalendar(todayKey, todayKey), todayKey, sites.primary?.id ?? null);
     const credentialState: CredentialState = credentials.some((c) => !c.pending)
       ? "approved"
       : credentials.length > 0
@@ -71,7 +74,7 @@ export default async function CheckinPage() {
         <InstallPrompt />
         <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <div className="mb-4 flex justify-center">
-            <AttendanceBadge status={attendance?.status ?? "PENDING"} row={attendance} dict={dict} />
+            <AttendanceBadge status={attendance?.status ?? "PENDING"} row={attendance} dict={dict} dayOff={dayOff} />
           </div>
           <CheckinClient
             attendance={
@@ -117,6 +120,10 @@ export default async function CheckinPage() {
     listPendingCredentials(),
   ]);
   const byUser = new Map(attendances.map((a) => [a.userId, a]));
+  // Weekend / school-calendar holiday at each teacher's school → "วันหยุด", not "ยังไม่เช็คอิน".
+  const todayKey = bangkokDateKey();
+  const cal = await loadWorkCalendar(todayKey, todayKey);
+  const off = (siteId: string | null) => !isWorkday(cal, todayKey, siteId);
   // Filter options come from the rows themselves (no extra queries).
   const uniq = (pairs: [string, string][]) => Array.from(new Map(pairs).entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, "th"));
   const deptOptions = uniq(teachers.map((t) => [t.departmentId ?? "-", t.department?.name ?? "—"] as [string, string]));
@@ -169,7 +176,7 @@ export default async function CheckinPage() {
             {teachers.map((t) => {
               const a = byUser.get(t.id);
               return (
-                <tr key={t.id} data-status={attendanceDisplayStatus(a?.status ?? "PENDING", a)} data-dept={t.departmentId ?? "-"} data-site={t.campusLocationId ?? "-"} className="border-t border-line-soft">
+                <tr key={t.id} data-status={attendanceDisplayStatus(a?.status ?? "PENDING", a, off(t.campusLocationId))} data-dept={t.departmentId ?? "-"} data-site={t.campusLocationId ?? "-"} className="border-t border-line-soft">
                   <td className="py-2">
                     {t.name}
                     {a?.flagSharedDevice && (
@@ -192,7 +199,7 @@ export default async function CheckinPage() {
                       <span className="block text-[11px] text-muted">{dict.checkin.outAtSite(a.checkoutSiteName ?? "-")}</span>
                     )}
                   </td>
-                  <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} row={a} dict={dict} /></td>
+                  <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} row={a} dict={dict} dayOff={off(t.campusLocationId)} /></td>
                   <td className="py-2">
                     {formatTime(a?.checkinAt, locale) ?? "—"} {a?.attestedCheckin && <span className="text-[10px] text-warn">{dict.checkin.attested}</span>}
                     <Method m={a?.checkinMethod} />

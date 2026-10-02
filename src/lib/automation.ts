@@ -30,6 +30,10 @@ export type AutomationSettings = {
   absentFromDate: string;
   /** Only days the teacher has a class in the timetable count as work days for absence. */
   absentOnlyTeachingDays: boolean;
+  /** Same-day ABSENT this many minutes after a site's start with no check-in (0 = off; sites may override). */
+  absentAfterMinutes: number;
+  /** Per-school attendance summary to Admins when that cut-off passes. */
+  dailySummary: boolean;
 };
 
 export function parseWeekdays(s: string | null | undefined): number[] {
@@ -53,5 +57,7 @@ export async function getAutomationSettings(): Promise<AutomationSettings> {
     autoAbsent: row.autoAbsent,
     absentFromDate: row.absentFromDate ? row.absentFromDate.toISOString().slice(0, 10) : "",
     absentOnlyTeachingDays: row.absentOnlyTeachingDays,
+    absentAfterMinutes: row.absentAfterMinutes,
+    dailySummary: row.dailySummary,
   };
 }

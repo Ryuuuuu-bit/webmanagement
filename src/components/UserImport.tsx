@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useLanguage } from "./LanguageProvider";
+import { readWorkbook } from "@/lib/readSheet";
 import type { ImportUserResult, ImportUserRow } from "@/actions/users";
 
 // Accepted header spellings (Thai or English, any case) → field.
@@ -42,7 +43,8 @@ export default function UserImport({ importUsers }: { importUsers: (rows: Import
     }
     try {
       const XLSX = await import("xlsx");
-      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      // Thai-ANSI CSVs (Excel on Thai Windows) decode correctly — src/lib/readSheet.ts.
+      const wb = await readWorkbook(file);
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
       const parsed: ImportUserRow[] = raw.map((r) => {
