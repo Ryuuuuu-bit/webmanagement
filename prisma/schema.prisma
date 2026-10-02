@@ -699,9 +699,9 @@ model ReminderLog {
 }
 
 // School calendar ("ปฏิทินโรงเรียน"), managed by Admin, read by teachers.
-// campusLocationId = null → applies to every school; otherwise only teachers
-// of that school (primary or extra site) see it. A holiday suppresses the
-// check-in reminders for the affected teachers. Dates are picked dates
+// An event applies to every school (siteIds empty) or to the listed ones;
+// teachers see events of the schools they check in at. A holiday is not a
+// work day for those schools (src/lib/workdays.ts). Dates are picked dates
 // (UTC midnight of the day, like Semester), both ends inclusive.
 model SchoolEvent {
   id               String          @id @default(cuid())
@@ -710,6 +710,11 @@ model SchoolEvent {
   startDate        DateTime
   endDate          DateTime
   isHoliday        Boolean         @default(false)
+  // Schools this event applies to; empty = every school. (campusLocationId
+  // is the original single-school column — still read for rows written
+  // before multi-school events, always null on new writes; see
+  // eventSiteIds in src/lib/calendar.ts.)
+  siteIds          String[]        @default([])
   campusLocationId String?
   campusLocation   CampusLocation? @relation(fields: [campusLocationId], references: [id], onDelete: Cascade)
   createdById      String?

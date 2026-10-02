@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useLanguage } from "./LanguageProvider";
 
 export type SchoolEventRow = {
@@ -12,13 +11,13 @@ export type SchoolEventRow = {
   start: string; // YYYY-MM-DD
   end: string; // YYYY-MM-DD
   isHoliday: boolean;
-  siteId: string | null;
-  siteName: string | null;
+  siteIds: string[]; // [] = every school
+  siteNames: string[];
 };
 type ActionResult = { ok: boolean; message: string };
 
 /** "YYYY-MM-DD" keys of the month grid, Monday-first, padded to whole weeks. */
-function monthGrid(month: string): string[] {
+export function monthGrid(month: string): string[] {
   const [y, m] = month.split("-").map(Number);
   const first = new Date(Date.UTC(y, m - 1, 1));
   const lead = (first.getUTCDay() + 6) % 7; // 0 = Monday
@@ -33,10 +32,9 @@ function shiftMonth(month: string, by: number) {
 }
 
 /**
- * "ปฏิทินโรงเรียน": month grid + list of the month's events. Admin adds /
- * edits / deletes (each event for every school or one school, optionally a
- * holiday); teachers only read — they are sent just their own schools'
- * events by the page.
+ * Month grid + the month's events. Admin adds / edits / deletes; an event
+ * targets every school (no box ticked) or the ticked schools, and editing
+ * or deleting it applies to all of them at once. Teachers only read.
  */
 export default function SchoolCalendar({
   month,
@@ -61,10 +59,9 @@ export default function SchoolCalendar({
 }) {
   const { dict, locale } = useLanguage();
   const t = dict.schoolCalendar;
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
-  // null = closed, "new" = add form, otherwise the event being edited.
   const [editing, setEditing] = useState<{ id: string | null; start: string; end: string; row?: SchoolEventRow } | null>(null);
+  const [formSites, setFormSites] = useState<string[]>([]);
   const [result, setResult] = useState<ActionResult | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -84,11 +81,20 @@ export default function SchoolCalendar({
   const fmt = (key: string) => new Date(`${key}T00:00:00Z`).toLocaleDateString(intl, { day: "numeric", month: "short", timeZone: "UTC" });
   const range = (e: SchoolEventRow) => (e.start === e.end ? fmt(e.start) : `${fmt(e.start)} – ${fmt(e.end)}`);
   const href = (m: string) => `/calendar?month=${m}${siteFilter ? `&site=${siteFilter}` : ""}`;
+  const schoolsLabel = (e: SchoolEventRow) => (e.siteIds.length === 0 ? t.allSchools : e.siteNames.join(", "));
+
+  function open(next: { id: string | null; start: string; end: string; row?: SchoolEventRow }) {
+    setResult(null);
+    setFormSites(next.row ? next.row.siteIds : siteFilter ? [siteFilter] : []);
+    setEditing(next);
+  }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!editing) return;
     const fd = new FormData(e.currentTarget);
+    fd.delete("siteIds");
+    for (const id of formSites) fd.append("siteIds", id);
     startTransition(async () => {
       const res = editing.id ? await updateEvent(editing.id, null, fd) : await createEvent(null, fd);
       setResult(res);
@@ -97,7 +103,7 @@ export default function SchoolCalendar({
   }
 
   function onDelete(row: SchoolEventRow) {
-    if (!confirm(t.deleteConfirm(row.title))) return;
+    if (!confirm(t.deleteConfirm(row.title, schoolsLabel(row)))) return;
     startTransition(async () => {
       setResult(await deleteEvent(row.id));
       setEditing(null);
@@ -106,36 +112,13 @@ export default function SchoolCalendar({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-bold">{t.title}</h1>
-          <p className="mt-1 text-sm text-muted">{isAdmin ? t.hintAdmin : t.hintMember}</p>
+      {isAdmin && (
+        <div className="flex justify-end">
+          <button type="button" onClick={() => open({ id: null, start: selected ?? todayKey, end: selected ?? todayKey })} className="rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white">
+            + {t.add}
+          </button>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {isAdmin && (
-            <select
-              value={siteFilter}
-              onChange={(e) => router.push(`/calendar?month=${month}${e.target.value ? `&site=${e.target.value}` : ""}`)}
-              className="input py-1.5"
-              aria-label={t.siteFilter}
-            >
-              <option value="">{t.allSchools}</option>
-              {sites.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          )}
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => { setResult(null); setEditing({ id: null, start: selected ?? todayKey, end: selected ?? todayKey }); }}
-              className="rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white"
-            >
-              + {t.add}
-            </button>
-          )}
-        </div>
-      </div>
+      )}
 
       {result && <p className={`text-sm ${result.ok ? "text-brand-ink" : "text-danger"}`}>{result.message}</p>}
 
@@ -152,17 +135,12 @@ export default function SchoolCalendar({
               {t.to}
               <input name="endDate" type="date" defaultValue={editing.end} className="input" />
             </label>
-            <select name="campusLocationId" defaultValue={editing.row ? editing.row.siteId ?? "" : siteFilter} className="input">
-              <option value="">{t.allSchools}</option>
-              {sites.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
             <label className="flex items-center gap-2 text-sm">
               <input name="isHoliday" type="checkbox" defaultChecked={editing.row?.isHoliday ?? false} className="h-4 w-4 accent-brand" />
               {t.isHoliday}
             </label>
           </div>
+          <SitePicker sites={sites} value={formSites} onChange={setFormSites} />
           <p className="text-[11px] text-faint">{t.holidayHint}</p>
           <textarea name="detail" rows={2} maxLength={2000} defaultValue={editing.row?.detail ?? ""} placeholder={t.detailPlaceholder} className="input" />
           <div className="flex flex-wrap items-center gap-2">
@@ -213,7 +191,7 @@ export default function SchoolCalendar({
                   {Number(key.slice(8))}
                 </span>
                 {list.slice(0, 3).map((e) => (
-                  <span key={e.id} className={`truncate rounded px-1 text-[10px] leading-4 sm:text-[11px] ${e.isHoliday ? "bg-danger text-white" : "bg-info-soft text-info"}`} title={e.title}>
+                  <span key={e.id} className={`truncate rounded px-1 text-[10px] leading-4 sm:text-[11px] ${e.isHoliday ? "bg-danger text-white" : "bg-info-soft text-info"}`} title={`${e.title} · ${schoolsLabel(e)}`}>
                     {e.title}
                   </span>
                 ))}
@@ -243,7 +221,7 @@ export default function SchoolCalendar({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold">{e.title}</span>
                   {e.isHoliday && <span className="badge bg-danger-soft text-danger">{t.holiday}</span>}
-                  <span className="badge bg-line-soft text-subtle">{e.siteName ?? t.allSchools}</span>
+                  <span className="badge bg-line-soft text-subtle">{schoolsLabel(e)}</span>
                 </div>
                 <div className="mt-0.5 text-xs text-muted">{range(e)}</div>
                 {e.detail && <p className="mt-1 whitespace-pre-line text-sm text-subtle">{e.detail}</p>}
@@ -251,7 +229,7 @@ export default function SchoolCalendar({
               {isAdmin && (
                 <button
                   type="button"
-                  onClick={() => { setResult(null); setEditing({ id: e.id, start: e.start, end: e.end, row: e }); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                  onClick={() => { open({ id: e.id, start: e.start, end: e.end, row: e }); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                   className="rounded px-1.5 py-1 text-xs font-semibold text-brand-ink underline hover:bg-line-soft"
                 >
                   {dict.common.edit}
@@ -262,5 +240,42 @@ export default function SchoolCalendar({
         </ul>
       </div>
     </div>
+  );
+}
+
+/** "Every school" or a set of ticked schools. */
+export function SitePicker({ sites, value, onChange }: { sites: { id: string; name: string }[]; value: string[]; onChange: (v: string[]) => void }) {
+  const { dict } = useLanguage();
+  const t = dict.schoolCalendar;
+  const all = value.length === 0;
+  return (
+    <fieldset className="flex flex-col gap-1.5">
+      <legend className="mb-1 text-xs text-muted">{t.schools}</legend>
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          aria-pressed={all}
+          onClick={() => onChange([])}
+          className={`rounded-full border px-3 py-1 text-xs font-semibold ${all ? "border-brand bg-brand-soft text-brand-ink" : "border-line text-subtle"}`}
+        >
+          {t.allSchools}
+        </button>
+        {sites.map((s) => {
+          const on = value.includes(s.id);
+          return (
+            <button
+              key={s.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onChange(on ? value.filter((x) => x !== s.id) : [...value, s.id])}
+              className={`rounded-full border px-3 py-1 text-xs ${on ? "border-brand bg-brand-soft font-semibold text-brand-ink" : "border-line text-subtle"}`}
+            >
+              {on ? "✓ " : ""}{s.name}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-faint">{all ? t.schoolsAllHint : t.schoolsSomeHint(value.length)}</p>
+    </fieldset>
   );
 }

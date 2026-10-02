@@ -123,7 +123,17 @@ export async function deleteLocation(id: string): Promise<{ ok: boolean; message
     return { ok: false, message: dict.actions.locations.inUse(inUseCount) };
   }
 
-  await prisma.campusLocation.delete({ where: { id } });
+  // School-calendar events list schools by id: drop this one from them, and
+  // drop events that were only for this school (an empty list would
+  // otherwise turn them into "every school").
+  const events = await prisma.schoolEvent.findMany({ where: { siteIds: { has: id } }, select: { id: true, siteIds: true } });
+  await prisma.$transaction([
+    ...events.map((e) => {
+      const rest = e.siteIds.filter((x) => x !== id);
+      return rest.length ? prisma.schoolEvent.update({ where: { id: e.id }, data: { siteIds: rest } }) : prisma.schoolEvent.delete({ where: { id: e.id } });
+    }),
+    prisma.campusLocation.delete({ where: { id } }),
+  ]);
   await logAudit({ action: "LOCATION_CHANGED", actorId: session.user.id, ip: getClientIp(), detail: `deleted "${loc.name}"` });
   revalidatePath("/admin/locations");
   return { ok: true, message: dict.actions.locations.deleted(loc.name) };
