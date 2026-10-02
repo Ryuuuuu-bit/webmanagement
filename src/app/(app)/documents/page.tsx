@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import DocumentsManager, { type DocumentRow } from "@/components/DocumentsManager";
 import { DOC_STATUS_TONE, fileKind } from "@/lib/docStatus";
 import DocumentImport from "@/components/DocumentImport";
+import RosterImport from "@/components/RosterImport";
+import { importRoster } from "@/actions/roster";
 import DocumentTypeManagement from "@/components/DocumentTypeManagement";
 import {
   createDocumentType,
@@ -38,7 +40,7 @@ export default async function DocumentsPage() {
       where: isAdmin ? {} : { userId: session.user.id },
       select: {
         id: true, userId: true, typeId: true, number: true, issueDate: true, expiryDate: true, note: true, attachmentName: true,
-        user: { select: { name: true, campusLocationId: true, campusLocation: { select: { name: true } } } },
+        user: { select: { name: true, project: true, campusLocationId: true, campusLocation: { select: { name: true } } } },
         type: { select: { name: true, remindDays: true } },
       },
     }),
@@ -53,6 +55,7 @@ export default async function DocumentsPage() {
         userName: d.user.name,
         siteId: d.user.campusLocationId,
         siteName: d.user.campusLocation?.name ?? null,
+        project: d.user.project,
         typeId: d.typeId,
         typeName: d.type.name,
         number: d.number,
@@ -104,11 +107,13 @@ export default async function DocumentsPage() {
     );
   }
 
-  const [teachers, sites] = await Promise.all([
+  const [teachers, sites, everyone] = await Promise.all([
     // Active people, plus anyone who already owns a document (a suspended
     // teacher's record must keep its owner when edited).
     prisma.user.findMany({ where: { OR: [{ isActive: true }, { id: { in: Array.from(new Set(docs.map((d) => d.userId))) } }] }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.campusLocation.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    // Roster import preview: who already has an account (matched like the server does).
+    prisma.user.findMany({ select: { email: true, username: true, name: true } }),
   ]);
 
   return (
@@ -126,6 +131,7 @@ export default async function DocumentsPage() {
         deleteDocument={deleteDocument}
         removeDocumentFile={removeDocumentFile}
       />
+      <RosterImport types={types.map((x) => ({ id: x.id, name: x.name }))} sites={sites} existing={everyone} importRoster={importRoster} />
       <DocumentImport types={types.map((x) => ({ id: x.id, name: x.name }))} importDocuments={importDocuments} />
       <DocumentTypeManagement
         types={types.map((x) => ({ id: x.id, name: x.name, remindDays: x.remindDays, notifyTeacher: x.notifyTeacher, count: x._count.documents }))}

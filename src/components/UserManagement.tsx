@@ -7,6 +7,9 @@ import ExtraSitesPicker from "./ExtraSitesPicker";
 import { useLanguage } from "@/components/LanguageProvider";
 import { formatDate, formatTime } from "@/lib/date";
 import type { EnrollmentLink } from "@/actions/enrollment";
+import type { UserRosterDetails } from "@/actions/users";
+
+const EMPTY_DETAILS: UserRosterDetails = { thaiName: "", nickname: "", nationality: "", phone: "", startDate: "", subjects: "", project: "" };
 
 type UserRow = {
   id: string;
@@ -22,6 +25,8 @@ type UserRow = {
   isActive: boolean;
   lastLoginAt: string | null;
   consentAt: string | null;
+  /** Roster details (strings; "" = not set). */
+  details?: UserRosterDetails;
 };
 type Dept = { id: string; name: string };
 type Site = { id: string; name: string };
@@ -63,7 +68,7 @@ export default function UserManagement({
   sendPasswordSetupEmail: (userId: string) => Promise<{ ok: boolean; message: string }>;
   updateUserProfile: (
     userId: string,
-    input: { name: string; username: string; email: string; departmentId: string | null }
+    input: { name: string; username: string; email: string; departmentId: string | null; details?: UserRosterDetails }
   ) => Promise<{ ok: boolean; message: string }>;
   /** Whether RESEND_API_KEY is set on the server — controls the "email setup link" button. */
   emailConfigured: boolean;
@@ -85,22 +90,24 @@ export default function UserManagement({
   const [usernameResult, setUsernameResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
   const [emailResult, setEmailResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
   // Edit-details modal (name / username / email / department in one form).
-  const [editing, setEditing] = useState<{ userId: string; name: string; username: string; email: string; departmentId: string } | null>(null);
+  const [editing, setEditing] = useState<{ userId: string; name: string; username: string; email: string; departmentId: string; details: UserRosterDetails } | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [editResult, setEditResult] = useState<{ userId: string; ok: boolean; message: string } | null>(null);
 
+  const projects = Array.from(new Set(users.map((u) => u.details?.project).filter((p): p is string => !!p))).sort();
+
   function openEdit(u: UserRow) {
     setEditError(null);
-    setEditing({ userId: u.id, name: u.name, username: u.username ?? "", email: u.email, departmentId: u.department?.id ?? "" });
+    setEditing({ userId: u.id, name: u.name, username: u.username ?? "", email: u.email, departmentId: u.department?.id ?? "", details: { ...EMPTY_DETAILS, ...u.details } });
   }
 
   function onSaveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!editing) return;
-    const { userId, name, username, email, departmentId } = editing;
+    const { userId, name, username, email, departmentId, details } = editing;
     setEditError(null);
     startTransition(async () => {
-      const res = await updateUserProfile(userId, { name, username, email, departmentId: departmentId || null });
+      const res = await updateUserProfile(userId, { name, username, email, departmentId: departmentId || null, details });
       if (res.ok) {
         setEditing(null);
         setEditResult({ userId, ...res });
@@ -309,18 +316,21 @@ export default function UserManagement({
           selects={[
             { attr: "role", label: dict.filter.role, options: [{ value: "ADMIN", label: dict.sidebar.roleAdmin }, { value: "MEMBER", label: dict.sidebar.roleMember }] },
             { attr: "active", label: dict.filter.status, options: [{ value: "1", label: dict.users.passwordNormal }, { value: "0", label: dict.users.statusSuspended }] },
+            ...(projects.length ? [{ attr: "project", label: dict.users.details.project, options: projects.map((p) => ({ value: p, label: p })) }] : []),
           ]}
         />
         <ul className="flex flex-col gap-3">
           {users.map((u) => {
             const btn = "whitespace-nowrap rounded-lg border border-line px-2.5 py-1 text-xs font-semibold text-brand-ink hover:bg-line-soft disabled:opacity-40";
             return (
-              <li key={u.id} data-row data-search={`${u.name} ${u.username ?? ""} ${u.email} ${u.department?.name ?? ""} ${u.campusLocation?.name ?? ""}`} data-role={u.role} data-active={u.isActive ? "1" : "0"} className={`rounded-xl border border-line-soft bg-page p-4 ${u.isActive ? "" : "opacity-60"}`}>
+              <li key={u.id} data-row data-search={`${u.name} ${u.username ?? ""} ${u.email} ${u.department?.name ?? ""} ${u.campusLocation?.name ?? ""} ${u.details?.nickname ?? ""} ${u.details?.thaiName ?? ""} ${u.details?.project ?? ""}`} data-role={u.role} data-active={u.isActive ? "1" : "0"} data-project={u.details?.project ?? ""} className={`rounded-xl border border-line-soft bg-page p-4 ${u.isActive ? "" : "opacity-60"}`}>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   {/* identity */}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold">{u.name}</span>
+                      {u.details?.nickname && <span className="text-xs text-faint">({u.details.nickname})</span>}
+                      {u.details?.project && <span className="badge bg-line-soft text-subtle">{u.details.project}</span>}
                       {u.id === currentUserId ? (
                         <span className="badge bg-info-soft text-info">{u.role === "ADMIN" ? dict.sidebar.roleAdmin : dict.sidebar.roleMember} ({dict.common.you})</span>
                       ) : (
@@ -502,7 +512,7 @@ export default function UserManagement({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setEditing(null)}>
           <form
             onSubmit={onSaveProfile}
-            className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl"
+            className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-start justify-between gap-3">
@@ -543,6 +553,27 @@ export default function UserManagement({
                   ))}
                 </select>
               </label>
+            </div>
+            <div className="mt-4 border-t border-line-soft pt-3">
+              <p className="text-xs font-semibold text-subtle">{dict.users.details.title}</p>
+              <p className="mb-2 text-[11px] text-faint">{dict.users.details.hint}</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(["thaiName", "nickname", "nationality", "phone", "startDate", "project", "subjects"] as (keyof UserRosterDetails)[]).map((k) => (
+                  <label key={k} className={`flex flex-col gap-1 text-xs text-faint ${k === "subjects" ? "sm:col-span-2" : ""}`}>
+                    {dict.users.details[k]}
+                    <input
+                      type={k === "startDate" ? "date" : k === "phone" ? "tel" : "text"}
+                      value={editing.details[k]}
+                      onChange={(e) => setEditing({ ...editing, details: { ...editing.details, [k]: e.target.value } })}
+                      list={k === "project" ? "user-project-options" : undefined}
+                      className="input text-sm text-ink"
+                    />
+                  </label>
+                ))}
+                <datalist id="user-project-options">
+                  {projects.map((p) => <option key={p} value={p} />)}
+                </datalist>
+              </div>
             </div>
             {editError && <p className="mt-3 text-sm text-danger">{editError}</p>}
             <div className="mt-4 flex justify-end gap-2">

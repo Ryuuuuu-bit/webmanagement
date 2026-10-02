@@ -37,6 +37,10 @@ export default async function AdminUsersPage() {
         isActive: u.isActive,
         lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
         consentAt: u.consentAt?.toISOString() ?? null,
+        details: {
+          thaiName: u.thaiName ?? "", nickname: u.nickname ?? "", nationality: u.nationality ?? "", phone: u.phone ?? "",
+          startDate: u.startDate ? u.startDate.toISOString().slice(0, 10) : "", subjects: u.subjects ?? "", project: u.project ?? "",
+        },
       }))}
       departments={departments}
       campusLocations={campusLocations}

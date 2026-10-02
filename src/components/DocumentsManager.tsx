@@ -13,6 +13,8 @@ export type DocumentRow = {
   userName: string;
   siteId: string | null;
   siteName: string | null;
+  /** The teacher's hiring project (roster), e.g. "TKB". */
+  project: string | null;
   typeId: string;
   typeName: string;
   number: string | null;
@@ -109,15 +111,16 @@ export default function DocumentsManager({
     const list = rows;
     const XLSX = await import("xlsx");
     const ws = XLSX.utils.aoa_to_sheet([
-      [t.colTeacher, t.colSchool, t.colType, t.colNumber, t.colIssue, t.colExpiry, t.colDaysLeft, t.colStatus, t.colNote],
-      ...list.map((r) => [r.userName, r.siteName ?? "", r.typeName, r.number ?? "", r.issueDate ?? "", r.expiryDate ?? "", r.daysLeft ?? "", t.status[r.status], r.note ?? ""]),
+      [t.colTeacher, t.colSchool, t.colProject, t.colType, t.colNumber, t.colIssue, t.colExpiry, t.colDaysLeft, t.colStatus, t.colNote],
+      ...list.map((r) => [r.userName, r.siteName ?? "", r.project ?? "", r.typeName, r.number ?? "", r.issueDate ?? "", r.expiryDate ?? "", r.daysLeft ?? "", t.status[r.status], r.note ?? ""]),
     ]);
-    ws["!cols"] = [{ wch: 26 }, { wch: 22 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 30 }];
+    ws["!cols"] = [{ wch: 26 }, { wch: 22 }, { wch: 10 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 30 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "documents");
     XLSX.writeFile(wb, `teacher-documents-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
+  const projects = Array.from(new Set(rows.map((r) => r.project).filter((p): p is string => !!p))).sort();
   const counts = rows.reduce((acc, r) => ({ ...acc, [r.status]: (acc[r.status] ?? 0) + 1 }), {} as Record<DocStatusValue, number>);
   const row = editing?.row ?? null;
 
@@ -199,6 +202,7 @@ export default function DocumentsManager({
             { attr: "status", label: t.colStatus, options: (["EXPIRED", "EXPIRING", "VALID", "NO_EXPIRY"] as DocStatusValue[]).map((s) => ({ value: s, label: t.status[s] })) },
             { attr: "type", label: t.colType, options: types.map((x) => ({ value: x.id, label: x.name })) },
             { attr: "site", label: t.colSchool, options: [...sites.map((x) => ({ value: x.id, label: x.name })), { value: "-", label: "—" }] },
+            ...(projects.length ? [{ attr: "project", label: t.colProject, options: projects.map((p) => ({ value: p, label: p })) }] : []),
           ]}
         />
         <div className="overflow-x-auto">
@@ -216,10 +220,10 @@ export default function DocumentsManager({
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} data-id={r.id} data-status={r.status} data-type={r.typeId} data-site={r.siteId ?? "-"} className="border-t border-line-soft align-top">
+                <tr key={r.id} data-id={r.id} data-status={r.status} data-type={r.typeId} data-site={r.siteId ?? "-"} data-project={r.project ?? ""} className="border-t border-line-soft align-top">
                   <td className="py-2">
                     <div className="font-medium">{r.userName}</div>
-                    <div className="text-xs text-faint">{r.siteName ?? "—"}</div>
+                    <div className="text-xs text-faint">{r.siteName ?? "—"}{r.project && <span className="badge ml-1.5 bg-line-soft text-subtle">{r.project}</span>}</div>
                   </td>
                   <td className="py-2">{r.typeName}</td>
                   <td className="py-2 font-mono text-xs">{r.number ?? "—"}</td>

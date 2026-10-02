@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
     select: {
       id: true, name: true, username: true, email: true, role: true, isActive: true, createdAt: true, lastLoginAt: true,
       consentAt: true, consentVersion: true, passwordSetAt: true,
+      thaiName: true, nickname: true, nationality: true, phone: true, startDate: true, subjects: true, project: true, gradeLevels: true,
       department: { select: { name: true } },
       campusLocation: { select: { name: true } },
       extraSites: { select: { location: { select: { name: true } } } },
@@ -79,6 +80,11 @@ export async function GET(req: NextRequest) {
     issueReports: issues,
     selfies: selfies.map((s) => ({ id: s.id, kind: s.kind, createdAt: s.createdAt, mimeType: s.mimeType, base64: Buffer.from(s.data).toString("base64") })),
     securityLog: audit,
+    // Passport / work permit / licence numbers and dates (the scans themselves are downloadable in the app).
+    documents: await prisma.teacherDocument.findMany({
+      where: { userId },
+      select: { number: true, issueDate: true, expiryDate: true, note: true, attachmentName: true, createdAt: true, updatedAt: true, type: { select: { name: true } } },
+    }),
   };
 
   await logAudit({ action: "PDPA_EXPORT", actorId: session.user.id, targetUserId: userId, ip: getClientIp(), detail: session.user.id === userId ? "self" : "by admin" });

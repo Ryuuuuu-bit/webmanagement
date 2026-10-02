@@ -458,9 +458,12 @@ export async function setUserActive(userId: string, active: boolean): Promise<{ 
  * validated like createUser; only fields that actually changed are written
  * and audited.
  */
+/** Roster details (see the User model); "" clears a field. startDate is "YYYY-MM-DD" or "". */
+export type UserRosterDetails = { thaiName: string; nickname: string; nationality: string; phone: string; startDate: string; subjects: string; project: string };
+
 export async function updateUserProfile(
   userId: string,
-  input: { name: string; username: string; email: string; departmentId: string | null }
+  input: { name: string; username: string; email: string; departmentId: string | null; details?: UserRosterDetails }
 ): Promise<{ ok: boolean; message: string }> {
   const session = await requireAdmin();
   const dict = getDictionary(getLocale());
@@ -490,14 +493,34 @@ export async function updateUserProfile(
     if (!dept) return { ok: false, message: dict.actions.users.invalidDepartment };
   }
 
+  // Roster details: only when the dialog sent them (older callers don't).
+  const details: Prisma.UserUncheckedUpdateInput = {};
+  if (input.details) {
+    const d = input.details;
+    const txt = (v: unknown, max: number) => String(v ?? "").trim().replace(/\s+/g, " ").slice(0, max) || null;
+    const start = String(d.startDate ?? "").trim();
+    if (start && !/^\d{4}-\d{2}-\d{2}$/.test(start)) return { ok: false, message: dict.actions.documents.invalidDate };
+    const next = {
+      thaiName: txt(d.thaiName, 120), nickname: txt(d.nickname, 60), nationality: txt(d.nationality, 60), phone: txt(d.phone, 40),
+      subjects: txt(d.subjects, 200), project: txt(d.project, 60), startDate: start ? new Date(`${start}T00:00:00.000Z`) : null,
+    };
+    for (const k of Object.keys(next) as (keyof typeof next)[]) {
+      const before = user[k] instanceof Date ? (user[k] as Date).toISOString().slice(0, 10) : (user[k] as string | null);
+      const after = next[k] instanceof Date ? (next[k] as Date).toISOString().slice(0, 10) : (next[k] as string | null);
+      if ((before ?? null) !== (after ?? null)) Object.assign(details, { [k]: next[k] });
+    }
+  }
+
   const changes: string[] = [];
   if (name !== user.name) changes.push(`name: ${user.name} → ${name}`);
   if (username !== user.username) changes.push(`username: ${user.username ?? "—"} → ${username}`);
   if (email !== user.email) changes.push(`email: ${user.email} → ${email}`);
   if (departmentId !== user.departmentId) changes.push(`department: ${user.departmentId ?? "—"} → ${departmentId ?? "—"}`);
+  // Phone numbers etc. are personal data — the audit names the fields, not the values.
+  if (Object.keys(details).length) changes.push(`details: ${Object.keys(details).join(", ")}`);
   if (changes.length === 0) return { ok: true, message: dict.actions.users.profileUnchanged };
 
-  await prisma.user.update({ where: { id: userId }, data: { name, username, email, departmentId } });
+  await prisma.user.update({ where: { id: userId }, data: { name, username, email, departmentId, ...details } });
   // A setup link mailed to the old (possibly mistyped) address must die with it.
   if (email !== user.email) await prisma.passwordResetToken.deleteMany({ where: { userId, usedAt: null } });
   await logAudit({ action: "PROFILE_EDITED", actorId: session.user.id, targetUserId: userId, ip: getClientIp(), detail: changes.join("; ") });

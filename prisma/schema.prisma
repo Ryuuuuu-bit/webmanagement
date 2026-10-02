@@ -118,6 +118,19 @@ model User {
   // expired temporary password is refused at sign-in regardless of the
   // mustChangePassword banner flag.
   passwordSetAt         DateTime?
+  // HR roster details (the client's teacher sheet: TeacherData.xlsx) —
+  // optional, Admin-only, filled by the roster import or the edit dialog.
+  // Birth date / emergency contacts / TOEIC are deliberately NOT stored.
+  thaiName              String?
+  nickname              String?
+  nationality           String?
+  phone                 String?
+  // Picked calendar date (UTC midnight, like other picked dates).
+  startDate             DateTime?
+  subjects              String?
+  // Hiring project / contract the teacher belongs to (e.g. "TKB", "CDC") —
+  // independent of the school they're stationed at.
+  project               String?
   lastLoginAt           DateTime?
   // PDPA: when (and which version of) the privacy notice this person
   // accepted. The app collects selfies and GPS positions, so the notice is

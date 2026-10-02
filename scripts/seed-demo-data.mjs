@@ -267,6 +267,28 @@ async function createDemoData() {
     teachers.push({ ...u, i, dept, site, grades });
   }
   const t = (i) => teachers[i];
+  // roster details (หน้าผู้ใช้ → แก้ไข / นำเข้าทะเบียนครู): project filter, nickname, …
+  // Phone numbers are obviously fake (080-000-00xx).
+  const R = {
+    0: ["ชาย", "ไทย", "คณิตศาสตร์", null, -2400],
+    1: ["หญิง", "ไทย", "ภาษาไทย", null, -3100],
+    2: ["ชัย", "ไทย", "วิทยาศาสตร์", null, -1900],
+    3: ["แพร", "ไทย", "English", "TKB", -700],
+    4: ["พล", "ไทย", "คณิตศาสตร์", null, -1200],
+    5: ["นุช", "ไทย", "วิทยาศาสตร์", null, -900],
+    6: ["James", "British", "English, Mathematic", "TKB", -480],
+    7: ["Emmy", "American", "English", "CDC", -330],
+    8: ["นัท", "ไทย", "ภาษาไทย", null, -1500],
+    9: ["ทิพย์", "ไทย", "คณิตศาสตร์", null, -600],
+    10: ["ชา", "ไทย", "วิทยาศาสตร์", null, -2000],
+    11: ["มาลัย", "ไทย", "ภาษาไทย", null, -400],
+  };
+  for (const [i, [nickname, nationality, subjects, project, started]] of Object.entries(R)) {
+    await prisma.user.update({
+      where: { id: t(+i).id },
+      data: { nickname, nationality, subjects, project, phone: `08000000${String(+i + 10).padStart(2, "0")}`, startDate: picked(addDays(today, started)), thaiName: +i === 6 ? "เจมส์ คาร์เตอร์" : +i === 7 ? "เอมิลี่ วัตสัน" : null },
+    });
+  }
   // extra sites: teaches at both campuses
   await prisma.userSite.createMany({ data: [{ userId: t(0).id, locationId: siteB.id }, { userId: t(7).id, locationId: siteA.id }] });
 
@@ -569,6 +591,9 @@ async function createDemoData() {
     [7, "Visa", "Non-B 1048820", -360, -5],
     [7, "Passport", "C02X44817", -1500, 2100],
     [7, "90-Day", "TM47-120377", -30, 60],
+    [3, "Work Permit", "", -200, 25], // ไม่มีเลขที่ + หมดใน 25 วัน
+    [3, "Passport", "AA1234567", -1800, 1500],
+    [3, "Visa", "Non-ED 552210", -100, null], // ไม่ระบุวันหมดอายุ
     [0, "วิชาชีพ", "64100001234", -1400, 420],
     [1, "วิชาชีพ", "63100009876", -1700, 120],
     [2, "วิชาชีพ", "65100004455", -900, 900],
@@ -586,10 +611,10 @@ async function createDemoData() {
       data: {
         userId: t(who).id,
         typeId: type.id,
-        number,
+        number: number || null,
         issueDate: picked(addDays(today, issued)),
-        expiryDate: picked(addDays(today, expires)),
-        note: expires < 0 ? "รอต่ออายุ — ยื่นเอกสารแล้ว" : null,
+        expiryDate: expires === null ? null : picked(addDays(today, expires)),
+        note: expires !== null && expires < 0 ? "รอต่ออายุ — ยื่นเอกสารแล้ว" : frag === "Passport" && who === 7 ? "ออกที่: US Embassy Bangkok" : null,
         ...(who === 6 && frag === "Work Permit" ? pdf("work-permit-scan") : {}),
       },
     });
