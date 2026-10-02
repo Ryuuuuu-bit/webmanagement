@@ -13,7 +13,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "TeachSchedule",
     short_name: "TeachSchedule",
-    description: "ระบบตารางสอนและเช็คอิน-เอาต์สำหรับอาจารย์",
+    description: "ระบบตารางสอนและเช็คอิน-เอาต์สำหรับอาจารย์ · Teaching schedule & attendance for teachers",
     lang: "th",
     start_url: "/checkin",
     scope: "/",
@@ -28,9 +28,9 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     // Long-press the home-screen icon (Android) → jump straight to these.
     shortcuts: [
-      { name: "เช็คอิน / เช็คเอาต์", short_name: "เช็คอิน", url: "/checkin" },
-      { name: "ตารางสอนของฉัน", short_name: "ตารางสอน", url: "/schedule" },
-      { name: "ขอลา", short_name: "ขอลา", url: "/leave" },
+      { name: "เช็คอิน-เอาต์ · Check-in", short_name: "เช็คอิน", url: "/checkin" },
+      { name: "ตารางสอน · Schedule", short_name: "ตารางสอน", url: "/schedule" },
+      { name: "ขอลา · Leave", short_name: "ขอลา", url: "/leave" },
     ],
   };
 }

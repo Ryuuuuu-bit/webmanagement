@@ -17,7 +17,7 @@ export default function AuthPageControls() {
 
   return (
     <div className="fixed right-3 top-3 z-40 flex items-center gap-1 rounded-full border border-line bg-surface p-1 shadow-sm">
-      <div role="group" aria-label="Language" className="flex items-center rounded-full bg-line-soft p-0.5 text-[11px] font-semibold">
+      <div role="group" aria-label={dict.language.label} className="flex items-center rounded-full bg-line-soft p-0.5 text-[11px] font-semibold">
         <button
           type="button"
           onClick={() => locale !== "th" && toggleLanguage()}

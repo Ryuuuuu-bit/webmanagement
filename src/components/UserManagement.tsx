@@ -307,7 +307,7 @@ export default function UserManagement({
           pageSize={25}
           targetId="users-list"
           selects={[
-            { attr: "role", label: dict.filter.role, options: [{ value: "ADMIN", label: "ADMIN" }, { value: "MEMBER", label: "MEMBER" }] },
+            { attr: "role", label: dict.filter.role, options: [{ value: "ADMIN", label: dict.sidebar.roleAdmin }, { value: "MEMBER", label: dict.sidebar.roleMember }] },
             { attr: "active", label: dict.filter.status, options: [{ value: "1", label: dict.users.passwordNormal }, { value: "0", label: dict.users.statusSuspended }] },
           ]}
         />
@@ -322,9 +322,9 @@ export default function UserManagement({
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold">{u.name}</span>
                       {u.id === currentUserId ? (
-                        <span className="badge bg-info-soft text-info">{u.role} ({dict.common.you})</span>
+                        <span className="badge bg-info-soft text-info">{u.role === "ADMIN" ? dict.sidebar.roleAdmin : dict.sidebar.roleMember} ({dict.common.you})</span>
                       ) : (
-                        <span className={`badge ${u.role === "ADMIN" ? "bg-info-soft text-info" : "bg-line-soft text-subtle"}`}>{u.role}</span>
+                        <span className={`badge ${u.role === "ADMIN" ? "bg-info-soft text-info" : "bg-line-soft text-subtle"}`}>{u.role === "ADMIN" ? dict.sidebar.roleAdmin : dict.sidebar.roleMember}</span>
                       )}
                       {statusBadge(u)}
                     </div>
@@ -412,8 +412,8 @@ export default function UserManagement({
                           onChange={(e) => onRoleChange(u.id, u.name, e.target.value as "ADMIN" | "MEMBER")}
                           className="rounded-lg border border-line-strong bg-surface px-2 py-1 text-xs text-ink disabled:opacity-40"
                         >
-                          <option value="MEMBER">MEMBER</option>
-                          <option value="ADMIN">ADMIN</option>
+                          <option value="MEMBER">{dict.users.roleMemberOption}</option>
+                          <option value="ADMIN">{dict.users.roleAdminOption}</option>
                         </select>
                       </label>
                     )}

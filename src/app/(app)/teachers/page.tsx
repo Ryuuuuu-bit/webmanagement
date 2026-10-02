@@ -61,7 +61,7 @@ export default async function TeachersPage() {
                 <td className="py-2">
                   {t.campusLocation ? `📍 ${t.campusLocation.name}` : <span className="text-faint">{dict.teachers.siteUnset}</span>}
                 </td>
-                <td className="py-2"><span className="badge bg-info-soft text-info">{t.role}</span></td>
+                <td className="py-2"><span className="badge bg-info-soft text-info">{t.role === "ADMIN" ? dict.sidebar.roleAdmin : dict.sidebar.roleMember}</span></td>
                 <td className="py-2"><AttendanceBadge status={byUser.get(t.id)?.status ?? "PENDING"} row={byUser.get(t.id)} dict={dict} dayOff={off(t.campusLocationId)} /></td>
               </tr>
             ))}
