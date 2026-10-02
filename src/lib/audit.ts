@@ -42,7 +42,11 @@ export type AuditAction =
   | "PROFILE_EDITED"
   | "RECORD_DELETED"
   | "RECORD_EDITED"
-  | "CONSENT_GIVEN";
+  | "CONSENT_GIVEN"
+  | "SITES_CHANGED"
+  | "AUTOMATION_CHANGED"
+  | "RETENTION_PURGE"
+  | "PDPA_EXPORT";
 
 export async function logAudit(entry: {
   action: AuditAction;

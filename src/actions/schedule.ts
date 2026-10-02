@@ -52,12 +52,14 @@ export async function createSchedule(formData: FormData) {
   // silently skip the check (which let a room get booked at the wrong
   // campus with no signal to Admin), warn so it gets a manual look.
   const [teacher, room, semester] = await Promise.all([
-    prisma.user.findUnique({ where: { id: teacherId }, select: { campusLocationId: true } }),
+    prisma.user.findUnique({ where: { id: teacherId }, select: { campusLocationId: true, extraSites: { select: { locationId: true } } } }),
     prisma.room.findUnique({ where: { id: roomId }, select: { campusLocationId: true, campusLocation: { select: { name: true } } } }),
     prisma.semester.findUnique({ where: { id: semesterId }, select: { id: true, name: true, startDate: true, endDate: true } }),
   ]);
   if (!teacher || !room || !semester) return { ok: false, message: dict.actions.schedule.notFound };
-  if (room.campusLocationId && teacher.campusLocationId && room.campusLocationId !== teacher.campusLocationId) {
+  // Extra sites (teachers who move between sites) count as the teacher's own too.
+  const teacherSites = new Set([teacher.campusLocationId, ...teacher.extraSites.map((x) => x.locationId)].filter(Boolean));
+  if (room.campusLocationId && teacher.campusLocationId && !teacherSites.has(room.campusLocationId)) {
     return { ok: false, message: dict.actions.schedule.roomOtherSite(room.campusLocation?.name ?? "-") };
   }
   const teacherNoSiteWarning =

@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
   }
 
   const courseId = req.nextUrl.searchParams.get("courseId") || body.fields.courseId || null;
-  const res = await saveLessonPlan(session.user.id, courseId, body.file);
+  const semesterId = req.nextUrl.searchParams.get("semesterId") || body.fields.semesterId || null;
+  const res = await saveLessonPlan(session.user.id, courseId, body.file, semesterId);
   if (res.ok) revalidatePath("/lesson-plans");
   return NextResponse.json(res, { status: res.ok ? 200 : 400 });
 }

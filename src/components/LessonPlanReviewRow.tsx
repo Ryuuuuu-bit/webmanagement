@@ -10,6 +10,7 @@ type Plan = {
   status: "PENDING" | "APPROVED" | "NEEDS_REVISION";
   reviewNote: string | null;
   submittedAt: string;
+  late?: boolean;
   teacher: { name: string };
   course: { code: string; name: string };
 };
@@ -57,7 +58,10 @@ export default function LessonPlanReviewRow({
         </a>
       </td>
       <td className="whitespace-nowrap py-2 pr-3 text-faint">{formatDate(plan.submittedAt, locale)}</td>
-      <td className="py-2"><span className={`badge ${status.cls}`}>{status.text}</span></td>
+      <td className="py-2">
+        <span className={`badge ${status.cls}`}>{status.text}</span>
+        {plan.late && <span className="badge ml-1 bg-danger-soft text-danger">{dict.lessonPlans.lateBadge}</span>}
+      </td>
       <td className="py-2">
         <div className="flex flex-col gap-1.5">
           <div className="flex gap-2">

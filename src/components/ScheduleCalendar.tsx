@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { formatDayTime } from "@/lib/date";
 import { useLanguage } from "./LanguageProvider";
 
-type Option = { id: string; name?: string; code?: string; building?: string; campusLocationId?: string | null; siteName?: string | null; groupName?: string | null };
+type Option = { id: string; name?: string; code?: string; building?: string; campusLocationId?: string | null; extraSiteIds?: string[]; siteName?: string | null; groupName?: string | null };
 type SemesterOption = { id: string; name: string; startDate: string; endDate: string };
 type ScheduleRow = {
   id: string;
@@ -623,8 +623,11 @@ export default function ScheduleCalendar({
                   // Only rooms at this teacher's own site (plus rooms with no
                   // site yet) — a class at another branch can't be attended,
                   // and check-in there would fail anyway.
-                  const teacherSite = (isAdmin ? teachers?.find((t) => t.id === viewTeacherId) : teachers?.find((t) => t.id === selfTeacherId))?.campusLocationId ?? null;
-                  const visible = teacherSite ? rooms.filter((r) => !r.campusLocationId || r.campusLocationId === teacherSite) : rooms;
+                  const who = isAdmin ? teachers?.find((t) => t.id === viewTeacherId) : teachers?.find((t) => t.id === selfTeacherId);
+                  const teacherSite = who?.campusLocationId ?? null;
+                  // Primary site + extra sites the teacher may also work at.
+                  const mySites = new Set([teacherSite, ...(who?.extraSiteIds ?? [])].filter(Boolean));
+                  const visible = teacherSite ? rooms.filter((r) => !r.campusLocationId || mySites.has(r.campusLocationId)) : rooms;
                   const hidden = rooms.length - visible.length;
                   return (
                     <>

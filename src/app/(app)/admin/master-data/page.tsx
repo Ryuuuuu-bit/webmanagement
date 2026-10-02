@@ -7,14 +7,16 @@ import RoomManagement from "@/components/RoomManagement";
 import SemesterManagement from "@/components/SemesterManagement";
 import LeaveQuotaManagement from "@/components/LeaveQuotaManagement";
 import CheckinPolicyManagement from "@/components/CheckinPolicyManagement";
+import AutomationSettingsCard from "@/components/AutomationSettings";
 import { createDepartment, updateDepartment, deleteDepartment } from "@/actions/departments";
 import { createCourse, updateCourse, deleteCourse } from "@/actions/courses";
 import { createRoom, updateRoom, deleteRoom } from "@/actions/rooms";
 import { createSemester, updateSemester, deleteSemester } from "@/actions/semesters";
 import { updateLeaveQuota } from "@/actions/leaveQuota";
 import { getLeaveQuotaMap, LEAVE_TYPES } from "@/lib/leaveQuota";
-import { updateCheckinPolicy } from "@/actions/settings";
+import { updateCheckinPolicy, updateAutomationSettings } from "@/actions/settings";
 import { getCheckinPolicy } from "@/lib/settings";
+import { getAutomationSettings } from "@/lib/automation";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 
@@ -25,7 +27,7 @@ export default async function MasterDataPage() {
   const locale = getLocale();
   const dict = getDictionary(locale);
 
-  const [departments, courses, rooms, semesters, locations, leaveQuotaMap, policy] = await Promise.all([
+  const [departments, courses, rooms, semesters, locations, leaveQuotaMap, policy, automation] = await Promise.all([
     prisma.department.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { users: true } } } }),
     prisma.course.findMany({ orderBy: { code: "asc" } }),
     prisma.room.findMany({ orderBy: { name: "asc" }, include: { campusLocation: true } }),
@@ -33,6 +35,7 @@ export default async function MasterDataPage() {
     prisma.campusLocation.findMany({ orderBy: { name: "asc" } }),
     getLeaveQuotaMap(),
     getCheckinPolicy(),
+    getAutomationSettings(),
   ]);
 
   return (
@@ -76,6 +79,7 @@ export default async function MasterDataPage() {
           name: s.name,
           startDate: s.startDate.toISOString(),
           endDate: s.endDate.toISOString(),
+          lessonPlanDueDate: s.lessonPlanDueDate?.toISOString() ?? null,
         }))}
         createSemester={createSemester}
         updateSemester={updateSemester}
@@ -88,6 +92,8 @@ export default async function MasterDataPage() {
       />
 
       <CheckinPolicyManagement policy={policy} updateCheckinPolicy={updateCheckinPolicy} />
+
+      <AutomationSettingsCard settings={automation} updateAutomationSettings={updateAutomationSettings} />
     </div>
   );
 }

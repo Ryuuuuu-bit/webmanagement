@@ -154,6 +154,17 @@ export default function ChangePasswordForm({ forced, enrolled = false, email }: 
           {everywhereResult && <p className="mt-2 text-xs text-muted">{everywhereResult}</p>}
         </div>
       )}
+
+      {!forced && (
+        <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-sm">
+          <h2 className="text-sm font-bold">{t.pdpaTitle}</h2>
+          <p className="mt-1 text-xs text-muted">{t.pdpaHint}</p>
+          <a href="/api/pdpa/export" className="mt-3 inline-block rounded-lg border border-brand px-3 py-1.5 text-xs font-semibold text-brand-ink hover:bg-brand-soft">
+            {t.pdpaExport}
+          </a>
+          <p className="mt-2 text-[11px] text-faint">{t.pdpaDeleteNote}</p>
+        </div>
+      )}
     </div>
   );
 }

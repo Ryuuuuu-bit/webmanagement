@@ -41,7 +41,14 @@ export type NotificationKind =
   | "SITE_ASSIGNED"
   | "PASSWORD_TEMP"
   | "ISSUE_REPORTED"
-  | "ISSUE_UPDATED";
+  | "ISSUE_UPDATED"
+  | "CHECKIN_REMINDER"
+  | "CHECKOUT_REMINDER"
+  | "PENDING_DIGEST"
+  | "LESSON_PLAN_DUE"
+  | "LESSON_PLAN_OVERDUE"
+  | "LESSON_PLANS_MISSING"
+  | "SITES_UPDATED";
 
 export type NotificationParams = Record<string, string | number | boolean | null>;
 

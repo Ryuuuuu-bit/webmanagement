@@ -25,10 +25,15 @@ export default function LessonPlanUploadForm({
   courseId,
   courseLabel,
   plan,
+  semesterId,
+  late = false,
 }: {
   courseId: string;
   courseLabel: string;
   plan: Plan;
+  semesterId: string;
+  /** Submitted after the semester's due date. */
+  late?: boolean;
 }) {
   const { dict, locale } = useLanguage();
   const router = useRouter();
@@ -59,7 +64,7 @@ export default function LessonPlanUploadForm({
         // Read into memory first — see src/lib/uploadClient.ts for the iOS story.
         const bytes = await readFileBytes(file);
         const r = await xhrPost<{ ok: boolean; message: string }>(
-          `/api/lesson-plans/upload?courseId=${encodeURIComponent(courseId)}`,
+          `/api/lesson-plans/upload?courseId=${encodeURIComponent(courseId)}&semesterId=${encodeURIComponent(semesterId)}`,
           bytes,
           {
             headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeFileName(file.name), "X-File-Type": file.type || "" },
@@ -94,7 +99,10 @@ export default function LessonPlanUploadForm({
     <div className="border-t border-line-soft py-4 first:border-t-0 first:pt-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-semibold">{courseLabel}</span>
-        {status && <span className={`badge ${status.cls}`}>{status.text}</span>}
+        <span className="flex items-center gap-1.5">
+          {late && <span className="badge bg-danger-soft text-danger">{dict.lessonPlans.lateBadge}</span>}
+          {status && <span className={`badge ${status.cls}`}>{status.text}</span>}
+        </span>
       </div>
 
       {plan && (

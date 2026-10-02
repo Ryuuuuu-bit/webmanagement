@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import TableFilter from "./TableFilter";
+import ExtraSitesPicker from "./ExtraSitesPicker";
 import { useLanguage } from "@/components/LanguageProvider";
 import { formatDate, formatTime } from "@/lib/date";
 import type { EnrollmentLink } from "@/actions/enrollment";
@@ -15,6 +16,7 @@ type UserRow = {
   role: string;
   department?: { id: string; name: string } | null;
   campusLocation?: { id: string; name: string } | null;
+  extraSiteIds?: string[];
   mustChangePassword: boolean;
   tempPasswordExpiresAt: string | null;
   isActive: boolean;
@@ -34,6 +36,7 @@ export default function UserManagement({
   resetUserPassword,
   updateUserRole,
   updateUserSite,
+  updateUserExtraSites,
   deleteUser,
   clearWebauthnCredentials,
   setUserActive,
@@ -51,6 +54,7 @@ export default function UserManagement({
   resetUserPassword: (userId: string) => Promise<ActionResult>;
   updateUserRole: (userId: string, role: "ADMIN" | "MEMBER") => Promise<{ ok: boolean; message: string }>;
   updateUserSite: (userId: string, campusLocationId: string | null) => Promise<{ ok: boolean; message: string }>;
+  updateUserExtraSites: (userId: string, locationIds: string[]) => Promise<{ ok: boolean; message: string }>;
   deleteUser: (userId: string) => Promise<{ ok: boolean; message: string }>;
   clearWebauthnCredentials: (userId: string) => Promise<{ ok: boolean; message: string }>;
   setUserActive: (userId: string, active: boolean) => Promise<{ ok: boolean; message: string }>;
@@ -390,6 +394,15 @@ export default function UserManagement({
                         ))}
                       </select>
                     </label>
+                    {u.role === "MEMBER" && (
+                      <ExtraSitesPicker
+                        userId={u.id}
+                        primaryId={u.campusLocation?.id ?? null}
+                        sites={campusLocations}
+                        initial={u.extraSiteIds ?? []}
+                        save={updateUserExtraSites}
+                      />
+                    )}
                     {u.id !== currentUserId && (
                       <label className="flex items-center gap-1 text-xs text-faint">
                         {dict.users.colRole}

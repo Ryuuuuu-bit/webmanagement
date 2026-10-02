@@ -19,6 +19,12 @@ const KIND_TONE: Record<string, string> = {
   ATTEST_DECIDED: "bg-ok-soft text-ok",
   LESSON_PLAN_REVIEWED: "bg-ok-soft text-ok",
   DEVICE_DECIDED: "bg-ok-soft text-ok",
+  CHECKIN_REMINDER: "bg-warn-soft text-warn",
+  CHECKOUT_REMINDER: "bg-warn-soft text-warn",
+  PENDING_DIGEST: "bg-warn-soft text-warn",
+  LESSON_PLAN_DUE: "bg-warn-soft text-warn",
+  LESSON_PLAN_OVERDUE: "bg-danger-soft text-danger",
+  LESSON_PLANS_MISSING: "bg-danger-soft text-danger",
 };
 
 function timeAgo(iso: string, t: { justNow: string; minutesAgo: (n: number) => string; hoursAgo: (n: number) => string; daysAgo: (n: number) => string }) {

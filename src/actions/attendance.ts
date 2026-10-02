@@ -5,10 +5,10 @@ import { revalidatePath } from "next/cache";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getExpectedSite, isWithinSite } from "@/lib/geo";
+import { getAssignedSites, matchSite } from "@/lib/geo";
 import { todayAtMidnight } from "@/lib/date";
 import { verifyAssertion } from "@/lib/webauthn";
-import { atTimeOfDay, getCheckinPolicy, getWorkHoursForUser } from "@/lib/settings";
+import { atTimeOfDay, getCheckinPolicy, workHoursForSite } from "@/lib/settings";
 import { Prisma } from "@prisma/client";
 import { logAudit } from "@/lib/audit";
 import { notifyAdmins } from "@/lib/notify";
@@ -161,10 +161,10 @@ function isUniqueConstraintError(err: unknown): boolean {
 }
 
 /**
- * FR-4 / site-per-teacher: check-in must happen at *this teacher's own
- * assigned site* — see getExpectedSite in src/lib/geo.ts (each teacher is
- * permanently stationed at one site, so "inside any registered location" is
- * not the right check).
+ * FR-4 / site-per-teacher: check-in must happen at one of *this teacher's
+ * own* sites — the primary site plus any extra sites assigned by an Admin
+ * (see getAssignedSites in src/lib/geo.ts). "Inside any registered
+ * location" is not the right check.
  */
 export async function checkIn(lat: number, lng: number, verification: IdentityVerification, extras: CheckinExtras) {
   const session = await getServerSession(authOptions);
@@ -189,18 +189,20 @@ export async function checkIn(lat: number, lng: number, verification: IdentityVe
   // check-in attestation instead.
   if (already?.checkoutAt) return { ok: false, message: dict.actions.checkin.checkinAfterCheckout };
 
-  const expected = await getExpectedSite(userId);
-  if (expected.kind === "no_site") return { ok: false, message: dict.actions.checkin.noSiteAssigned };
-  if (!isWithinSite(lat, lng, expected.site)) {
-    return { ok: false, message: dict.actions.checkin.wrongSiteIn(expected.site.name) };
-  }
+  // Any of the teacher's sites counts (primary + extra sites an Admin
+  // assigned for teachers who move between sites during the day).
+  const sites = await getAssignedSites(userId);
+  if (sites.all.length === 0) return { ok: false, message: dict.actions.checkin.noSiteAssigned };
+  const site = matchSite(lat, lng, sites.all);
+  if (!site) return { ok: false, message: dict.actions.checkin.wrongSiteIn(sites.all.map((x) => x.name).join(", ")) };
 
   const selfie = await storeSelfie(userId, "checkin", extras.selfie);
   if ("ok" in selfie) return selfie;
 
   const now = new Date();
-  // Late = after the site's (or global) start time plus the grace window.
-  const hours = await getWorkHoursForUser(userId);
+  // Late = after the start time of the site they checked in at (or the
+  // global default) plus the grace window.
+  const hours = workHoursForSite(site, await getCheckinPolicy());
   const cutoff = new Date(atTimeOfDay(date, hours.start).getTime() + hours.graceMinutes * 60_000);
   const status: "ON_TIME" | "LATE" = now <= cutoff ? "ON_TIME" : "LATE";
   const shared = await detectSharedDevice(userId, date, deviceId, ip);
@@ -213,6 +215,8 @@ export async function checkIn(lat: number, lng: number, verification: IdentityVe
     checkinMethod: verification.method,
     checkinDeviceId: deviceId,
     checkinSelfieId: selfie.id,
+    checkinSiteId: site.id,
+    checkinSiteName: site.name,
     ...(shared ? { flagSharedDevice: true } : {}),
   };
   // Atomic claim, same spirit as checkOut's guarded updateMany below — the
@@ -266,17 +270,17 @@ export async function checkOut(lat: number, lng: number, verification: IdentityV
   // approved, which fills checkinAt and sets ON_TIME/LATE.
   const missedCheckin = !existing?.checkinAt;
 
-  const expected = await getExpectedSite(userId);
-  if (expected.kind === "no_site") return { ok: false, message: dict.actions.checkin.noSiteAssigned };
-  if (!isWithinSite(lat, lng, expected.site)) {
-    return { ok: false, message: dict.actions.checkin.wrongSiteOut(expected.site.name) };
-  }
+  const sites = await getAssignedSites(userId);
+  if (sites.all.length === 0) return { ok: false, message: dict.actions.checkin.noSiteAssigned };
+  // May differ from the check-in site — e.g. morning at site A, last class at site B.
+  const site = matchSite(lat, lng, sites.all);
+  if (!site) return { ok: false, message: dict.actions.checkin.wrongSiteOut(sites.all.map((x) => x.name).join(", ")) };
 
   const selfie = await storeSelfie(userId, "checkout", extras.selfie);
   if ("ok" in selfie) return selfie;
 
   const now = new Date();
-  const hours = await getWorkHoursForUser(userId);
+  const hours = workHoursForSite(site, await getCheckinPolicy());
   const onApprovedPmLeave = await hasApprovedPmHalfDayLeave(userId, date);
   const earlyCheckout = !onApprovedPmLeave && now < atTimeOfDay(date, hours.end);
   const shared = await detectSharedDevice(userId, date, deviceId, ip);
@@ -287,6 +291,8 @@ export async function checkOut(lat: number, lng: number, verification: IdentityV
     checkoutMethod: verification.method,
     checkoutDeviceId: deviceId,
     checkoutSelfieId: selfie.id,
+    checkoutSiteId: site.id,
+    checkoutSiteName: site.name,
     earlyCheckout,
     ...(shared ? { flagSharedDevice: true } : {}),
   };

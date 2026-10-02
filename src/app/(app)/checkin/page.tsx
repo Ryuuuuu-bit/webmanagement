@@ -11,25 +11,33 @@ import DeleteRecordButton from "@/components/DeleteRecordButton";
 import EditAttendanceButton from "@/components/EditAttendanceButton";
 import Link from "next/link";
 import TableFilter from "@/components/TableFilter";
-import { getCheckinPolicy, getWorkHoursForUser } from "@/lib/settings";
+import { getCheckinPolicy, workHoursForSite } from "@/lib/settings";
 import type { CredentialState } from "@/components/CheckinClient";
 import { formatDate, formatTime, todayAtMidnight } from "@/lib/date";
-import { getExpectedSite, type ExpectedSiteResult } from "@/lib/geo";
+import { getAssignedSites, type AssignedSites } from "@/lib/geo";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary, type Dictionary } from "@/lib/i18n/dictionaries";
 
-/** Renders the teacher's assigned site — same two outcomes the check-in/out server actions themselves branch on (see getExpectedSite), so what a teacher sees here always matches what actually happens when they tap the button. */
-function SiteRow({ result, dict }: { result: ExpectedSiteResult; dict: Dictionary }) {
-  if (result.kind === "no_site") {
+/** The teacher's sites — same list the check-in/out server actions accept (see getAssignedSites), so what a teacher sees here always matches what happens when they tap the button. */
+function SiteRows({ sites, dict }: { sites: AssignedSites; dict: Dictionary }) {
+  if (sites.all.length === 0) {
     return <p className="text-sm text-danger">{dict.actions.checkin.noSiteAssigned}</p>;
   }
   return (
-    <p className="text-sm">
-      📍 <span className="font-medium">{result.site.name}</span>
-      <span className="ml-1 text-faint">
-        ({dict.locations.radiusLabel} {result.site.radiusMeters} {dict.locations.metersShort})
-      </span>
-    </p>
+    <ul className="flex flex-col gap-1">
+      {sites.all.map((site, i) => (
+        <li key={site.id} className="text-sm">
+          📍 <span className="font-medium">{site.name}</span>
+          <span className="ml-1 text-faint">
+            ({dict.locations.radiusLabel} {site.radiusMeters} {dict.locations.metersShort})
+          </span>
+          {i > 0 || !sites.primary ? <span className="ml-1.5 rounded-full bg-page px-2 py-0.5 text-[11px] text-muted">{dict.checkin.extraSiteTag}</span> : null}
+          {site.workStart || site.workEnd ? (
+            <span className="ml-1.5 text-xs text-faint">🕗 {site.workStart ?? "–"}–{site.workEnd ?? "–"}</span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -41,15 +49,15 @@ export default async function CheckinPage() {
   const dict = getDictionary(locale);
 
   if (!isAdmin) {
-    const [attendance, site, credentials, policy, hours] = await Promise.all([
+    const [attendance, sites, credentials, policy] = await Promise.all([
       prisma.attendance.findUnique({
         where: { userId_date: { userId: session.user.id, date } },
       }),
-      getExpectedSite(session.user.id),
+      getAssignedSites(session.user.id),
       listMyCredentials(),
       getCheckinPolicy(),
-      getWorkHoursForUser(session.user.id),
     ]);
+    const hours = workHoursForSite(sites.primary, policy);
     const credentialState: CredentialState = credentials.some((c) => !c.pending)
       ? "approved"
       : credentials.length > 0
@@ -78,7 +86,7 @@ export default async function CheckinPage() {
             credentialState={credentialState}
             policy={policy}
             attestPending={attestPending}
-            site={site.kind === "ok" ? { name: site.site.name, latitude: site.site.latitude, longitude: site.site.longitude, radiusMeters: site.site.radiusMeters } : null}
+            sites={sites.all.map((x) => ({ name: x.name, latitude: x.latitude, longitude: x.longitude, radiusMeters: x.radiusMeters }))}
           />
           <div className="mt-4 flex justify-center gap-6 text-sm text-subtle">
             <span>{dict.checkin.checkinShort}: {formatTime(attendance?.checkinAt, locale) ?? "—"}</span>
@@ -89,7 +97,7 @@ export default async function CheckinPage() {
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
           <h2 className="text-base font-bold">{dict.checkin.todaySiteTitle}</h2>
           <p className="mb-3 text-sm text-muted">{dict.checkin.todaySiteHint}</p>
-          <SiteRow result={site} dict={dict} />
+          <SiteRows sites={sites} dict={dict} />
           <p className="mt-1 text-sm text-subtle">
             🕗 {dict.checkin.workHours(hours.start, hours.end)}
             {hours.graceMinutes > 0 && <span className="ml-1 text-faint">{dict.checkin.graceNote(hours.graceMinutes)}</span>}
@@ -175,6 +183,13 @@ export default async function CheckinPage() {
                       <>📍 {t.campusLocation.name}</>
                     ) : (
                       <span className="text-faint">{dict.teachers.siteUnset}</span>
+                    )}
+                    {/* Stamped at another of their sites (teachers who move between sites). */}
+                    {a?.checkinSiteId && a.checkinSiteId !== t.campusLocationId && (
+                      <span className="block text-[11px] text-muted">{dict.checkin.inAtSite(a.checkinSiteName ?? "-")}</span>
+                    )}
+                    {a?.checkoutSiteId && a.checkoutSiteId !== (a.checkinSiteId ?? t.campusLocationId) && (
+                      <span className="block text-[11px] text-muted">{dict.checkin.outAtSite(a.checkoutSiteName ?? "-")}</span>
                     )}
                   </td>
                   <td className="py-2"><AttendanceBadge status={a?.status ?? "PENDING"} row={a} dict={dict} /></td>

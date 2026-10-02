@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import UserManagement from "@/components/UserManagement";
 import UserImport from "@/components/UserImport";
-import { createUser, resetUserPassword, updateUserRole, updateUserSite, deleteUser, setUserActive, updateUsername, updateUserProfile, importUsers } from "@/actions/users";
+import { createUser, resetUserPassword, updateUserRole, updateUserSite, updateUserExtraSites, deleteUser, setUserActive, updateUsername, updateUserProfile, importUsers } from "@/actions/users";
 import { adminClearWebauthnCredentials } from "@/actions/webauthn";
 import { createEnrollmentLink } from "@/actions/enrollment";
 import { sendPasswordSetupEmail } from "@/actions/passwordReset";
@@ -14,7 +14,7 @@ export default async function AdminUsersPage() {
   if (session.user.role !== "ADMIN") redirect("/dashboard");
 
   const [users, departments, campusLocations] = await Promise.all([
-    prisma.user.findMany({ include: { department: true, campusLocation: true }, orderBy: [{ isActive: "desc" }, { name: "asc" }] }),
+    prisma.user.findMany({ include: { department: true, campusLocation: true, extraSites: { select: { locationId: true } } }, orderBy: [{ isActive: "desc" }, { name: "asc" }] }),
     prisma.department.findMany({ orderBy: { name: "asc" } }),
     prisma.campusLocation.findMany({ orderBy: { name: "asc" } }),
   ]);
@@ -31,6 +31,7 @@ export default async function AdminUsersPage() {
         role: u.role,
         department: u.department ? { id: u.department.id, name: u.department.name } : null,
         campusLocation: u.campusLocation ? { id: u.campusLocation.id, name: u.campusLocation.name } : null,
+        extraSiteIds: u.extraSites.map((x) => x.locationId),
         mustChangePassword: u.mustChangePassword,
         tempPasswordExpiresAt: u.tempPasswordExpiresAt?.toISOString() ?? null,
         isActive: u.isActive,
@@ -44,6 +45,7 @@ export default async function AdminUsersPage() {
       resetUserPassword={resetUserPassword}
       updateUserRole={updateUserRole}
       updateUserSite={updateUserSite}
+      updateUserExtraSites={updateUserExtraSites}
       deleteUser={deleteUser}
       clearWebauthnCredentials={adminClearWebauthnCredentials}
       setUserActive={setUserActive}

@@ -2,6 +2,8 @@
 const nextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: "10mb" },
+    // src/instrumentation.ts starts the background scheduler on boot.
+    instrumentationHook: true,
   },
   // Baseline browser hardening on every response (the file routes add
   // stricter per-response headers of their own).

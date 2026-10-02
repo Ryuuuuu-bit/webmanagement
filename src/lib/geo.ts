@@ -6,6 +6,47 @@ export { haversineMeters };
 
 export type ExpectedSite = { id: string; name: string; latitude: number; longitude: number; radiusMeters: number };
 
+/** A site plus its optional working-hours overrides (null = AppSetting defaults). */
+export type SiteWithHours = ExpectedSite & { workStart: string | null; workEnd: string | null; lateGraceMinutes: number | null };
+
+/**
+ * Every site a teacher may check in/out at: the primary one
+ * (User.campusLocationId) first, then any extra sites an Admin assigned
+ * (UserSite) for teachers who move between sites during the day.
+ */
+export type AssignedSites = { primary: SiteWithHours | null; extras: SiteWithHours[]; all: SiteWithHours[] };
+
+const SITE_SELECT = { id: true, name: true, latitude: true, longitude: true, radiusMeters: true, workStart: true, workEnd: true, lateGraceMinutes: true } as const;
+
+export async function getAssignedSites(teacherId: string): Promise<AssignedSites> {
+  const user = await prisma.user.findUnique({
+    where: { id: teacherId },
+    select: { campusLocation: { select: SITE_SELECT }, extraSites: { select: { location: { select: SITE_SELECT } }, orderBy: { createdAt: "asc" } } },
+  });
+  const primary = user?.campusLocation ?? null;
+  const extras = (user?.extraSites ?? []).map((x) => x.location).filter((l) => l.id !== primary?.id);
+  return { primary, extras, all: primary ? [primary, ...extras] : extras };
+}
+
+/** Nearest site to the point, with its distance in meters (null when the list is empty). */
+export function nearestSite<T extends ExpectedSite>(lat: number, lng: number, sites: T[]): { site: T; distance: number } | null {
+  let best: { site: T; distance: number } | null = null;
+  for (const site of sites) {
+    const distance = haversineMeters(lat, lng, site.latitude, site.longitude);
+    if (!best || distance < best.distance) best = { site, distance };
+  }
+  return best;
+}
+
+/** The nearest assigned site whose radius contains the point, or null. */
+export function matchSite<T extends ExpectedSite>(lat: number, lng: number, sites: T[]): T | null {
+  const inside = sites
+    .map((site) => ({ site, distance: haversineMeters(lat, lng, site.latitude, site.longitude) }))
+    .filter((x) => x.distance <= x.site.radiusMeters)
+    .sort((a, b) => a.distance - b.distance);
+  return inside[0]?.site ?? null;
+}
+
 export type ExpectedSiteResult =
   | { kind: "no_site" }
   | { kind: "ok"; site: ExpectedSite };

@@ -53,7 +53,13 @@ export async function getWorkHoursForUser(userId: string): Promise<WorkHours> {
       select: { campusLocation: { select: { workStart: true, workEnd: true, lateGraceMinutes: true } } },
     }),
   ]);
-  const site = user?.campusLocation;
+  return workHoursForSite(user?.campusLocation ?? null, policy);
+}
+
+type SiteHours = { workStart: string | null; workEnd: string | null; lateGraceMinutes: number | null };
+
+/** Hours at one specific site (teachers with several sites use the hours of the site they stamped at). */
+export function workHoursForSite(site: SiteHours | null, policy: CheckinPolicy): WorkHours {
   const fromSite = !!(site && (site.workStart || site.workEnd || site.lateGraceMinutes !== null));
   return {
     start: site?.workStart || policy.workStart,

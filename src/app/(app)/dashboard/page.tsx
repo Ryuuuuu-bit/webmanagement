@@ -7,7 +7,7 @@ import TableFilter from "@/components/TableFilter";
 import CheckinClient, { type CredentialState } from "@/components/CheckinClient";
 import { listMyCredentials } from "@/actions/webauthn";
 import { getCheckinPolicy } from "@/lib/settings";
-import { getExpectedSite } from "@/lib/geo";
+import { getAssignedSites } from "@/lib/geo";
 import { formatTime, todayAtMidnight, toWeekdayIndex } from "@/lib/date";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary, type Dictionary } from "@/lib/i18n/dictionaries";
@@ -20,7 +20,7 @@ export default async function DashboardPage() {
   const dict = getDictionary(locale);
 
   if (!isAdmin) {
-    const [attendance, todaySchedule, pendingLeave, pendingAttest, site, credentials, policy] = await Promise.all([
+    const [attendance, todaySchedule, pendingLeave, pendingAttest, sites, credentials, policy] = await Promise.all([
       prisma.attendance.findUnique({ where: { userId_date: { userId: session.user.id, date } } }),
       prisma.schedule.findMany({
         where: { teacherId: session.user.id, dayOfWeek: toWeekdayIndex(new Date()) },
@@ -29,7 +29,7 @@ export default async function DashboardPage() {
       }),
       prisma.leaveRequest.count({ where: { requesterId: session.user.id, status: "PENDING" } }),
       prisma.timeAttestation.count({ where: { requesterId: session.user.id, status: "PENDING" } }),
-      getExpectedSite(session.user.id),
+      getAssignedSites(session.user.id),
       listMyCredentials(),
       getCheckinPolicy(),
     ]);
@@ -72,13 +72,13 @@ export default async function DashboardPage() {
             credentialState={credentialState}
             policy={policy}
             attestPending={attestPending}
-            site={site.kind === "ok" ? { name: site.site.name, latitude: site.site.latitude, longitude: site.site.longitude, radiusMeters: site.site.radiusMeters } : null}
+            sites={sites.all.map((x) => ({ name: x.name, latitude: x.latitude, longitude: x.longitude, radiusMeters: x.radiusMeters }))}
           />
           <p className="mt-3 text-center text-xs text-faint">
-            {site.kind === "no_site" ? (
+            {sites.all.length === 0 ? (
               <span className="text-danger">{dict.actions.checkin.noSiteAssigned}</span>
             ) : (
-              <>📍 {site.site.name}</>
+              <>📍 {sites.all.map((x) => x.name).join(" · ")}</>
             )}
           </p>
         </div>

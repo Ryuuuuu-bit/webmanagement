@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useLanguage } from "./LanguageProvider";
 
-type SemesterRow = { id: string; name: string; startDate: string; endDate: string };
+type SemesterRow = { id: string; name: string; startDate: string; endDate: string; lessonPlanDueDate: string | null };
 type ActionResult = { ok: boolean; message: string };
 
 function toDateInput(iso: string) {
@@ -64,6 +64,10 @@ export default function SemesterManagement({
         <input name="name" required placeholder={dict.masterData.semesters.namePlaceholder} className="input w-36" />
         <input name="startDate" required type="date" className="input" />
         <input name="endDate" required type="date" className="input" />
+        <label className="flex items-center gap-1.5 text-xs text-muted">
+          {dict.masterData.semesters.dueLabel}
+          <input name="lessonPlanDueDate" type="date" className="input" title={dict.masterData.semesters.dueHint} />
+        </label>
         <button type="submit" disabled={pending} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
           {pending ? dict.common.saving : dict.common.add}
         </button>
@@ -77,6 +81,10 @@ export default function SemesterManagement({
               <input name="name" required defaultValue={s.name} className="input w-36" />
               <input name="startDate" required type="date" defaultValue={toDateInput(s.startDate)} className="input" />
               <input name="endDate" required type="date" defaultValue={toDateInput(s.endDate)} className="input" />
+              <label className="flex items-center gap-1.5 text-xs text-muted">
+                {dict.masterData.semesters.dueLabel}
+                <input name="lessonPlanDueDate" type="date" defaultValue={s.lessonPlanDueDate ? toDateInput(s.lessonPlanDueDate) : ""} className="input" />
+              </label>
               <button type="submit" disabled={pending} className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60">{dict.common.save}</button>
               <button type="button" onClick={() => setEditingId(null)} className="rounded px-1.5 py-1.5 text-xs font-semibold text-muted hover:bg-line-soft">{dict.common.cancel}</button>
             </form>
@@ -87,6 +95,11 @@ export default function SemesterManagement({
                 <span className="ml-2 text-faint">
                   {new Date(s.startDate).toLocaleDateString("th-TH")} – {new Date(s.endDate).toLocaleDateString("th-TH")}
                 </span>
+                {s.lessonPlanDueDate && (
+                  <span className="ml-2 rounded-full bg-warn-soft px-2 py-0.5 text-[11px] text-warn">
+                    {dict.masterData.semesters.dueShort(new Date(s.lessonPlanDueDate).toLocaleDateString("th-TH"))}
+                  </span>
+                )}
               </span>
               <div className="flex items-center gap-3">
                 <button onClick={() => setEditingId(s.id)} className="rounded px-1.5 py-1.5 text-xs font-semibold text-brand-ink underline hover:bg-line-soft">{dict.common.edit}</button>

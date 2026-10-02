@@ -47,7 +47,12 @@ export default async function UserHistoryPage({ params }: { params: { id: string
         <Link href="/admin/users" className="text-sm text-brand-ink hover:underline">
           {dict.history.back}
         </Link>
-        <h1 className="mt-1 text-lg font-bold">{dict.history.title(user.name)}</h1>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-lg font-bold">{dict.history.title(user.name)}</h1>
+          <a href={`/api/pdpa/export?userId=${user.id}`} className="rounded-lg border border-brand px-3 py-1.5 text-xs font-semibold text-brand-ink hover:bg-brand-soft" title={dict.history.pdpaExportHint}>
+            {dict.history.pdpaExport}
+          </a>
+        </div>
         <p className="text-sm text-muted">
           {user.username && <span className="mr-2 font-mono text-xs text-faint">{user.username}</span>}
           {dict.history.hint}

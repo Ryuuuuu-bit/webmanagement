@@ -80,3 +80,18 @@ export function formatDayTime(dict: Dictionary, locale: Locale, dayOfWeek: numbe
 export function formatTimeLabel(t: string, locale: Locale = "th") {
   return locale === "th" ? `${t} น.` : t;
 }
+
+/** "YYYY-MM-DD" of the given instant on the Bangkok calendar. */
+export function bangkokDateKey(d: Date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: BANGKOK_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+}
+
+/** "YYYY-MM-DD" of a date picked in a form (stored as UTC midnight of that day). */
+export function pickedDateKey(d: Date | string) {
+  return new Date(d).toISOString().slice(0, 10);
+}
+
+/** Whole calendar days from key `a` to key `b` (b - a). */
+export function daysBetweenKeys(a: string, b: string) {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+}

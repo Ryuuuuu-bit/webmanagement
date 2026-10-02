@@ -133,6 +133,9 @@ model User {
   notifications       Notification[]
   pushSubscriptions   PushSubscription[]
   issueReports        IssueReport[]        @relation("IssueReporter")
+  // Extra sites (besides campusLocation) where this teacher may also check
+  // in/out — for teachers who move between sites on the same day.
+  extraSites          UserSite[]
   handledIssues       IssueReport[]        @relation("IssueHandler")
 }
 
@@ -251,7 +254,10 @@ model Semester {
   name      String // e.g. "1/2569"
   startDate DateTime
   endDate   DateTime
+  /// Lesson plans for this semester are due by the end of this day (optional).
+  lessonPlanDueDate DateTime?
   schedules Schedule[]
+  lessonPlans LessonPlan[]
 }
 
 // FR-17: configurable check-in/out geofence locations (not hardcoded)
@@ -268,6 +274,19 @@ model CampusLocation {
   rooms        Room[]
   // Teachers permanently stationed at this site (see User.campusLocationId).
   teachers     User[]
+  extraTeachers UserSite[]
+}
+
+/// Additional check-in sites for a teacher (primary site = User.campusLocationId).
+model UserSite {
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locationId String
+  location   CampusLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+
+  @@id([userId, locationId])
+  @@index([locationId])
 }
 
 model Schedule {
@@ -329,6 +348,12 @@ model Attendance {
   flagSharedDevice Boolean @default(false)
   // Checked out before the site's workEnd (shown to Admin; never blocks).
   earlyCheckout    Boolean @default(false)
+  // Which site the stamp was made at (teachers may have several sites);
+  // the name is a snapshot so history survives a renamed/deleted site.
+  checkinSiteId    String?
+  checkinSiteName  String?
+  checkoutSiteId   String?
+  checkoutSiteName String?
 
   @@unique([userId, date])
   @@index([date])
@@ -418,8 +443,12 @@ model LessonPlan {
   reviewNote  String?
   submittedAt DateTime         @default(now())
   decidedAt   DateTime?
+  /// One plan per teacher + course + semester (null = submitted before semesters were tracked).
+  semesterId  String?
+  semester    Semester?        @relation(fields: [semesterId], references: [id], onDelete: SetNull)
 
-  @@unique([teacherId, courseId])
+  @@unique([teacherId, courseId, semesterId])
+  @@index([semesterId])
 }
 
 // Anti "buddy punching" (ฝากเช็คอิน/เช็คเอาต์แทนกัน): each teacher can
@@ -484,6 +513,19 @@ model AppSetting {
   lateGraceMinutes        Int      @default(0)
   // One-off maintenance scripts record the token they ran with here so a
   // container restart never re-runs them (see scripts/).
+  // Automatic reminders (src/lib/scheduler.ts)
+  remindCheckin           Boolean  @default(true)
+  remindCheckinAfterMin   Int      @default(15)
+  remindCheckout          Boolean  @default(true)
+  remindCheckoutAfterMin  Int      @default(30)
+  remindWeekdays          String   @default("0,1,2,3,4")
+  pendingDigest           Boolean  @default(true)
+  pendingDigestDays       Int      @default(2)
+  pendingDigestTime       String   @default("09:00")
+  lessonPlanReminders     Boolean  @default(true)
+  // PDPA retention in months (0 = keep)
+  attendanceRetentionMonths Int    @default(0)
+  attachmentRetentionMonths Int    @default(0)
   seedToken               String?
   maintenanceToken        String?
   updatedAt               DateTime @updatedAt
@@ -608,4 +650,12 @@ model IssueReport {
 
   @@index([status, createdAt])
   @@index([reporterId, createdAt])
+}
+
+/// Idempotency keys for scheduled jobs (each key fires once).
+model ReminderLog {
+  key       String   @id
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

@@ -179,10 +179,42 @@ export async function updateUserRole(
 }
 
 /**
+ * Admin sets the *extra* sites a teacher may also check in/out at (besides
+ * the primary site) — for teachers who teach at more than one site on the
+ * same day. Replaces the whole list; the primary site is ignored if passed.
+ */
+export async function updateUserExtraSites(userId: string, locationIds: string[]): Promise<{ ok: boolean; message: string }> {
+  const session = await requireAdmin();
+  const dict = getDictionary(getLocale());
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, campusLocationId: true, extraSites: { select: { locationId: true } } } });
+  if (!user) return { ok: false, message: dict.actions.users.notFound };
+  const wanted = Array.from(new Set(locationIds.filter((id) => id && id !== user.campusLocationId))).slice(0, 20);
+  const found = await prisma.campusLocation.findMany({ where: { id: { in: wanted } }, select: { id: true, name: true } });
+  if (found.length !== wanted.length) return { ok: false, message: dict.actions.users.invalidSite };
+
+  await prisma.$transaction([
+    prisma.userSite.deleteMany({ where: { userId, locationId: { notIn: wanted } } }),
+    ...wanted.map((locationId) => prisma.userSite.upsert({ where: { userId_locationId: { userId, locationId } }, create: { userId, locationId }, update: {} })),
+  ]);
+  const before = new Set(user.extraSites.map((x) => x.locationId));
+  const changed = before.size !== wanted.length || wanted.some((id) => !before.has(id));
+  if (changed) {
+    const names = found.map((f) => f.name).join(", ");
+    await notifyUser(userId, "SITES_UPDATED", { siteNames: names || null }, "/checkin");
+    await logAudit({ action: "SITES_CHANGED", actorId: session.user.id, targetUserId: userId, ip: getClientIp(), detail: `extra sites: ${names || "—"}` });
+  }
+  revalidatePath("/admin/users");
+  revalidatePath("/checkin");
+  revalidatePath("/schedule");
+  return { ok: true, message: dict.actions.users.extraSitesSaved(user.name, found.length) };
+}
+
+/**
  * Admin assigns (or clears) the one site this teacher is permanently
- * stationed at — the sole input to check-in/out validation (see
- * getExpectedSite in src/lib/geo.ts). Pass null to unassign (blocks that
- * teacher's check-in/out until a site is set again).
+ * stationed at — the main input to check-in/out validation, together with
+ * any extra sites (see getAssignedSites in src/lib/geo.ts). Pass null to
+ * unassign.
  */
 export async function updateUserSite(
   userId: string,

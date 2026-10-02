@@ -34,15 +34,15 @@ export default function CheckinClient({
   credentialState,
   policy,
   attestPending = false,
-  site = null,
+  sites = [],
 }: {
   attendance: Attendance;
   credentialState: CredentialState;
   policy: CheckinPolicy;
   /** A check-in attestation for today is already waiting — don't nag. */
   attestPending?: boolean;
-  /** The teacher's assigned site — lets the page refuse early when out of range. */
-  site?: CheckinSite | null;
+  /** The teacher's sites (primary + extras) — lets the page refuse early when out of range of all of them. */
+  sites?: CheckinSite[];
 }) {
   const { dict, locale } = useLanguage();
   const [pending, startTransition] = useTransition();
@@ -126,10 +126,15 @@ export default function CheckinClient({
   function afterLocation(kind: ActionKind, lat: number, lng: number) {
     // Same rule the server applies — checked here first so a teacher outside
     // the radius isn't asked for a selfie and Face ID only to be refused.
-    if (site) {
-      const d = haversineMeters(lat, lng, site.latitude, site.longitude);
-      if (d > site.radiusMeters) {
-        setMessage({ ok: false, text: dict.checkin.tooFar(site.name, Math.round(d), site.radiusMeters) });
+    if (sites.length > 0) {
+      let nearest: { site: CheckinSite; d: number } | null = null;
+      for (const x of sites) {
+        const d = haversineMeters(lat, lng, x.latitude, x.longitude);
+        if (d <= x.radiusMeters) { nearest = null; break; }
+        if (!nearest || d < nearest.d) nearest = { site: x, d };
+      }
+      if (nearest) {
+        setMessage({ ok: false, text: dict.checkin.tooFar(nearest.site.name, Math.round(nearest.d), nearest.site.radiusMeters) });
         return;
       }
     }

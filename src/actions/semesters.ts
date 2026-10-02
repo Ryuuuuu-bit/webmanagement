@@ -18,16 +18,20 @@ function parseSemesterInput(formData: FormData) {
   const name = (formData.get("name") as string || "").trim();
   const startDate = new Date(formData.get("startDate") as string);
   const endDate = new Date(formData.get("endDate") as string);
-  return { name, startDate, endDate };
+  const dueRaw = ((formData.get("lessonPlanDueDate") as string) || "").trim();
+  const lessonPlanDueDate = dueRaw ? new Date(dueRaw) : null;
+  return { name, startDate, endDate, lessonPlanDueDate };
 }
 
 function validateSemesterInput(
-  { name, startDate, endDate }: ReturnType<typeof parseSemesterInput>,
+  { name, startDate, endDate, lessonPlanDueDate }: ReturnType<typeof parseSemesterInput>,
   dict: Dictionary
 ) {
   if (!name) return dict.actions.semesters.fillRequired;
   if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return dict.actions.semesters.invalidDates;
   if (endDate <= startDate) return dict.actions.semesters.endBeforeStart;
+  if (lessonPlanDueDate && isNaN(lessonPlanDueDate.getTime())) return dict.actions.semesters.invalidDates;
+  if (lessonPlanDueDate && lessonPlanDueDate > endDate) return dict.actions.semesters.dueAfterEnd;
   return null;
 }
 
@@ -45,6 +49,7 @@ export async function createSemester(
 
   await prisma.semester.create({ data: input });
   revalidatePath("/admin/master-data");
+  revalidatePath("/lesson-plans");
   return { ok: true, message: dict.actions.semesters.created(input.name) };
 }
 
@@ -62,6 +67,7 @@ export async function updateSemester(
 
   await prisma.semester.update({ where: { id }, data: input });
   revalidatePath("/admin/master-data");
+  revalidatePath("/lesson-plans");
   return { ok: true, message: dict.actions.semesters.updated(input.name) };
 }
 
