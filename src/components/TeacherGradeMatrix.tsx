@@ -44,38 +44,35 @@ export default function TeacherGradeMatrix({
       <div className="mt-3">
         <TableFilter targetId="grade-matrix" pageSize={30} />
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs text-faint">
-              <th className="pb-2">{t.colTeacher}</th>
-              {GRADES.map((g) => <th key={g} className="pb-2 text-center">{dict.grades[g]}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {teachers.map((x) => (
-              <tr key={x.id} className="border-t border-line-soft">
-                <td className="py-1.5">
-                  <div className="font-medium">{x.name}</div>
-                  <div className="text-xs text-faint">{x.siteName ?? "—"}</div>
-                </td>
-                {GRADES.map((g) => (
-                  <td key={g} className="py-1.5 text-center">
-                    <input
-                      type="checkbox"
-                      aria-label={`${x.name} ${dict.grades[g]}`}
-                      checked={(levels[x.id] ?? []).includes(g)}
-                      disabled={pending}
-                      onChange={(e) => toggle(x.id, g, e.target.checked)}
-                      className="h-4 w-4 accent-brand"
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* One row per teacher with five toggle chips — wraps on phones instead of a wide table. */}
+      <ul className="divide-y divide-line-soft">
+        {teachers.map((x) => (
+          <li key={x.id} data-row className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium">{x.name}</div>
+              <div className="truncate text-xs text-faint">{x.siteName ?? "—"}</div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {GRADES.map((g) => {
+                const on = (levels[x.id] ?? []).includes(g);
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    aria-pressed={on}
+                    aria-label={`${x.name} ${dict.grades[g]}`}
+                    disabled={pending}
+                    onClick={() => toggle(x.id, g, !on)}
+                    className={`min-h-[2rem] rounded-full border px-3 text-xs transition-colors disabled:opacity-60 ${on ? "border-brand bg-brand text-white" : "border-line text-subtle hover:bg-line-soft"}`}
+                  >
+                    {dict.grades[g]}
+                  </button>
+                );
+              })}
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

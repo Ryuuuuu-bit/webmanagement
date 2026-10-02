@@ -33,7 +33,7 @@ export default function NotificationBell({ variant, onNavigate }: { variant: "na
       <Link
         href="/notifications"
         aria-label={dict.notifications.bell}
-        className="relative flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-line text-subtle"
+        className="relative flex h-9 w-9 flex-none items-center justify-center rounded-full bg-line-soft text-subtle"
       >
         <BellIcon className="h-[18px] w-[18px]" />
         <Badge n={unread} className="absolute -right-1.5 -top-1.5" />
@@ -45,7 +45,7 @@ export default function NotificationBell({ variant, onNavigate }: { variant: "na
     <Link
       href="/notifications"
       onClick={onNavigate}
-      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium ${
+      className={`flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm font-medium ${
         active ? "bg-brand-soft text-brand-ink" : "text-subtle hover:bg-line-soft"
       }`}
     >

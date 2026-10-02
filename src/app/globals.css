@@ -13,78 +13,134 @@
  */
 :root {
   color-scheme: light;
-  --color-page: #f4f6f4;
+  --color-page: #f4f6f8;
   --color-surface: #ffffff;
-  --color-text: #1b231f;
+  --color-text: #16201c;
 
-  --color-line: rgb(0 0 0 / 0.1);
-  --color-line-soft: rgb(0 0 0 / 0.05);
-  --color-line-strong: rgb(0 0 0 / 0.15);
+  --color-line: rgb(16 24 32 / 0.09);
+  --color-line-soft: rgb(16 24 32 / 0.05);
+  --color-line-strong: rgb(16 24 32 / 0.16);
 
-  --color-muted: rgb(0 0 0 / 0.5);
-  --color-faint: rgb(0 0 0 / 0.4);
-  --color-subtle: rgb(0 0 0 / 0.6);
+  --color-muted: rgb(16 24 32 / 0.56);
+  --color-faint: rgb(16 24 32 / 0.42);
+  --color-subtle: rgb(16 24 32 / 0.66);
 
   --color-brand: #2f6f5e;
-  --color-brand-ink: #1b4438;
-  --color-brand-soft: #e3f0ec;
+  --color-brand-ink: #1c4a3e;
+  --color-brand-soft: #e5f2ed;
 
-  --color-ok: #2f7d5a;
-  --color-ok-soft: #e3f3e9;
+  --color-ok: #23825a;
+  --color-ok-soft: #e2f4ea;
 
-  --color-warn: #b5651d;
-  --color-warn-soft: #fbeedd;
+  --color-warn: #b25f12;
+  --color-warn-soft: #fcefdc;
 
-  --color-danger: #b4423a;
-  --color-danger-soft: #fbe7e5;
+  --color-danger: #c03a32;
+  --color-danger-soft: #fce8e6;
 
-  --color-info: #3162a6;
-  --color-info-soft: #e7eef7;
+  --color-info: #2d63b0;
+  --color-info-soft: #e6eefa;
+
+  --shadow-card: 0 1px 2px rgb(16 24 32 / 0.04), 0 2px 8px -2px rgb(16 24 32 / 0.06);
+  --shadow-pop: 0 12px 32px -8px rgb(16 24 32 / 0.18), 0 2px 6px rgb(16 24 32 / 0.06);
 }
 
 :root.dark {
   color-scheme: dark;
-  --color-page: #14171a;
-  --color-surface: #1e2124;
-  --color-text: #e8ebe9;
+  --color-page: #0f1315;
+  --color-surface: #182023;
+  --color-text: #e7ecea;
 
-  --color-line: rgb(255 255 255 / 0.12);
-  --color-line-soft: rgb(255 255 255 / 0.06);
+  --color-line: rgb(255 255 255 / 0.1);
+  --color-line-soft: rgb(255 255 255 / 0.055);
   --color-line-strong: rgb(255 255 255 / 0.18);
 
-  --color-muted: rgb(255 255 255 / 0.55);
-  --color-faint: rgb(255 255 255 / 0.4);
-  --color-subtle: rgb(255 255 255 / 0.68);
+  --color-muted: rgb(255 255 255 / 0.58);
+  --color-faint: rgb(255 255 255 / 0.42);
+  --color-subtle: rgb(255 255 255 / 0.7);
 
   --color-brand: #55b298;
-  --color-brand-ink: #bfe9da;
-  --color-brand-soft: rgb(85 178 152 / 0.18);
+  --color-brand-ink: #c2ecdf;
+  --color-brand-soft: rgb(85 178 152 / 0.17);
 
   --color-ok: #5bc98d;
-  --color-ok-soft: rgb(91 201 141 / 0.18);
+  --color-ok-soft: rgb(91 201 141 / 0.16);
 
-  --color-warn: #e2984b;
-  --color-warn-soft: rgb(226 152 75 / 0.18);
+  --color-warn: #e8a254;
+  --color-warn-soft: rgb(232 162 84 / 0.16);
 
-  --color-danger: #e2746b;
-  --color-danger-soft: rgb(226 116 107 / 0.18);
+  --color-danger: #ec7b72;
+  --color-danger-soft: rgb(236 123 114 / 0.16);
 
-  --color-info: #6fa0e0;
-  --color-info-soft: rgb(111 160 224 / 0.18);
+  --color-info: #79a8e6;
+  --color-info-soft: rgb(121 168 230 / 0.16);
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-pop: 0 16px 40px -8px rgb(0 0 0 / 0.6);
 }
 
 body {
   background-color: var(--color-page);
   color: var(--color-text);
   transition: background-color 0.15s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+}
+
+/* Numbers in tables/tiles line up. */
+.tabular,
+table {
+  font-variant-numeric: tabular-nums;
 }
 
 .badge {
-  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5;
 }
 
+/* 16px on phones: iOS Safari zooms the page when a smaller input gets focus. */
 .input {
-  @apply rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand;
+  @apply min-h-[2.5rem] rounded-xl border border-line-strong bg-surface px-3 py-2 text-base text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-2 focus:ring-brand-soft sm:text-sm;
+}
+select.input {
+  @apply pr-8;
+}
+
+@layer components {
+  /* Shared building blocks (new code uses these; older screens keep their utilities). */
+  .card {
+    @apply rounded-2xl border border-line bg-surface shadow-card;
+  }
+  .btn {
+    @apply inline-flex min-h-[2.5rem] items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-semibold transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white hover:brightness-110;
+  }
+  .btn-secondary {
+    @apply btn border border-line-strong bg-surface text-ink hover:bg-line-soft;
+  }
+  .btn-ghost {
+    @apply btn text-subtle hover:bg-line-soft;
+  }
+  .btn-sm {
+    @apply min-h-[2rem] rounded-lg px-3 text-xs;
+  }
+}
+
+/* Thin, unobtrusive scrollbars on desktop. */
+@media (pointer: fine) {
+  * { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
+}
+
+/* Room for the phone bottom tab bar + the iPhone home indicator. */
+.pb-tabbar {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 1024px) {
+  .pb-tabbar { padding-bottom: 1.5rem; }
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /*
@@ -100,6 +156,16 @@ body {
   min-width: 560px;
 }
 
+/* Bottom sheet (phone menu) entrance. */
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.sheet-up { animation: sheetUp 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .sheet-up { animation: none; }
+}
+
 /* Notification toast entrance (NotificationProvider). */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
@@ -113,51 +179,67 @@ body {
   100% { box-shadow: 0 0 0 0 rgb(255 255 255 / 0); }
 }
 
-/* Phone layout for data tables: each row becomes a card, every cell shows
-   its column header as a label (StackTables fills data-label from <thead>).
-   Wide admin tables were unreadable at 390px — only 2 columns fit and the
-   rest hid behind a horizontal scroll. Desktop/tablet keep the real table. */
+/* Phone layout for data tables: each row becomes a compact card — the
+   first cell (usually the name) is the card title, the other labelled
+   cells sit in a two-column grid with their header as a small caption
+   (StackTables fills data-label from <thead>), empty cells disappear and
+   action buttons line up at the bottom. Desktop/tablet keep the table. */
 @media (max-width: 639px) {
   .table-stack thead { display: none; }
-  .table-stack, .table-stack tbody, .table-stack tr, .table-stack td { display: block; width: 100%; }
+  .table-stack, .table-stack tbody { display: block; width: 100%; }
   .table-stack { min-width: 0; }
   .table-stack tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 12px;
+    row-gap: 6px;
     border: 1px solid var(--color-line);
-    border-radius: 12px;
-    padding: 8px 12px;
-    margin-bottom: 8px;
+    border-radius: 16px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
     background: var(--color-surface);
+    box-shadow: var(--shadow-card);
   }
   .table-stack tr.hidden { display: none; }
   .table-stack td {
-    padding: 4px 0 !important;
+    display: block;
+    padding: 0 !important;
     border: 0 !important;
     max-width: none !important;
     white-space: normal !important;
+    min-width: 0;
+    text-align: left;
   }
   .table-stack td:empty { display: none; }
-  /* Labelled cell: label in a left column, every piece of the value (text,
-     badge, attachment link, icon) stacked in the right column, right-aligned. */
-  .table-stack td[data-label] {
-    display: grid;
-    grid-template-columns: 38% 1fr;
-    column-gap: 12px;
-    align-items: baseline;
-    text-align: right;
-  }
+  .table-stack td[data-blank]:not(:first-child) { display: none; }
   .table-stack td[data-label]::before {
     content: attr(data-label);
-    grid-column: 1;
-    grid-row: 1;
-    text-align: left;
+    display: block;
     font-size: 11px;
-    line-height: 1.5;
-    text-transform: uppercase;
+    line-height: 1.4;
     color: var(--color-faint);
+    margin-bottom: 1px;
   }
-  .table-stack td[data-label] > * { grid-column: 2; min-width: 0; }
+  /* Card title: the first cell spans the row, bigger, no caption. */
+  .table-stack td:first-child {
+    grid-column: 1 / -1;
+    font-weight: 600;
+    font-size: 15px;
+    padding-bottom: 4px !important;
+    border-bottom: 1px solid var(--color-line-soft) !important;
+    margin-bottom: 2px;
+  }
+  .table-stack td:first-child::before { display: none !important; }
   .table-stack td[data-label] > a, .table-stack td[data-label] > span.block, .table-stack td[data-label] > div { white-space: normal !important; }
-  /* Unlabelled cell (actions): buttons in a wrapping row. */
-  .table-stack td:not([data-label]) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; text-align: left; }
+  /* Unlabelled cell (actions): full-width row of buttons. */
+  .table-stack td:not([data-label]):not(:first-child) {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding-top: 6px !important;
+    border-top: 1px solid var(--color-line-soft) !important;
+  }
   .table-stack td.truncate { overflow: visible; text-overflow: clip; }
 }

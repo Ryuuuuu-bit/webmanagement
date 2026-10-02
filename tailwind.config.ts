@@ -6,7 +6,13 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-sarabun)", "system-ui", "sans-serif"],
+        sans: ["var(--font-ui)", "system-ui", "sans-serif"],
+      },
+      // Softer, layered shadows (cards float a little instead of being outlined).
+      boxShadow: {
+        sm: "var(--shadow-card)",
+        card: "var(--shadow-card)",
+        pop: "var(--shadow-pop)",
       },
       colors: {
         // Semantic, theme-aware tokens — their actual color comes from CSS

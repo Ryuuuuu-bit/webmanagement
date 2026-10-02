@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Sarabun } from "next/font/google";
+import { IBM_Plex_Sans_Thai } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import PwaRegister from "@/components/PwaRegister";
@@ -8,10 +8,14 @@ import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import "./globals.css";
 
-const sarabun = Sarabun({
+// IBM Plex Sans Thai: a modern UI face whose Thai and Latin glyphs share
+// one design (mixed Thai/English names and numbers line up), legible at
+// small sizes on phones.
+const uiFont = IBM_Plex_Sans_Thai({
   subsets: ["thai", "latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-sarabun",
+  variable: "--font-ui",
+  display: "swap",
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -34,6 +38,9 @@ export async function generateMetadata(): Promise<Metadata> {
 // status bar / task switcher once this is installed as a home-screen app.
 export const viewport: Viewport = {
   themeColor: "#2f6f5e",
+  // Lets the layout extend under the iPhone home indicator; the bottom tab
+  // bar pads itself with env(safe-area-inset-bottom).
+  viewportFit: "cover",
 };
 
 // Runs before first paint (a plain inline script, not React) so the right
@@ -57,11 +64,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const locale = getLocale();
 
   return (
-    <html lang={locale} className={sarabun.variable} suppressHydrationWarning>
+    <html lang={locale} className={uiFont.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }} />
       </head>
-      <body className="font-sans">
+      <body className="font-sans antialiased">
         <PwaRegister />
         <DeviceIdSync />
         <ThemeProvider>

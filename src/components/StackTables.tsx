@@ -6,7 +6,8 @@ import { useEffect } from "react";
  * Fills `data-label` on every cell of a `table.table-stack` from its column
  * header, so the phone layout in globals.css can print the header next to
  * each value. Re-runs when the DOM changes (filters, router.refresh).
- * Cells under an empty header (action columns) get no label.
+ * Cells under an empty header (action columns) get no label; cells with
+ * nothing but "—" are marked data-blank (hidden on phones).
  */
 export default function StackTables() {
   useEffect(() => {
@@ -21,6 +22,10 @@ export default function StackTables() {
             const h = heads[i];
             if (h && td.dataset.label !== h) td.dataset.label = h;
             else if (!h && td.dataset.label) delete td.dataset.label;
+            // A cell that only says "—" is hidden in the phone card layout.
+            const blank = /^[—–-]?$/.test(td.textContent?.trim() ?? "") && !td.querySelector("button, a, input, select, img");
+            if (blank && td.dataset.blank !== "1") td.dataset.blank = "1";
+            else if (!blank && td.dataset.blank) delete td.dataset.blank;
           });
         });
       });

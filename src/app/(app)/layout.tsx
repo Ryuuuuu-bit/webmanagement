@@ -37,12 +37,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <StackTables />
       <div className="flex min-h-screen flex-col lg:flex-row">
         <Sidebar isAdmin={isAdmin} userName={current?.name ?? session.user.name ?? session.user.email ?? "-"} />
-        <div className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6">
+        <main className="pb-tabbar mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 pt-4 sm:px-6 sm:pt-6">
           {current && (current.mustChangePassword || (!current.passwordSetAt && current._count.webauthnCredentials === 0)) && (
             <TempPasswordBanner expiresAt={current.tempPasswordExpiresAt?.toISOString() ?? null} />
           )}
           {children}
-        </div>
+        </main>
       </div>
     </NotificationProvider>
   );

@@ -83,29 +83,28 @@ export default function LeaveForm({
       <div>
         <h3 className="text-sm font-bold">{dict.leave.quotaTitle}</h3>
         <p className="mt-0.5 text-xs text-muted">{dict.leave.quotaHint}</p>
-        <div className="mt-2 overflow-x-auto rounded-lg border border-line-soft">
-          <table className="w-full min-w-0 text-xs">
-            <thead>
-              <tr className="text-left uppercase text-faint">
-                <th className="px-3 py-2">{dict.leave.quotaColType}</th>
-                <th className="px-3 py-2">{dict.leave.quotaColUsed}</th>
-                <th className="px-3 py-2">{dict.leave.quotaColQuota}</th>
-                <th className="px-3 py-2">{dict.leave.quotaColRemaining}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quotaStatus.map((q) => (
-                <tr key={q.type} className="border-t border-line-soft">
-                  <td className="px-3 py-1.5">{dict.leave.types[q.type]}</td>
-                  <td className="px-3 py-1.5">{q.used}</td>
-                  <td className="px-3 py-1.5">{q.quota === 0 ? dict.leave.quotaUnlimited : q.quota}</td>
-                  <td className={`px-3 py-1.5 ${q.remaining !== null && q.remaining <= 0 ? "font-semibold text-danger" : ""}`}>
-                    {q.remaining === null ? dict.leave.quotaUnlimited : q.remaining}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* One card per leave type: remaining days big, used/quota as a bar. */}
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {quotaStatus.map((q) => {
+            const unlimited = q.quota === 0 || q.remaining === null;
+            const pct = unlimited ? 0 : Math.min(100, (q.used / Math.max(q.quota, 1)) * 100);
+            const out = !unlimited && (q.remaining ?? 0) <= 0;
+            return (
+              <div key={q.type} className="rounded-xl border border-line bg-page px-3 py-2.5">
+                <div className="truncate text-xs text-muted">{dict.leave.types[q.type]}</div>
+                <div className="mt-0.5 flex items-baseline gap-1">
+                  <span className={`tabular text-xl font-bold ${out ? "text-danger" : ""}`}>{unlimited ? "∞" : q.remaining}</span>
+                  <span className="text-[11px] text-faint">{unlimited ? dict.leave.quotaUnlimited : `/ ${q.quota} ${dict.leave.quotaDaysLeft}`}</span>
+                </div>
+                {!unlimited && (
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line-soft">
+                    <div className={`h-full rounded-full ${out ? "bg-danger" : pct > 75 ? "bg-warn" : "bg-brand"}`} style={{ width: `${pct}%` }} />
+                  </div>
+                )}
+                <div className="mt-1 text-[11px] text-faint">{dict.leave.quotaColUsed} {q.used}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

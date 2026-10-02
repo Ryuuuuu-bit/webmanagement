@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -54,6 +54,7 @@ const ICON: Record<string, string> = {
     '<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><circle cx="5.6" cy="7" r="1.6"/><path d="M3.4 11.2c.4-1.3 1.2-2 2.2-2s1.8.7 2.2 2" stroke-linecap="round"/><line x1="9.5" y1="6" x2="12" y2="6" stroke-linecap="round"/><line x1="9.5" y1="8.5" x2="12" y2="8.5" stroke-linecap="round"/>',
   substitutes:
     '<circle cx="5" cy="5" r="2.2"/><path d="M1.5 13c.4-2.4 1.7-3.6 3.5-3.6" stroke-linecap="round"/><path d="M9 4.5h4.5M11.5 2.5l2 2-2 2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 10.5H9.5M11.5 8.5l-2 2 2 2" stroke-linecap="round" stroke-linejoin="round"/>',
+  more: '<circle cx="3.5" cy="8" r="1.2" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor" stroke="none"/>',
   feedback:
     '<path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v6a1.5 1.5 0 0 1-1.5 1.5H6.5L3 14v-3H3.5A1.5 1.5 0 0 1 2 9.5v-6Z" stroke-linejoin="round"/><line x1="8" y1="4.6" x2="8" y2="7.2" stroke-linecap="round"/><circle cx="8" cy="9" r=".5" fill="currentColor" stroke="none"/>',
 };
@@ -62,101 +63,223 @@ type NavItem = [href: string, icon: string, label: string];
 /** A titled block of links — the menu is grouped by what the person is doing (daily work / requests / admin / help). */
 type NavGroup = { title: string; items: NavItem[] };
 
-/**
- * The actual logo/nav-links/footer content, shared between the always-visible
- * desktop sidebar and the slide-over drawer used on phones/tablets — one
- * source of truth for the menu instead of two copies that could drift apart.
- * `onNavigate` closes the mobile drawer the moment a link is tapped (a no-op
- * on desktop, where there's no drawer to close).
- */
-function SidebarContent({
-  groups,
-  isAdmin,
-  userName,
-  onNavigate,
-}: {
-  groups: NavGroup[];
-  isAdmin: boolean;
-  userName: string;
-  onNavigate?: () => void;
-}) {
-  const pathname = usePathname();
-  const { dict } = useLanguage();
-
+function Icon({ name, className = "" }: { name: string; className?: string }) {
   return (
-    <>
-      <div className="flex items-center gap-2 px-2 pb-5 pt-1.5">
-        <div className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">
-          TS
-        </div>
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" className={className} aria-hidden="true"
+      dangerouslySetInnerHTML={{ __html: ICON[name] ?? "" }} />
+  );
+}
+
+function isActive(pathname: string, href: string) {
+  return pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
+}
+
+function Logo({ compact = false }: { compact?: boolean }) {
+  const { dict } = useLanguage();
+  return (
+    <Link href="/dashboard" className="flex items-center gap-2.5" aria-label={dict.appName}>
+      <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-brand to-brand-ink text-sm font-bold text-white shadow-card">
+        TS
+      </div>
+      {!compact && (
         <div className="leading-tight">
-          <div className="text-sm font-bold">{dict.appName}</div>
+          <div className="text-[15px] font-bold tracking-tight">{dict.appName}</div>
           <div className="text-[11px] text-faint">{dict.appTagline}</div>
         </div>
-      </div>
+      )}
+    </Link>
+  );
+}
 
-      <nav className="flex flex-col gap-0.5" aria-label={dict.sidebar.menu}>
-        <NotificationBell variant="nav" onNavigate={onNavigate} />
+function Avatar({ name, size = "h-9 w-9" }: { name: string; size?: string }) {
+  return (
+    <div className={`flex ${size} flex-none items-center justify-center rounded-full bg-brand-soft text-sm font-bold text-brand-ink`}>
+      {name.trim().charAt(0).toUpperCase() || "?"}
+    </div>
+  );
+}
+
+/** Theme + language toggles side by side. */
+function Preferences() {
+  return (
+    <div className="grid grid-cols-2 gap-1.5">
+      <ThemeToggle />
+      <LanguageToggle />
+    </div>
+  );
+}
+
+/** Desktop (lg+) sidebar: grouped links, user card, preferences. */
+function DesktopSidebar({ groups, isAdmin, userName }: { groups: NavGroup[]; isAdmin: boolean; userName: string }) {
+  const pathname = usePathname();
+  const { dict } = useLanguage();
+  return (
+    <aside className="sticky top-0 hidden h-screen w-64 flex-none flex-col border-r border-line bg-surface px-3 pb-3 pt-4 lg:flex">
+      <div className="px-2 pb-4">
+        <Logo />
+      </div>
+      <nav className="-mx-1 flex flex-1 flex-col gap-0.5 overflow-y-auto px-1" aria-label={dict.sidebar.menu}>
+        <NotificationBell variant="nav" />
         {groups.map((g) => (
           <div key={g.title} className="flex flex-col gap-0.5">
-            <div className="px-2 pb-1 pt-3.5 text-[11px] font-semibold uppercase tracking-wide text-faint">{g.title}</div>
+            <div className="px-2.5 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-faint">{g.title}</div>
             {g.items.map(([href, icon, label]) => {
-              const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
+              const active = isActive(pathname, href);
               return (
                 <Link
                   key={href}
                   href={href}
-                  onClick={onNavigate}
-                  className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium ${
-                    active ? "bg-brand-soft text-brand-ink" : "text-subtle hover:bg-line-soft"
+                  aria-current={active ? "page" : undefined}
+                  className={`group relative flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm font-medium transition-colors ${
+                    active ? "bg-brand-soft text-brand-ink" : "text-subtle hover:bg-line-soft hover:text-ink"
                   }`}
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"
-                    className={active ? "text-brand" : "text-faint"}
-                    dangerouslySetInnerHTML={{ __html: ICON[icon] }} />
-                  <span>{label}</span>
+                  {active && <span className="absolute -left-1 top-2 h-5 w-1 rounded-full bg-brand" />}
+                  <Icon name={icon} className={`h-4 w-4 flex-none ${active ? "text-brand" : "text-faint group-hover:text-subtle"}`} />
+                  <span className="truncate">{label}</span>
                 </Link>
               );
             })}
           </div>
         ))}
       </nav>
-
-      <div className="mt-auto flex flex-col gap-1.5">
-        <ThemeToggle />
-        <LanguageToggle />
-        <div className="flex items-center gap-2 rounded-lg bg-line-soft px-3 py-2">
-          <div className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
-            {userName.trim().charAt(0).toUpperCase() || "?"}
-          </div>
-          <div className="min-w-0 leading-tight">
+      <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
+        <div className="flex items-center gap-2.5 px-1">
+          <Avatar name={userName} />
+          <div className="min-w-0 flex-1 leading-tight">
             <div className="truncate text-sm font-semibold text-ink" title={userName}>{userName}</div>
             <div className="text-[11px] text-faint">{isAdmin ? dict.sidebar.roleAdmin : dict.sidebar.roleMember}</div>
           </div>
         </div>
-        <Link
-          href="/change-password"
-          onClick={onNavigate}
-          className="rounded-lg border border-line px-3 py-2 text-sm font-medium text-subtle hover:bg-line-soft"
-        >
-          {dict.sidebar.changePassword}
-        </Link>
-        <button
-          onClick={() => signOutClean()}
-          className="rounded-lg border border-line px-3 py-2 text-left text-sm font-medium text-subtle hover:bg-line-soft"
-        >
-          {dict.sidebar.signOut}
-        </button>
+        <Preferences />
+        <div className="grid grid-cols-2 gap-1.5">
+          <Link href="/change-password" className="btn-ghost btn-sm border border-line">{dict.sidebar.changePassword}</Link>
+          <button onClick={() => signOutClean()} className="btn-ghost btn-sm border border-line">{dict.sidebar.signOut}</button>
+        </div>
       </div>
+    </aside>
+  );
+}
+
+/**
+ * Phone/tablet: a slim top bar (page title, bell, avatar), a bottom tab bar
+ * with the 4 most-used destinations — reachable with the thumb, like a
+ * native app — and "เมนู" opening a bottom sheet with every page as tiles.
+ */
+function MobileNav({ groups, tabs, isAdmin, userName }: { groups: NavGroup[]; tabs: NavItem[]; isAdmin: boolean; userName: string }) {
+  const pathname = usePathname();
+  const { dict } = useLanguage();
+  const [open, setOpen] = useState(false);
+  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+  const inTabs = tabs.some(([href]) => isActive(pathname, href));
+  const current = groups.flatMap((g) => g.items).find(([href]) => isActive(pathname, href));
+  const moreActive = open || !inTabs;
+
+  return (
+    <>
+      <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur lg:hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        <div className="flex h-14 items-center justify-between gap-3 px-4">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Logo compact />
+            <div className="truncate text-[15px] font-bold">{current?.[2] ?? dict.appName}</div>
+          </div>
+          <div className="flex flex-none items-center gap-2">
+            <NotificationBell variant="icon" />
+            <button type="button" onClick={() => setOpen(true)} aria-label={dict.sidebar.menu} className="rounded-full">
+              <Avatar name={userName} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur lg:hidden" aria-label={dict.sidebar.menu}>
+        <div className="mx-auto grid max-w-md grid-cols-5">
+          {tabs.map(([href, icon, label]) => {
+            const active = isActive(pathname, href);
+            return (
+              <Link key={href} href={href} aria-current={active ? "page" : undefined} className="flex flex-col items-center gap-0.5 pb-2 pt-2">
+                <span className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${active ? "bg-brand-soft text-brand" : "text-faint"}`}>
+                  <Icon name={icon} className="h-[19px] w-[19px]" />
+                </span>
+                <span className={`text-[11px] leading-tight ${active ? "font-semibold text-brand-ink" : "text-muted"}`}>{label}</span>
+              </Link>
+            );
+          })}
+          <button type="button" onClick={() => setOpen(true)} className="flex flex-col items-center gap-0.5 pb-2 pt-2" aria-expanded={open}>
+            <span className={`flex h-7 w-12 items-center justify-center rounded-full ${moreActive ? "bg-brand-soft text-brand" : "text-faint"}`}>
+              <Icon name="more" className="h-[19px] w-[19px]" />
+            </span>
+            <span className={`text-[11px] leading-tight ${moreActive ? "font-semibold text-brand-ink" : "text-muted"}`}>{dict.sidebar.tabs.more}</span>
+          </button>
+        </div>
+      </nav>
+
+      {open && (
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label={dict.sidebar.menu}>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <div className="sheet-up safe-bottom absolute inset-x-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-3xl bg-page shadow-pop">
+            <div className="sticky top-0 z-10 flex justify-center bg-page pb-2 pt-2.5">
+              <span className="h-1.5 w-10 rounded-full bg-line-strong" />
+            </div>
+            <div className="flex flex-col gap-4 px-4 pb-6">
+              <div className="card flex items-center gap-3 p-3">
+                <Avatar name={userName} size="h-11 w-11" />
+                <div className="min-w-0 flex-1 leading-tight">
+                  <div className="truncate font-semibold">{userName}</div>
+                  <div className="text-xs text-faint">{isAdmin ? dict.sidebar.roleAdmin : dict.sidebar.roleMember}</div>
+                </div>
+                <button type="button" onClick={() => setOpen(false)} aria-label={dict.common.close} className="flex h-9 w-9 items-center justify-center rounded-full bg-line-soft text-subtle">
+                  ✕
+                </button>
+              </div>
+              {groups.map((g) => (
+                <section key={g.title}>
+                  <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-faint">{g.title}</h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {g.items.map(([href, icon, label]) => {
+                      const active = isActive(pathname, href);
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          className={`flex min-h-[84px] flex-col items-center justify-center gap-1.5 rounded-2xl border p-2 text-center text-xs font-medium leading-tight shadow-card ${
+                            active ? "border-brand bg-brand-soft text-brand-ink" : "border-line bg-surface text-subtle"
+                          }`}
+                        >
+                          <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${active ? "bg-brand text-white" : "bg-brand-soft text-brand"}`}>
+                            <Icon name={icon} className="h-[18px] w-[18px]" />
+                          </span>
+                          {label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+              <Preferences />
+              <div className="grid grid-cols-2 gap-2">
+                <Link href="/change-password" className="btn-secondary">{dict.sidebar.changePassword}</Link>
+                <button onClick={() => signOutClean()} className="btn-secondary !text-danger">{dict.sidebar.signOut}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
 export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userName: string }) {
   const { dict } = useLanguage();
-  const [open, setOpen] = useState(false);
   const nav = dict.sidebar.nav;
   const gt = dict.sidebar.groups;
+  const tab = dict.sidebar.tabs;
 
   const groups: NavGroup[] = isAdmin
     ? [
@@ -214,59 +337,15 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
         { title: gt.help, items: [["/feedback", "feedback", nav.feedback]] },
       ];
 
+  // Bottom-bar destinations on phones (everything else is under "เมนู").
+  const tabs: NavItem[] = isAdmin
+    ? [["/dashboard", "dashboard", tab.home], ["/checkin", "checkin", tab.checkin], ["/substitutes", "substitutes", tab.substitutes], ["/calendar", "calendar", tab.calendar]]
+    : [["/dashboard", "dashboard", tab.home], ["/checkin", "checkin", tab.checkin], ["/schedule", "schedule", tab.schedule], ["/calendar", "calendar", tab.calendar]];
+
   return (
     <>
-      {/* Phone/tablet top bar — replaces the always-visible desktop sidebar
-          below the lg breakpoint, since there's no room to keep it pinned
-          open on a narrow screen. */}
-      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2.5 lg:hidden">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">
-            TS
-          </div>
-          <div className="text-sm font-bold leading-tight">{dict.appName}</div>
-        </div>
-        <div className="flex items-center gap-2">
-        <NotificationBell variant="icon" />
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label={dict.sidebar.menu}
-          className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-line text-subtle"
-        >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-            <line x1="2" y1="4.5" x2="16" y2="4.5" />
-            <line x1="2" y1="9" x2="16" y2="9" />
-            <line x1="2" y1="13.5" x2="16" y2="13.5" />
-          </svg>
-        </button>
-        </div>
-      </header>
-
-      {/* Phone/tablet slide-over drawer with the same nav content. */}
-      {open && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
-          <aside className="absolute left-0 top-0 flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto bg-surface p-3 shadow-xl">
-            <div className="flex items-center justify-end pb-1">
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label={dict.common.close}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-faint hover:bg-line-soft hover:text-subtle"
-              >
-                ✕
-              </button>
-            </div>
-            <SidebarContent groups={groups} isAdmin={isAdmin} userName={userName} onNavigate={() => setOpen(false)} />
-          </aside>
-        </div>
-      )}
-
-      {/* Desktop sidebar — unchanged from before, just hidden below lg now. */}
-      <aside className="sticky top-0 hidden h-screen w-56 flex-none flex-col border-r border-line bg-surface p-3 lg:flex">
-        <SidebarContent groups={groups} isAdmin={isAdmin} userName={userName} />
-      </aside>
+      <MobileNav groups={groups} tabs={tabs} isAdmin={isAdmin} userName={userName} />
+      <DesktopSidebar groups={groups} isAdmin={isAdmin} userName={userName} />
     </>
   );
 }

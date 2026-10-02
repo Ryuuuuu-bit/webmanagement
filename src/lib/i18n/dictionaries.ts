@@ -54,7 +54,7 @@ const th = {
     roleAdmin: "ผู้ดูแลระบบ",
     roleMember: "อาจารย์ผู้สอน",
     nav: {
-      dashboard: "Dashboard",
+      dashboard: "หน้าแรก",
       scheduleAll: "ตารางสอนทั้งหมด",
       scheduleMine: "ตารางสอนของฉัน",
       checkinAll: "เช็คอิน-เอาต์ (ภาพรวม)",
@@ -77,6 +77,7 @@ const th = {
       substitutes: "หาครูสอนแทน",
       reports: "รายงานประจำเดือน",
     },
+    tabs: { home: "หน้าแรก", checkin: "เช็คอิน", schedule: "ตารางสอน", substitutes: "สอนแทน", calendar: "ปฏิทิน", more: "เมนู" },
     groups: {
       daily: "งานประจำวัน",
       requests: "คำขอของฉัน",
@@ -463,7 +464,14 @@ const th = {
     iosSafariNote: "บน iPhone ต้องเปิดด้วย Safari เท่านั้น (ใน LINE หรือ Chrome จะไม่มีเมนูนี้)",
   },
   dashboard: {
+    greeting: {
+      morning: (n: string) => `สวัสดีตอนเช้า ${n} 👋`,
+      afternoon: (n: string) => `สวัสดีตอนบ่าย ${n} 👋`,
+      evening: (n: string) => `สวัสดีตอนเย็น ${n} 👋`,
+    },
     member: {
+      fullSchedule: "ดูทั้งสัปดาห์ →",
+      nowTeaching: "กำลังสอน",
       statusToday: "สถานะเข้างานวันนี้",
       checkinTime: "เวลาเช็คอิน",
       checkoutTime: "เวลาเช็คเอาต์",
@@ -485,6 +493,16 @@ const th = {
       colRoom: "ห้อง",
     },
     admin: {
+      overviewTitle: "การเข้างานวันนี้",
+      arrived: "คนมาแล้ว",
+      rate: "อัตรามาทำงาน",
+      todoTitle: "งานที่รอคุณ",
+      todoLeave: "ใบลารออนุมัติ",
+      todoAttest: "คำขอรับรองเวลารออนุมัติ",
+      todoCover: "คาบที่ยังไม่มีครูสอนแทนวันนี้",
+      todoDocs: "เอกสารครูใกล้หมด/หมดอายุ",
+      todoPlans: "แผนการสอนรอตรวจ",
+      allClear: "ไม่มีงานค้าง เยี่ยมมาก!",
       totalTeachers: "อาจารย์ทั้งหมด",
       dueTodayOff: (n: number) => `ต้องมาทำงานวันนี้ (วันหยุด ${n} คน)`,
       notYet: "ยังไม่เช็คอิน",
@@ -713,6 +731,7 @@ const th = {
     quotaColQuota: "โควตา/ปี",
     quotaColRemaining: "คงเหลือ",
     quotaUnlimited: "ไม่จำกัด",
+    quotaDaysLeft: "วันคงเหลือ",
     fieldDuration: "ระยะเวลา",
     durationFull: "เต็มวัน",
     durationAm: "ครึ่งวันเช้า",
@@ -1197,7 +1216,7 @@ const th = {
   },
   calendarTools: {
     importOpen: "📥 นำเข้าจาก Excel",
-    holidaysOpen: "🇹🇭 เพิ่มวันหยุดราชการ",
+    holidaysOpen: "🎌 เพิ่มวันหยุดราชการ",
     copyButton: (from: number, to: number, beFrom: number, beTo: number) => `📋 คัดลอกปี ${beFrom} → ${beTo}`,
     copyConfirm: (from: number, to: number, beFrom: number, beTo: number) => `คัดลอกกิจกรรมทั้งหมดของปี ${beFrom} ไปปี ${beTo} (วัน/เดือนเดิม)? รายการที่มีอยู่แล้วจะถูกข้าม — วันหยุดตามจันทรคติและวันชดเชยต้องแก้วันที่เอง`,
     exportHint: "ส่งออก Excel อยู่ในมุมมองทั้งปี →",
@@ -1766,6 +1785,7 @@ const en: typeof th = {
       substitutes: "Substitute Teachers",
       reports: "Monthly Report",
     },
+    tabs: { home: "Home", checkin: "Check-in", schedule: "Schedule", substitutes: "Cover", calendar: "Calendar", more: "Menu" },
     groups: {
       daily: "Daily",
       requests: "My Requests",
@@ -2148,7 +2168,14 @@ const en: typeof th = {
     iosSafariNote: "On iPhone this only works in Safari (the option isn't available inside LINE or Chrome)",
   },
   dashboard: {
+    greeting: {
+      morning: (n: string) => `Good morning, ${n} 👋`,
+      afternoon: (n: string) => `Good afternoon, ${n} 👋`,
+      evening: (n: string) => `Good evening, ${n} 👋`,
+    },
     member: {
+      fullSchedule: "Full week →",
+      nowTeaching: "teaching now",
       statusToday: "Today's Attendance Status",
       checkinTime: "Check-in Time",
       checkoutTime: "Check-out Time",
@@ -2170,6 +2197,16 @@ const en: typeof th = {
       colRoom: "Room",
     },
     admin: {
+      overviewTitle: "Today's attendance",
+      arrived: "in",
+      rate: "attendance rate",
+      todoTitle: "Waiting for you",
+      todoLeave: "Leave requests to approve",
+      todoAttest: "Time attestations to approve",
+      todoCover: "Classes without a substitute today",
+      todoDocs: "Teacher documents expiring/expired",
+      todoPlans: "Lesson plans to review",
+      allClear: "Nothing waiting — all clear!",
       totalTeachers: "Total Instructors",
       dueTodayOff: (n: number) => `Due at work today (${n} off)`,
       notYet: "Not checked in",
@@ -2394,6 +2431,7 @@ const en: typeof th = {
     quotaColQuota: "Quota/Year",
     quotaColRemaining: "Remaining",
     quotaUnlimited: "Unlimited",
+    quotaDaysLeft: "days left",
     fieldDuration: "Duration",
     durationFull: "Full day(s)",
     durationAm: "Half day (morning)",
@@ -2877,7 +2915,7 @@ const en: typeof th = {
   },
   calendarTools: {
     importOpen: "📥 Import from Excel",
-    holidaysOpen: "🇹🇭 Add public holidays",
+    holidaysOpen: "🎌 Add public holidays",
     copyButton: (from: number, to: number, beFrom: number, beTo: number) => `📋 Copy ${from} → ${to}`,
     copyConfirm: (from: number, to: number, beFrom: number, beTo: number) => `Copy every event of ${from} to ${to} (same day/month)? Existing ones are skipped — lunar holidays and substitute days need their dates fixed by hand`,
     exportHint: "Excel export is in the year view →",

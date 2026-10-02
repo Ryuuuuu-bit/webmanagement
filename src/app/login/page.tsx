@@ -99,11 +99,11 @@ function LoginForm() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4 pt-16">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[radial-gradient(1200px_600px_at_50%_-10%,var(--color-brand-soft),transparent)] p-4 pt-16">
       <AuthPageControls />
-      <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-8 shadow-sm">
+      <div className="w-full max-w-sm rounded-3xl border border-line bg-surface p-6 shadow-pop sm:p-8">
         <div className="mb-6 flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">TS</div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-brand-ink text-sm font-bold text-white shadow-card">TS</div>
           <div>
             <div className="text-base font-bold leading-tight">{dict.appName}</div>
             <div className="text-xs text-muted">{dict.appTagline}</div>
