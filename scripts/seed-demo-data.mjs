@@ -200,6 +200,7 @@ async function createDemoData() {
     ["EN-P1", "English for Kids ป.1", "EN", "P1_3"],
     ["EN-M1", "English Conversation ม.1", "EN", "M1_3"],
     ["EN-M4", "English Reading ม.4", "EN", "M4_6"],
+    ["ACT", "กิจกรรมพัฒนาผู้เรียน (แนะแนว)", "TH", null], // no grade band → any free teacher may cover
   ];
   const courses = [];
   for (const [code, name, dept, grade] of courseDefs) {
@@ -253,8 +254,27 @@ async function createDemoData() {
   const teacherCourses = new Map();
   const schedules = []; // { id, who, d, p }
   const notes = ["สอบย่อยบทที่ 3", "ส่งงานกลุ่ม", "ใช้ห้องคอมพิวเตอร์", null, null, null];
+  // Today's timetable at the main school is pinned so the substitute planner
+  // always shows the same cases: a teacher on leave all day, one not checked
+  // in, one off for the afternoon, a class with no grade band, classes no one
+  // can cover, and free colleagues kept free where the cases need them.
+  const todayWd = weekday(today);
+  const byCode = (code) => courses.find((c) => c.code === `DEMO-${code}`);
+  const pins = todayWd < 5 ? [[1, 0, "TH-P2"], [1, 2, "TH-P5"], [1, 4, "TH-P2"], [1, 6, "ACT"], [4, 1, "MA-M4"], [4, 3, "MA-M4"], [4, 5, "MA-M4"], [2, 1, "SC-M3"], [2, 4, "SC-M5"], [3, 0, "EN-P1"], [6, 2, "EN-M1"]] : [];
+  const keepFree = todayWd < 5 ? [[7, 0], [0, 2], [3, 4], [6, 1], [6, 4], [2, 5], [0, 6], [5, 6]] : [];
+  for (const [who, p, code] of pins) {
+    const tc = teachers[who];
+    const room = rooms.filter((r) => r.site === tc.site).find((r) => !busy.has(`r|${r.id}|${todayWd}|${p}`));
+    const course = byCode(code);
+    if (!room || !course) continue;
+    busy.add(`t|${tc.id}|${todayWd}|${p}`);
+    busy.add(`r|${room.id}|${todayWd}|${p}`);
+    const row = await prisma.schedule.create({ data: { teacherId: tc.id, courseId: course.id, roomId: room.id, semesterId: semester.id, dayOfWeek: todayWd, startTime: PERIODS[p][0], endTime: PERIODS[p][1] } });
+    schedules.push({ id: row.id, who, d: todayWd, p });
+  }
+  const reserved = new Set(keepFree.map(([who, p]) => `t|${teachers[who].id}|${todayWd}|${p}`));
   for (const tc of teachers) {
-    const mine = courses.filter((c) => c.dept === tc.dept && tc.grades.includes(c.grade));
+    const mine = courses.filter((c) => c.grade && c.dept === tc.dept && tc.grades.includes(c.grade));
     const list = mine.length ? mine : courses.filter((c) => c.dept === tc.dept).slice(0, 1);
     teacherCourses.set(tc.id, list);
     const siteRooms = rooms.filter((r) => r.site === tc.site);
@@ -265,7 +285,7 @@ async function createDemoData() {
     let made = 0;
     for (const [d, p] of slots) {
       if (made >= want) break;
-      if (busy.has(`t|${tc.id}|${d}|${p}`)) continue;
+      if (busy.has(`t|${tc.id}|${d}|${p}`) || reserved.has(`t|${tc.id}|${d}|${p}`)) continue;
       const room = siteRooms.find((r) => !busy.has(`r|${r.id}|${d}|${p}`));
       if (!room) continue;
       busy.add(`t|${tc.id}|${d}|${p}`);
@@ -320,6 +340,7 @@ async function createDemoData() {
     { who: 7, type: "VACATION", from: workdayFrom(today, 3), to: workdayFrom(today, 5), reason: "Family trip", status: "REJECTED", created: addDays(today, -4) },
     { who: 10, type: "SICK", from: workdayFrom(today, -3), to: workdayFrom(today, -3), reason: "ปวดหัว (ยกเลิกเพราะมาทำงานได้)", status: "CANCELLED", created: workdayFrom(today, -4) },
     { who: 11, type: "PERSONAL", from: workdayFrom(today, 1), to: workdayFrom(today, 1), half: "PM", reason: "ไปธนาคารช่วงบ่าย", status: "PENDING", created: today },
+    { who: 2, type: "PERSONAL", from: today, to: today, half: "PM", reason: "ไปรับเอกสารที่สำนักงานเขตพื้นที่ช่วงบ่าย", status: "APPROVED", created: addDays(today, -2) },
     { who: 0, type: "SICK", from: workdayFrom(today, -1), to: workdayFrom(today, -1), half: "PM", reason: "ปวดท้อง ขอกลับช่วงบ่าย", status: "PENDING", created: addDays(today, -3), file: "doctor-note" },
   ];
   const leaveDays = new Map(); // `${who}|${key}` -> "FULL" | "AM" | "PM"
@@ -349,20 +370,25 @@ async function createDemoData() {
   // teacher on leave today and on a future training day; leave the rest open
   // so the "classes without a substitute" list has something to show.
   let subs = 0;
-  const book = async (who, key, max, note) => {
-    if (weekday(key) > 4) return;
-    const mine = schedules.filter((x) => x.who === who && x.d === weekday(key)).slice(0, max);
-    for (const cls of mine) {
-      const free = teachers.find((o) => o.i !== who && ![1, 4, 5, 10].includes(o.i) && o.site === t(who).site && !busy.has(`t|${o.id}|${cls.d}|${cls.p}`));
-      if (!free) continue;
-      busy.add(`t|${free.id}|${cls.d}|${cls.p}`);
-      await prisma.substituteAssignment.create({ data: { date: picked(key), scheduleId: cls.id, absentTeacherId: t(who).id, substituteId: free.id, note, createdById: admin?.id ?? null } });
-      subs++;
-    }
+  const bookClass = async (who, key, p, subWho, note = null) => {
+    const cls = schedules.find((x) => x.who === who && x.d === weekday(key) && x.p === p);
+    if (!cls || weekday(key) > 4) return;
+    busy.add(`t|${t(subWho).id}|${cls.d}|${cls.p}`);
+    await prisma.substituteAssignment.create({ data: { date: picked(key), scheduleId: cls.id, absentTeacherId: t(who).id, substituteId: t(subWho).id, note, createdById: admin?.id ?? null } });
+    subs++;
   };
-  if (prisma.substituteAssignment) {
-    await book(1, today, 1, "ใช้ใบงานที่ อ.สมหญิง เตรียมไว้ในห้องพักครู");
-    await book(9, workdayFrom(today, 8), 2, "ทบทวนบทที่ 4 + แบบฝึกหัด");
+  if (prisma.substituteAssignment && todayWd < 5) {
+    await bookClass(1, today, 2, 0, "ใช้ใบงานที่ อ.สมหญิง เตรียมไว้ในห้องพักครู"); // covered
+    await bookClass(4, today, 5, 2, "ทบทวนบทที่ 5"); // booked before อ.วิชัย took the afternoon off → shows ⚠ pick someone else
+  }
+  // a future day already planned (training leave)
+  const trainingDay = workdayFrom(today, 8);
+  for (const cls of schedules.filter((x) => x.who === 9 && x.d === weekday(trainingDay)).slice(0, 2)) {
+    const free = teachers.find((o) => o.site === "B" && ![9, 5, 10, 8].includes(o.i) && !busy.has(`t|${o.id}|${cls.d}|${cls.p}`));
+    if (!free) continue;
+    busy.add(`t|${free.id}|${cls.d}|${cls.p}`);
+    await prisma.substituteAssignment.create({ data: { date: picked(trainingDay), scheduleId: cls.id, absentTeacherId: t(9).id, substituteId: free.id, note: "ทบทวนบทที่ 4 + แบบฝึกหัด", createdById: admin?.id ?? null } });
+    subs++;
   }
 
   // --- attendance history (from the semester start or ~6 weeks back, up to today)
@@ -372,7 +398,7 @@ async function createDemoData() {
   const attestCheckinDay = workdayFrom(today, -2); // t5 checked out only → pending
   const attestBothDay = workdayFrom(today, -4); // t7 nothing recorded → pending FORGOT_BOTH
   const attestRejectedDay = workdayFrom(today, -12); // t4 → rejected
-  const absentDays = new Map([[`8|${workdayFrom(today, -3)}`, true], [`8|${workdayFrom(today, -11)}`, true], [`4|${workdayFrom(today, -7)}`, true]]);
+  const absentDays = new Map([[`8|${today}`, true], [`8|${workdayFrom(today, -3)}`, true], [`8|${workdayFrom(today, -11)}`, true], [`4|${workdayFrom(today, -7)}`, true]]);
   const noRecordDays = new Set([`10|${workdayFrom(today, -5)}`, `10|${workdayFrom(today, -13)}`]);
   const lateRate = { 6: 0.3, 2: 0.15, 9: 0.12 };
   const notCheckedInToday = new Set([4, 10]);
