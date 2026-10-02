@@ -24,6 +24,12 @@ export type AutomationSettings = {
   attendanceRetentionMonths: number;
   /** Strip leave & feedback file attachments older than this (0 = keep). */
   attachmentRetentionMonths: number;
+  /** Mark work days with no check-in/out and no leave as ABSENT (src/lib/absence.ts). */
+  autoAbsent: boolean;
+  /** "YYYY-MM-DD" — first day that can be marked absent (go-live), or "" . */
+  absentFromDate: string;
+  /** Only days the teacher has a class in the timetable count as work days for absence. */
+  absentOnlyTeachingDays: boolean;
 };
 
 export function parseWeekdays(s: string | null | undefined): number[] {
@@ -44,5 +50,8 @@ export async function getAutomationSettings(): Promise<AutomationSettings> {
     lessonPlanReminders: row.lessonPlanReminders,
     attendanceRetentionMonths: row.attendanceRetentionMonths,
     attachmentRetentionMonths: row.attachmentRetentionMonths,
+    autoAbsent: row.autoAbsent,
+    absentFromDate: row.absentFromDate ? row.absentFromDate.toISOString().slice(0, 10) : "",
+    absentOnlyTeachingDays: row.absentOnlyTeachingDays,
   };
 }

@@ -46,6 +46,7 @@ const ICON: Record<string, string> = {
     '<path d="M8 14.5s5-4.6 5-8.4A5 5 0 0 0 3 6.1c0 3.8 5 8.4 5 8.4Z"/><circle cx="8" cy="6.2" r="1.8"/>',
   masterdata:
     '<rect x="1.5" y="2" width="5.5" height="5.5" rx="1"/><rect x="9" y="2" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="8.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="8.5" width="5.5" height="5.5" rx="1"/>',
+  reports: '<path d="M3 13.5h10"/><path d="M4.5 11V7.5"/><path d="M8 11V4"/><path d="M11.5 11V9"/>',
   audit: '<path d="M8 1.5l5.5 2.5v4c0 3.2-2.3 5.6-5.5 6.5C4.8 13.6 2.5 11.2 2.5 8V4L8 1.5z"/><path d="M5.8 8l1.6 1.6L10.5 6.4"/>',
   calendar:
     '<rect x="1.5" y="2.5" width="13" height="12" rx="1.6"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><line x1="4.5" y1="1" x2="4.5" y2="3.5" stroke-linecap="round"/><line x1="11.5" y1="1" x2="11.5" y2="3.5" stroke-linecap="round"/><circle cx="5" cy="9" r=".7" fill="currentColor" stroke="none"/><circle cx="8" cy="9" r=".7" fill="currentColor" stroke="none"/><circle cx="11" cy="9" r=".7" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r=".7" fill="currentColor" stroke="none"/><circle cx="8" cy="12" r=".7" fill="currentColor" stroke="none"/>',
@@ -168,6 +169,7 @@ export default function Sidebar({ isAdmin, userName }: { isAdmin: boolean; userN
             ["/teachers", "teachers", nav.teachers],
             ["/substitutes", "substitutes", nav.substitutes],
             ["/calendar", "calendar", nav.calendar],
+            ["/admin/reports", "reports", nav.reports],
           ],
         },
         {

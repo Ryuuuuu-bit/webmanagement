@@ -10,6 +10,8 @@ export type CheckinPolicy = {
   workEnd: string;
   /** Minutes after workStart a check-in still counts as ON_TIME. */
   lateGraceMinutes: number;
+  /** "HH:MM" — when the afternoon starts; the late cut-off on a morning half-day leave. */
+  afternoonStart: string;
 };
 
 export const DEFAULT_POLICY: CheckinPolicy = {
@@ -20,6 +22,7 @@ export const DEFAULT_POLICY: CheckinPolicy = {
   workStart: "08:30",
   workEnd: "17:00",
   lateGraceMinutes: 0,
+  afternoonStart: "13:00",
 };
 
 export const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -35,6 +38,7 @@ export async function getCheckinPolicy(): Promise<CheckinPolicy> {
     workStart: row.workStart ?? DEFAULT_POLICY.workStart,
     workEnd: row.workEnd ?? DEFAULT_POLICY.workEnd,
     lateGraceMinutes: row.lateGraceMinutes ?? DEFAULT_POLICY.lateGraceMinutes,
+    afternoonStart: row.afternoonStart ?? DEFAULT_POLICY.afternoonStart,
   };
 }
 
@@ -75,4 +79,14 @@ export function atTimeOfDay(day: Date, hhmm: string): Date {
   const d = new Date(day);
   d.setHours(h, m, 0, 0);
   return d;
+}
+
+/**
+ * Latest on-time check-in moment for a day: start + grace — or, on an
+ * approved MORNING half-day leave, the afternoon start + grace (they're
+ * expected after lunch, so arriving then is not "late").
+ */
+export function lateCutoff(day: Date, hours: WorkHours, halfDayLeave: "AM" | "PM" | null, policy: CheckinPolicy): Date {
+  const start = halfDayLeave === "AM" && policy.afternoonStart > hours.start ? policy.afternoonStart : hours.start;
+  return new Date(atTimeOfDay(day, start).getTime() + hours.graceMinutes * 60_000);
 }

@@ -92,6 +92,27 @@ export default function AutomationSettingsCard({
           {Switch({ field: "lessonPlanReminders" })}
         </>) })}
 
+        <h3 className="mt-3 border-t border-line pt-3 text-sm font-bold">{t.absentTitle}</h3>
+        <p className="mb-2 text-xs text-muted">{t.absentHint}</p>
+        {Row({ title: t.autoAbsent, hint: t.autoAbsentHint, children: (<>
+          <label className="flex items-center gap-1.5 text-xs text-faint">
+            {t.absentFrom}
+            <input type="date" value={draft.absentFromDate} onChange={(e) => set("absentFromDate", e.target.value)} className="input" />
+          </label>
+          <span className="relative mt-0.5 inline-flex flex-none">
+            <input type="checkbox" className="peer sr-only" checked={draft.autoAbsent} onChange={(e) => set("autoAbsent", e.target.checked)} aria-label={t.autoAbsent} />
+            <span className="h-6 w-11 rounded-full bg-line-strong transition-colors peer-checked:bg-brand" />
+            <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+          </span>
+        </>) })}
+        {Row({ title: t.absentOnlyTeachingDays, hint: t.absentOnlyTeachingDaysHint, children: (<>
+          <span className="relative mt-0.5 inline-flex flex-none">
+            <input type="checkbox" className="peer sr-only" checked={draft.absentOnlyTeachingDays} onChange={(e) => set("absentOnlyTeachingDays", e.target.checked)} aria-label={t.absentOnlyTeachingDays} />
+            <span className="h-6 w-11 rounded-full bg-line-strong transition-colors peer-checked:bg-brand" />
+            <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+          </span>
+        </>) })}
+
         <h3 className="mt-3 border-t border-line pt-3 text-sm font-bold">{t.retentionTitle}</h3>
         <p className="mb-2 text-xs text-muted">{t.retentionHint}</p>
         {Row({ title: t.attendanceRetention, hint: t.attendanceRetentionHint, children: (<>

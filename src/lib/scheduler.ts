@@ -8,6 +8,7 @@ import { isMissing, lessonPlanSlots } from "./lessonPlans";
 import { logAudit } from "./audit";
 import { holidaysOn, isHolidayFor } from "./calendar";
 import { daysLeft, parseRemindDays } from "./documents";
+import { markAbsences } from "./absence";
 
 /**
  * Background jobs, run every few minutes (src/instrumentation.ts starts the
@@ -20,6 +21,8 @@ import { daysLeft, parseRemindDays } from "./documents";
  *                          the day after: "overdue" to them + a summary to Admins
  *  - document expiry     : work permit / visa / … reminders at each type's
  *                          "days before" thresholds, then once when expired
+ *  - automatic ABSENT    : past work days with no record and no leave (opt-in,
+ *                          see src/lib/absence.ts)
  *  - retention purge     : PDPA retention windows (attendance, attachments, selfies)
  *
  * Every send first claims a ReminderLog key, so a reminder goes out at most
@@ -42,7 +45,7 @@ async function claim(key: string): Promise<boolean> {
 export type TickResult = Record<string, number>;
 
 export async function runScheduledJobs(now = new Date()): Promise<TickResult> {
-  const out: TickResult = { checkinReminders: 0, checkoutReminders: 0, digests: 0, lessonPlanReminders: 0, documentReminders: 0, purged: 0 };
+  const out: TickResult = { checkinReminders: 0, checkoutReminders: 0, digests: 0, lessonPlanReminders: 0, documentReminders: 0, absent: 0, purged: 0 };
   const settings = await getAutomationSettings();
   const policy = await getCheckinPolicy();
   const todayKey = bangkokDateKey(now);
@@ -82,13 +85,14 @@ export async function runScheduledJobs(now = new Date()): Promise<TickResult> {
     for (const t of teachers) {
       const hours = workHoursForSite(t.campusLocation, policy);
       const row = byUser.get(t.id);
-      const start = atTimeOfDay(today, hours.start);
       const end = atTimeOfDay(today, hours.end);
 
-      if (settings.remindCheckin && isWorkday && !isHolidayFor(holidays, t.campusLocationId) && !row?.checkinAt && !row?.checkoutAt && row?.status !== "LEAVE" && !amLeave.has(t.id)) {
-        const remindAt = new Date(+start + (hours.graceMinutes + settings.remindCheckinAfterMin) * 60_000);
+      if (settings.remindCheckin && isWorkday && !isHolidayFor(holidays, t.campusLocationId) && !row?.checkinAt && !row?.checkoutAt && row?.status !== "LEAVE") {
+        // Morning half-day leave: they're due at the afternoon start instead.
+        const startTime = amLeave.has(t.id) && policy.afternoonStart > hours.start ? policy.afternoonStart : hours.start;
+        const remindAt = new Date(+atTimeOfDay(today, startTime) + (hours.graceMinutes + settings.remindCheckinAfterMin) * 60_000);
         if (now >= remindAt && now < end && (await claim(`in:${t.id}:${todayKey}`))) {
-          await notifyUser(t.id, "CHECKIN_REMINDER", { start: hours.start }, "/checkin");
+          await notifyUser(t.id, "CHECKIN_REMINDER", { start: startTime }, "/checkin");
           out.checkinReminders++;
         }
       }
@@ -151,6 +155,11 @@ export async function runScheduledJobs(now = new Date()): Promise<TickResult> {
   // --- personnel document expiry -----------------------------------------
   if (now.getHours() >= 8) {
     out.documentReminders = await remindExpiringDocuments(now);
+  }
+
+  // --- automatic ABSENT for past work days (once a day, after 01:00) -----
+  if (settings.autoAbsent && now.getHours() >= 1 && (await claim(`absent:${todayKey}`))) {
+    out.absent = await markAbsences(now);
   }
 
   // --- PDPA retention purge (once a day, after 02:00) ----------------------

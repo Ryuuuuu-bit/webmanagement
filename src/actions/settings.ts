@@ -28,6 +28,8 @@ export async function updateCheckinPolicy(input: CheckinPolicy): Promise<{ ok: b
     return { ok: false, message: dict.actions.policy.invalidHours };
   }
   if (!Number.isFinite(grace) || grace < 0 || grace > 180) return { ok: false, message: dict.actions.policy.invalidGrace };
+  const afternoonStart = String(input.afternoonStart ?? "").trim();
+  if (!TIME_RE.test(afternoonStart) || afternoonStart <= workStart || afternoonStart >= workEnd) return { ok: false, message: dict.actions.policy.invalidAfternoon };
   const data = {
     requireBiometricCheckin: !!input.requireBiometricCheckin,
     requireSelfieCheckin: !!input.requireSelfieCheckin,
@@ -36,13 +38,14 @@ export async function updateCheckinPolicy(input: CheckinPolicy): Promise<{ ok: b
     workStart,
     workEnd,
     lateGraceMinutes: grace,
+    afternoonStart,
   };
   await prisma.appSetting.upsert({ where: { id: "default" }, create: { id: "default", ...data }, update: data });
   await logAudit({
     action: "POLICY_CHANGED",
     actorId: session.user.id,
     ip: getClientIp(),
-    detail: `biometric=${data.requireBiometricCheckin} selfie=${data.requireSelfieCheckin} approval=${data.deviceApprovalRequired} retention=${data.selfieRetentionDays}d hours=${workStart}-${workEnd} grace=${grace}m`,
+    detail: `biometric=${data.requireBiometricCheckin} selfie=${data.requireSelfieCheckin} approval=${data.deviceApprovalRequired} retention=${data.selfieRetentionDays}d hours=${workStart}-${workEnd} grace=${grace}m pm=${afternoonStart}`,
   });
   revalidatePath("/admin/master-data");
   revalidatePath("/checkin");
@@ -71,6 +74,9 @@ export async function updateAutomationSettings(input: AutomationSettings): Promi
   if (!Number.isFinite(keepAtt) || (keepAtt !== 0 && (keepAtt < 12 || keepAtt > 120))) return { ok: false, message: t.invalidAttendanceRetention };
   if (!Number.isFinite(keepFiles) || (keepFiles !== 0 && (keepFiles < 3 || keepFiles > 120))) return { ok: false, message: t.invalidFileRetention };
 
+  const absentFrom = String(input.absentFromDate ?? "").trim();
+  if (absentFrom && !/^\d{4}-\d{2}-\d{2}$/.test(absentFrom)) return { ok: false, message: t.invalidAbsentFrom };
+  if (input.autoAbsent && !absentFrom) return { ok: false, message: t.absentFromRequired };
   const data = {
     remindCheckin: !!input.remindCheckin,
     remindCheckinAfterMin: inMin,
@@ -83,13 +89,16 @@ export async function updateAutomationSettings(input: AutomationSettings): Promi
     lessonPlanReminders: !!input.lessonPlanReminders,
     attendanceRetentionMonths: keepAtt,
     attachmentRetentionMonths: keepFiles,
+    autoAbsent: !!input.autoAbsent,
+    absentFromDate: absentFrom ? new Date(`${absentFrom}T00:00:00.000Z`) : null,
+    absentOnlyTeachingDays: !!input.absentOnlyTeachingDays,
   };
   await prisma.appSetting.upsert({ where: { id: "default" }, create: { id: "default", ...data }, update: data });
   await logAudit({
     action: "AUTOMATION_CHANGED",
     actorId: session.user.id,
     ip: getClientIp(),
-    detail: `in=${data.remindCheckin ? `${inMin}m` : "off"} out=${data.remindCheckout ? `${outMin}m` : "off"} days=${data.remindWeekdays} digest=${data.pendingDigest ? `${days}d@${digestTime}` : "off"} lp=${data.lessonPlanReminders} keep=${keepAtt}mo files=${keepFiles}mo`,
+    detail: `in=${data.remindCheckin ? `${inMin}m` : "off"} out=${data.remindCheckout ? `${outMin}m` : "off"} days=${data.remindWeekdays} digest=${data.pendingDigest ? `${days}d@${digestTime}` : "off"} lp=${data.lessonPlanReminders} keep=${keepAtt}mo files=${keepFiles}mo absent=${data.autoAbsent ? `from ${absentFrom}${data.absentOnlyTeachingDays ? " teaching-days" : ""}` : "off"}`,
   });
   revalidatePath("/admin/master-data");
   return { ok: true, message: dict.actions.policy.saved };

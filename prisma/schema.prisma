@@ -527,6 +527,9 @@ model AppSetting {
   workStart                 String   @default("08:30")
   workEnd                   String   @default("17:00")
   lateGraceMinutes          Int      @default(0)
+  // Afternoon start ("HH:MM") — the late cut-off for someone on an approved
+  // MORNING half-day leave (they're due in the afternoon, not at workStart).
+  afternoonStart            String   @default("13:00")
   // One-off maintenance scripts record the token they ran with here so a
   // container restart never re-runs them (see scripts/).
   // Automatic reminders (src/lib/scheduler.ts)
@@ -539,6 +542,12 @@ model AppSetting {
   pendingDigestDays         Int      @default(2)
   pendingDigestTime         String   @default("09:00")
   lessonPlanReminders       Boolean  @default(true)
+  // Automatic ABSENT (src/lib/absence.ts): off until Admin turns it on;
+  // only days from absentFromDate are marked (go-live date).
+  autoAbsent                Boolean   @default(false)
+  absentFromDate            DateTime?
+  // true = only days the teacher has a class in the timetable count.
+  absentOnlyTeachingDays    Boolean   @default(false)
   // PDPA retention in months (0 = keep)
   attendanceRetentionMonths Int      @default(0)
   attachmentRetentionMonths Int      @default(0)

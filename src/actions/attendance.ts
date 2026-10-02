@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getAssignedSites, matchSite } from "@/lib/geo";
 import { todayAtMidnight } from "@/lib/date";
 import { verifyAssertion } from "@/lib/webauthn";
-import { atTimeOfDay, getCheckinPolicy, workHoursForSite } from "@/lib/settings";
+import { atTimeOfDay, getCheckinPolicy, lateCutoff, workHoursForSite } from "@/lib/settings";
 import { Prisma } from "@prisma/client";
 import { logAudit } from "@/lib/audit";
 import { notifyAdmins } from "@/lib/notify";
@@ -145,15 +145,21 @@ async function detectSharedDevice(userId: string, date: Date, deviceId: string |
  * writing LEAVE rows keeps the comparison correct either way.
  */
 export async function hasApprovedPmHalfDayLeave(userId: string, date: Date): Promise<boolean> {
+  return (await approvedHalfDayLeave(userId, date)) === "PM";
+}
+
+/** "AM" / "PM" when this person has an approved half-day leave on `date` (Bangkok midnight), else null. */
+export async function approvedHalfDayLeave(userId: string, date: Date): Promise<"AM" | "PM" | null> {
   const leaves = await prisma.leaveRequest.findMany({
-    where: { requesterId: userId, status: "APPROVED", halfDay: "PM" },
-    select: { startDate: true },
+    where: { requesterId: userId, status: "APPROVED", halfDay: { in: ["AM", "PM"] }, startDate: { gte: new Date(+date - 2 * 86_400_000), lte: new Date(+date + 2 * 86_400_000) } },
+    select: { startDate: true, halfDay: true },
   });
-  return leaves.some((r) => {
+  const hit = leaves.find((r) => {
     const d = new Date(r.startDate);
     d.setHours(0, 0, 0, 0);
     return d.getTime() === date.getTime();
   });
+  return hit ? (hit.halfDay as "AM" | "PM") : null;
 }
 
 function isUniqueConstraintError(err: unknown): boolean {
@@ -201,9 +207,11 @@ export async function checkIn(lat: number, lng: number, verification: IdentityVe
 
   const now = new Date();
   // Late = after the start time of the site they checked in at (or the
-  // global default) plus the grace window.
-  const hours = workHoursForSite(site, await getCheckinPolicy());
-  const cutoff = new Date(atTimeOfDay(date, hours.start).getTime() + hours.graceMinutes * 60_000);
+  // global default) plus the grace window — or after the afternoon start on
+  // an approved morning half-day leave.
+  const policy = await getCheckinPolicy();
+  const hours = workHoursForSite(site, policy);
+  const cutoff = lateCutoff(date, hours, await approvedHalfDayLeave(userId, date), policy);
   const status: "ON_TIME" | "LATE" = now <= cutoff ? "ON_TIME" : "LATE";
   const shared = await detectSharedDevice(userId, date, deviceId, ip);
 

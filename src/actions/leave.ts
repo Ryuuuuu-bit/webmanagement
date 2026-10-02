@@ -9,6 +9,8 @@ import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { notifyAdmins, notifyUser } from "@/lib/notify";
 import { createLeaveRequest } from "@/lib/leave";
+import { isWorkday, loadWorkCalendar } from "@/lib/workdays";
+import { bangkokDateKey, pickedDateKey } from "@/lib/date";
 
 /**
  * Legacy entry point — the form now posts multipart to /api/leave/request
@@ -81,8 +83,15 @@ export async function decideLeave(id: string, decision: "APPROVED" | "REJECTED")
     start.setHours(0, 0, 0, 0);
     const end = new Date(updated.endDate);
     end.setHours(0, 0, 0, 0);
+    // Only work days get a LEAVE row — no attendance is expected on weekends
+    // or school holidays anyway (src/lib/workdays.ts).
+    const [cal, requester] = await Promise.all([
+      loadWorkCalendar(pickedDateKey(updated.startDate), pickedDateKey(updated.endDate)),
+      prisma.user.findUnique({ where: { id: updated.requesterId }, select: { campusLocationId: true } }),
+    ]);
     for (let d = new Date(start), n = 0; d <= end && n < 120; d.setDate(d.getDate() + 1), n++) {
       const day = new Date(d);
+      if (!isWorkday(cal, bangkokDateKey(day), requester?.campusLocationId)) continue;
       const existing = await prisma.attendance.findUnique({ where: { userId_date: { userId: updated.requesterId, date: day } }, select: { checkinAt: true } });
       if (existing?.checkinAt) continue;
       await prisma.attendance.upsert({

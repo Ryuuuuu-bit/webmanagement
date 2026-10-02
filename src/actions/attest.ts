@@ -8,7 +8,8 @@ import { AttestType, RequestStatus } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { notifyAdmins, notifyUser } from "@/lib/notify";
-import { atTimeOfDay, getWorkHoursForUser } from "@/lib/settings";
+import { getCheckinPolicy, getWorkHoursForUser, lateCutoff } from "@/lib/settings";
+import { approvedHalfDayLeave } from "@/actions/attendance";
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -155,7 +156,7 @@ export async function decideAttestation(id: string, decision: "APPROVED" | "REJE
       data.attestedCheckin = true;
       // Same late rule as a real check-in: after the site's start + grace = LATE.
       const hours = await getWorkHoursForUser(req.requesterId);
-      const cutoff = new Date(atTimeOfDay(date, hours.start).getTime() + hours.graceMinutes * 60_000);
+      const cutoff = lateCutoff(date, hours, await approvedHalfDayLeave(req.requesterId, date), await getCheckinPolicy());
       data.status = (data.checkinAt as Date) <= cutoff ? "ON_TIME" : "LATE";
     }
     if (touchesCheckout) {

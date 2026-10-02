@@ -3,6 +3,8 @@ import { LeaveType } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { countLeaveDays, countLeaveDaysInYear, getLeaveQuotaMap, getLeaveUsedDays, LEAVE_TYPES } from "@/lib/leaveQuota";
+import { isWorkday, loadWorkCalendar } from "@/lib/workdays";
+import { pickedDateKey } from "@/lib/date";
 import { notifyAdmins } from "@/lib/notify";
 
 export const LEAVE_ATTACHMENT_MAX = 5 * 1024 * 1024; // 5MB
@@ -47,7 +49,16 @@ export async function createLeaveRequest(
     };
   }
 
-  const days = countLeaveDays(startDate, endDate, halfDay);
+  // Work days only (weekends / school holidays don't count), except
+  // calendar-day types like maternity leave — see src/lib/leaveQuota.ts.
+  const [cal, me] = await Promise.all([
+    loadWorkCalendar(pickedDateKey(startDate), pickedDateKey(endDate)),
+    prisma.user.findUnique({ where: { id: userId }, select: { campusLocationId: true } }),
+  ]);
+  const ctx = { cal, siteId: me?.campusLocationId ?? null, type };
+  const days = countLeaveDays(startDate, endDate, halfDay, ctx);
+  if (days === 0) return { ok: false, message: dict.actions.leave.noWorkdays };
+  if (halfDay && !isWorkday(cal, pickedDateKey(startDate), ctx.siteId)) return { ok: false, message: dict.actions.leave.noWorkdays };
   const year = startDate.getUTCFullYear();
   const [quotaMap, usedBefore, requester, overlapping] = await Promise.all([
     getLeaveQuotaMap(),
@@ -71,7 +82,7 @@ export async function createLeaveRequest(
   // Only the portion of this request that actually falls in `year` counts
   // toward that year's quota (a request spanning New Year's has some days in
   // each year — see countLeaveDaysInYear).
-  const usedAfter = usedBefore + countLeaveDaysInYear(startDate, endDate, halfDay, year);
+  const usedAfter = usedBefore + countLeaveDaysInYear(startDate, endDate, halfDay, year, ctx);
   const overQuota = quota > 0 && usedAfter > quota;
   await notifyAdmins(
     "LEAVE_REQUESTED",

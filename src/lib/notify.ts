@@ -50,6 +50,7 @@ export type NotificationKind =
   | "LESSON_PLAN_OVERDUE"
   | "LESSON_PLANS_MISSING"
   | "SITES_UPDATED"
+  | "ABSENT_MARKED"
   | "DOC_EXPIRING"
   | "DOCS_EXPIRING";
 

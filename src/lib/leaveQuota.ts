@@ -1,5 +1,7 @@
 import { LeaveType, RequestStatus } from "@prisma/client";
 import { prisma } from "./prisma";
+import { pickedDateKey } from "./date";
+import { countWorkdays, loadWorkCalendar, type WorkCalendar } from "./workdays";
 
 // Every leave category the app tracks, in the order they should be shown —
 // mirrors the LeaveType enum in prisma/schema.prisma.
@@ -37,13 +39,24 @@ export async function getLeaveQuotaMap(): Promise<Record<LeaveType, number>> {
   return map;
 }
 
+/**
+ * Leave types counted in calendar days (the law counts holidays in them);
+ * every other type counts only work days — Mon–Fri by default, minus
+ * holidays in ปฏิทินโรงเรียน (see src/lib/workdays.ts). Leave Fri → Mon = 2 days.
+ */
+export const CALENDAR_DAY_LEAVE_TYPES = new Set<LeaveType>(["MATERNITY", "MILITARY"] as LeaveType[]);
+
+/** Work-calendar context for counting one teacher's leave (null = plain calendar days). */
+export type LeaveCountContext = { cal: WorkCalendar; siteId: string | null; type: LeaveType } | null;
+
 function dateOnlyUTC(d: Date) {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
-/** Inclusive whole-day count between two dates (0.5 for a half-day request) — no holiday/weekend awareness, matching how the rest of the app treats leave dates. */
-export function countLeaveDays(start: Date, end: Date, halfDay?: string | null): number {
+/** Days charged for a leave request (0.5 for a half-day). With a context, only work days count (except calendar-day types). */
+export function countLeaveDays(start: Date, end: Date, halfDay?: string | null, ctx: LeaveCountContext = null): number {
   if (halfDay) return 0.5;
+  if (ctx && !CALENDAR_DAY_LEAVE_TYPES.has(ctx.type)) return countWorkdays(ctx.cal, pickedDateKey(start), pickedDateKey(end), ctx.siteId);
   return Math.round((dateOnlyUTC(end) - dateOnlyUTC(start)) / 86400000) + 1;
 }
 
@@ -55,14 +68,26 @@ export function countLeaveDays(start: Date, end: Date, halfDay?: string | null):
  * this clamp, all 4 days would land on the previous year's total and be
  * invisible to the new year's, making both years wrong.
  */
-export function countLeaveDaysInYear(start: Date, end: Date, halfDay: string | null | undefined, year: number): number {
+export function countLeaveDaysInYear(start: Date, end: Date, halfDay: string | null | undefined, year: number, ctx: LeaveCountContext = null): number {
   if (halfDay) return start.getUTCFullYear() === year ? 0.5 : 0;
   const yearStart = Date.UTC(year, 0, 1);
   const yearEnd = Date.UTC(year, 11, 31);
   const clampedStart = Math.max(dateOnlyUTC(start), yearStart);
   const clampedEnd = Math.min(dateOnlyUTC(end), yearEnd);
   if (clampedEnd < clampedStart) return 0;
+  if (ctx && !CALENDAR_DAY_LEAVE_TYPES.has(ctx.type)) {
+    return countWorkdays(ctx.cal, new Date(clampedStart).toISOString().slice(0, 10), new Date(clampedEnd).toISOString().slice(0, 10), ctx.siteId);
+  }
   return Math.round((clampedEnd - clampedStart) / 86400000) + 1;
+}
+
+/** Work calendar covering `year` plus the teacher's primary site, for counting their leave. */
+export async function leaveCalendarFor(userId: string, year: number) {
+  const [cal, user] = await Promise.all([
+    loadWorkCalendar(`${year}-01-01`, `${year}-12-31`),
+    prisma.user.findUnique({ where: { id: userId }, select: { campusLocationId: true } }),
+  ]);
+  return { cal, siteId: user?.campusLocationId ?? null };
 }
 
 /**
@@ -88,7 +113,8 @@ export async function getLeaveUsedDays(requesterId: string, type: LeaveType, yea
     },
     select: { startDate: true, endDate: true, halfDay: true },
   });
-  return requests.reduce((sum, r) => sum + countLeaveDaysInYear(r.startDate, r.endDate, r.halfDay, year), 0);
+  const { cal, siteId } = await leaveCalendarFor(requesterId, year);
+  return requests.reduce((sum, r) => sum + countLeaveDaysInYear(r.startDate, r.endDate, r.halfDay, year, { cal, siteId, type }), 0);
 }
 
 export type LeaveQuotaStatus = { type: LeaveType; quota: number; used: number; remaining: number | null };
@@ -108,9 +134,10 @@ export async function getLeaveQuotaStatusForUser(userId: string, year = new Date
     },
     select: { type: true, startDate: true, endDate: true, halfDay: true },
   });
+  const { cal, siteId } = await leaveCalendarFor(userId, year);
   const usedByType = new Map<LeaveType, number>();
   for (const r of requests) {
-    usedByType.set(r.type, (usedByType.get(r.type) ?? 0) + countLeaveDaysInYear(r.startDate, r.endDate, r.halfDay, year));
+    usedByType.set(r.type, (usedByType.get(r.type) ?? 0) + countLeaveDaysInYear(r.startDate, r.endDate, r.halfDay, year, { cal, siteId, type: r.type }));
   }
   return LEAVE_TYPES.map((type) => {
     const quota = quotaMap[type];

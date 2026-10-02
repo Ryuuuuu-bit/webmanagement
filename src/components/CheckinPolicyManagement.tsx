@@ -91,6 +91,10 @@ export default function CheckinPolicyManagement({
               <input type="number" min={0} max={180} value={draft.lateGraceMinutes} onChange={(e) => setDraft((d) => ({ ...d, lateGraceMinutes: Number(e.target.value) }))} className="input w-20" />
               <span className="text-faint">{t.minutes}</span>
             </label>
+            <label className="flex items-center gap-1.5" title={t.afternoonHint}>
+              {t.afternoonStart}
+              <input type="time" value={draft.afternoonStart} onChange={(e) => setDraft((d) => ({ ...d, afternoonStart: e.target.value }))} className="input w-28" />
+            </label>
           </div>
         </div>
       </div>
