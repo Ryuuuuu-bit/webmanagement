@@ -12,7 +12,7 @@ export const DEFAULT_DOCUMENT_TYPES: { name: string; remindDays: string }[] = [
   { name: "Visa", remindDays: "90,60" },
   { name: "Passport", remindDays: "180,90" },
   { name: "90-Day Report (ตม.47)", remindDays: "14,7" },
-  { name: "ใบอนุญาตประกอบวิชาชีพครู", remindDays: "90,60" },
+  { name: "Teaching License (ใบอนุญาตประกอบวิชาชีพครู)", remindDays: "90,60" },
 ];
 
 export async function ensureDefaultDocumentTypes() {

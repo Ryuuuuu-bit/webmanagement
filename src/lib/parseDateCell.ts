@@ -40,8 +40,9 @@ export function parseDateCell(v: unknown): string {
     return key(normYear(v.getFullYear()), v.getMonth() + 1, v.getDate()) ?? "";
   }
   if (typeof v === "number" && v > 0 && v < 200000) {
-    // Excel serial (days since 1899-12-30).
-    const d = new Date(Math.round((v - 25569) * 86_400_000));
+    // Excel serial (days since 1899-12-30). Drop the time part, tolerating the
+    // few-seconds drift some writers add (46400.99995 is still the 14th).
+    const d = new Date((Math.floor(v + 0.001) - 25569) * 86_400_000);
     return key(normYear(d.getUTCFullYear()), d.getUTCMonth() + 1, d.getUTCDate()) ?? String(v);
   }
   const s = String(v).trim();

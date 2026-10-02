@@ -81,7 +81,7 @@ export default function DocumentsManager({
         const up = await uploadFile(res.id, file);
         if (!up.ok) {
           setResult({ ok: false, message: `${res.message} · ${up.message}` });
-          setEditing({ row: null });
+          setEditing(null);
           router.refresh();
           return;
         }
