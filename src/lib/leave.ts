@@ -4,10 +4,13 @@ import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { countLeaveDays, countLeaveDaysInYear, getLeaveQuotaMap, getLeaveUsedDays, LEAVE_TYPES } from "@/lib/leaveQuota";
 import { isWorkday, loadWorkCalendar } from "@/lib/workdays";
-import { pickedDateKey } from "@/lib/date";
+import { bangkokDateKey, pickedDateKey } from "@/lib/date";
+import { isDateKey, keyToDate } from "@/lib/calendar";
 import { notifyAdmins } from "@/lib/notify";
 
 export const LEAVE_ATTACHMENT_MAX = 5 * 1024 * 1024; // 5MB
+/** Longest single request (days, inclusive) — longer leave is filed in parts. */
+export const LEAVE_MAX_DAYS = 200;
 const ALLOWED_MIME = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"]);
 const ALLOWED_EXT = /\.(pdf|jpe?g|png|webp|heic)$/i;
 // Never trust the browser-supplied MIME: derive it from the extension so a
@@ -32,18 +35,31 @@ export async function createLeaveRequest(
   const type = input.type as LeaveType;
   if (!LEAVE_TYPES.includes(type)) return { ok: false, message: dict.actions.leave.invalidDates };
   const halfDay = input.halfDay === "AM" || input.halfDay === "PM" ? input.halfDay : null;
-  const startDate = new Date(input.from);
-  const endDate = halfDay ? new Date(input.from) : new Date(input.to);
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return { ok: false, message: dict.actions.leave.invalidDates };
+  // Dates are plain "YYYY-MM-DD" picked dates (UTC midnight) — anything
+  // else (e.g. "2026-10-05T23:00", parsed as local time) is rejected.
+  const fromKey = String(input.from ?? "").trim();
+  const toKey = halfDay ? fromKey : String(input.to ?? "").trim();
+  if (!isDateKey(fromKey) || !isDateKey(toKey)) return { ok: false, message: dict.actions.leave.invalidDates };
+  const startDate = keyToDate(fromKey);
+  const endDate = keyToDate(toKey);
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || pickedDateKey(startDate) !== fromKey || pickedDateKey(endDate) !== toKey) {
+    return { ok: false, message: dict.actions.leave.invalidDates };
+  }
   if (endDate < startDate) return { ok: false, message: dict.actions.leave.endBeforeStart };
+  const thisYear = Number(bangkokDateKey().slice(0, 4));
+  const spanDays = Math.round((+endDate - +startDate) / 86_400_000) + 1;
+  if (spanDays > LEAVE_MAX_DAYS || startDate.getUTCFullYear() < thisYear - 1 || endDate.getUTCFullYear() > thisYear + 1) {
+    return { ok: false, message: dict.actions.leave.tooLong(LEAVE_MAX_DAYS) };
+  }
 
   let attachment: { attachmentName: string; attachmentMime: string; attachmentSize: number; attachmentData: Buffer } | null = null;
   if (input.file && input.file.size > 0) {
     if (input.file.size > LEAVE_ATTACHMENT_MAX) return { ok: false, message: dict.actions.leave.fileTooLarge };
-    if (!ALLOWED_MIME.has(input.file.type) && !ALLOWED_EXT.test(input.file.name)) return { ok: false, message: dict.actions.leave.unsupportedType };
+    // The extension decides (a client-sent MIME alone is not trusted).
+    if (!ALLOWED_EXT.test(input.file.name)) return { ok: false, message: dict.actions.leave.unsupportedType };
     attachment = {
       attachmentName: input.file.name.slice(0, 200),
-      attachmentMime: ALLOWED_MIME.has(input.file.type) ? input.file.type : mimeFromName(input.file.name),
+      attachmentMime: mimeFromName(input.file.name),
       attachmentSize: input.file.size,
       attachmentData: Buffer.from(await input.file.arrayBuffer()),
     };
@@ -59,16 +75,24 @@ export async function createLeaveRequest(
   const days = countLeaveDays(startDate, endDate, halfDay, ctx);
   if (days === 0) return { ok: false, message: dict.actions.leave.noWorkdays };
   if (halfDay && !isWorkday(cal, pickedDateKey(startDate), ctx.siteId)) return { ok: false, message: dict.actions.leave.noWorkdays };
-  const year = startDate.getUTCFullYear();
-  const [quotaMap, usedBefore, requester, overlapping] = await Promise.all([
+  // A request across New Year's counts toward each year's quota separately.
+  const years = Array.from({ length: endDate.getUTCFullYear() - startDate.getUTCFullYear() + 1 }, (_, i) => startDate.getUTCFullYear() + i);
+  const [quotaMap, usedBeforeByYear, requester, overlapping] = await Promise.all([
     getLeaveQuotaMap(),
-    getLeaveUsedDays(userId, type, year),
+    Promise.all(years.map((y) => getLeaveUsedDays(userId, type, y))),
     prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
     // Soft check only (warn, never block, matching the quota policy above) —
     // lets Admin see at a glance that two requests cover the same day(s)
     // instead of silently approving both and double-counting the overlap.
+    // An AM and a PM half day on the same date don't overlap.
     prisma.leaveRequest.findFirst({
-      where: { requesterId: userId, status: { in: ["PENDING", "APPROVED"] }, startDate: { lte: endDate }, endDate: { gte: startDate } },
+      where: {
+        requesterId: userId,
+        status: { in: ["PENDING", "APPROVED"] },
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+        ...(halfDay ? { NOT: { halfDay: halfDay === "AM" ? "PM" : "AM" } } : {}),
+      },
       select: { id: true },
     }),
   ]);
@@ -82,8 +106,10 @@ export async function createLeaveRequest(
   // Only the portion of this request that actually falls in `year` counts
   // toward that year's quota (a request spanning New Year's has some days in
   // each year — see countLeaveDaysInYear).
-  const usedAfter = usedBefore + countLeaveDaysInYear(startDate, endDate, halfDay, year, ctx);
-  const overQuota = quota > 0 && usedAfter > quota;
+  const perYear = years.map((y, i) => usedBeforeByYear[i] + countLeaveDaysInYear(startDate, endDate, halfDay, y, ctx));
+  const worst = perYear.reduce((m, v) => Math.max(m, v), 0);
+  const overQuota = quota > 0 && worst > quota;
+  const usedAfter = worst;
   await notifyAdmins(
     "LEAVE_REQUESTED",
     { requesterName: requester?.name ?? "-", type, from: startDate.toISOString(), to: endDate.toISOString(), days, halfDay, overQuota, hasOverlap, hasAttachment: !!attachment },

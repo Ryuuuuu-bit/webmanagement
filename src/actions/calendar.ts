@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
-import { DATE_KEY_RE, keyToDate } from "@/lib/calendar";
+import { isDateKey, keyToDate } from "@/lib/calendar";
 import { copyEventsToNextYear, importEventRows, type BulkEventResult, type BulkEventRow } from "@/lib/calendarBulk";
 
 type ActionResult = { ok: boolean; message: string };
@@ -45,7 +45,7 @@ function parseEventInput(formData: FormData) {
 async function validate(input: ReturnType<typeof parseEventInput>) {
   const t = getDictionary(getLocale()).actions.schoolCalendar;
   if (!input.title) return { error: t.fillRequired };
-  if (!DATE_KEY_RE.test(input.from) || !DATE_KEY_RE.test(input.to) || isNaN(keyToDate(input.from).getTime()) || isNaN(keyToDate(input.to).getTime())) return { error: t.invalidDates };
+  if (!isDateKey(input.from) || !isDateKey(input.to)) return { error: t.invalidDates };
   if (input.to < input.from) return { error: t.endBeforeStart };
   if (Date.parse(input.to) - Date.parse(input.from) > 366 * 86_400_000) return { error: t.tooLong };
   const sites = await validSites(input.sites);

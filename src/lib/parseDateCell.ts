@@ -62,3 +62,16 @@ export function parseDateCell(v: unknown): string {
   }
   return s;
 }
+
+/**
+ * A real calendar day "YYYY-MM-DD" in a sane range. The JS Date parser
+ * silently rolls "2026-02-30" over to 2 March, and a B.E. year typed as
+ * "2569-…" is a valid-looking date 543 years ahead — both are rejected.
+ */
+export function isDateKey(k: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) return false;
+  const y = Number(k.slice(0, 4));
+  if (y < 1950 || y > 2200) return false;
+  const d = new Date(`${k}T00:00:00.000Z`);
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === k;
+}

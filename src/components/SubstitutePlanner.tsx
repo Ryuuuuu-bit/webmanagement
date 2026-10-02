@@ -378,7 +378,7 @@ export default function SubstitutePlanner({
               {confirmFor && (
                 <ConfirmBox
                   candidate={candidates.find((c) => c.id === confirmFor) ?? null}
-                  name={nameById.get(confirmFor) ?? ""}
+                  name={candidates.find((c) => c.id === confirmFor)?.name ?? nameById.get(confirmFor) ?? ""}
                   prev={slot.booking && !slot.booking.unavailable ? slot.booking.name : slot.booking?.name ?? null}
                   owner={slot.ownerName}
                   pending={pending}

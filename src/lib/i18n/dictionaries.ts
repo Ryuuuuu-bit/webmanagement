@@ -203,6 +203,10 @@ const th = {
         title: `ยกเลิกการสอนแทน ${p.courseCode}`,
         body: `${h.date(p.date)} ${p.start}–${p.end} น. (แทน ${p.absentName}) — ไม่ต้องเข้าสอนคาบนี้แล้ว`,
       }),
+      SUBSTITUTE_UNCOVERED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `ยกเลิกครูสอนแทนคาบ ${p.courseCode} ของคุณ`,
+        body: `${h.date(p.date)} ${p.start}–${p.end} น. · ${p.substituteName} ไม่ได้สอนแทนแล้ว — ผู้ดูแลระบบจะจัดคนใหม่`,
+      }),
       SUBSTITUTE_COVERED: (p: NotifParams, h: NotifHelpers) => ({
         title: `${p.substituteName} จะสอนแทนคาบ ${p.courseCode} ของคุณ`,
         body: `${h.date(p.date)} ${p.start}–${p.end} น. · ห้อง ${p.room}`,
@@ -1544,6 +1548,7 @@ const th = {
       tooLong: "ช่วงวันที่ยาวเกิน 1 ปี",
       importEmpty: "ไม่มีแถวที่จะนำเข้า",
       importTooMany: "นำเข้าได้ครั้งละไม่เกิน 1,000 แถว",
+      ambiguousSchools: (names: string) => `มีโรงเรียนชื่อซ้ำกัน: ${names} — เปลี่ยนชื่อโรงเรียนหรือเลือกในหน้าเว็บแทน`,
       unknownSchools: (names: string) => `ไม่พบโรงเรียน: ${names}`,
       importCreated: "เพิ่มใหม่",
       importUpdated: "อัปเดตรายการเดิม",
@@ -1637,6 +1642,7 @@ const th = {
         `ส่งคำขอลาแล้ว — แต่เกินโควตาที่กำหนดไว้ (ใช้ไปแล้ว ${used} จาก ${quota} วันในปีนี้) ผู้ดูแลระบบจะเห็นการแจ้งเตือนนี้ตอนพิจารณาอนุมัติ ยังส่งคำขอได้ตามปกติ`,
       overlapNote: "⚠ ช่วงวันที่นี้ทับซ้อนกับคำขอลาอื่นของคุณที่ยังรออนุมัติหรืออนุมัติแล้ว ผู้ดูแลระบบจะเห็นคำเตือนนี้ตอนพิจารณาด้วย",
       noWorkdays: "ช่วงวันที่เลือกไม่มีวันทำงาน (เป็นวันหยุดทั้งหมด) — ไม่ต้องยื่นใบลา",
+      tooLong: (n: number) => `ยื่นลาได้ไม่เกิน ${n} วันต่อคำขอ และต้องอยู่ในปีที่แล้ว/ปีนี้/ปีหน้า — ถ้าลานานกว่านี้ให้แบ่งยื่นเป็นช่วง`,
     },
     leaveQuota: {
       invalidDays: "จำนวนวันต้องเป็นเลขจำนวนเต็มตั้งแต่ 0 ขึ้นไป",
@@ -1989,6 +1995,10 @@ const en: typeof th = {
       SUBSTITUTE_CANCELLED: (p: NotifParams, h: NotifHelpers) => ({
         title: `Cover for ${p.courseCode} cancelled`,
         body: `${h.date(p.date)} ${p.start}–${p.end} (for ${p.absentName}) — you no longer need to teach this class`,
+      }),
+      SUBSTITUTE_UNCOVERED: (p: NotifParams, h: NotifHelpers) => ({
+        title: `Cover for your ${p.courseCode} class was cancelled`,
+        body: `${h.date(p.date)} ${p.start}–${p.end} · ${p.substituteName} will no longer cover it — the admin will arrange someone else`,
       }),
       SUBSTITUTE_COVERED: (p: NotifParams, h: NotifHelpers) => ({
         title: `${p.substituteName} will cover your ${p.courseCode} class`,
@@ -3319,6 +3329,7 @@ const en: typeof th = {
       tooLong: "The date range is longer than a year",
       importEmpty: "No rows to import",
       importTooMany: "Import at most 1,000 rows at a time",
+      ambiguousSchools: (names: string) => `More than one school is called: ${names} — rename one or pick it in the app`,
       unknownSchools: (names: string) => `School not found: ${names}`,
       importCreated: "Added",
       importUpdated: "Updated existing",
@@ -3412,6 +3423,7 @@ const en: typeof th = {
         `Leave request submitted — but this exceeds your quota (used ${used} of ${quota} days this year). Admin will see this warning when deciding. The request still went through as normal.`,
       overlapNote: "⚠ This date range overlaps another leave request of yours that's pending or already approved. Admin will see this warning too when deciding.",
       noWorkdays: "The selected dates contain no work days (all holidays) — no leave needed",
+      tooLong: (n: number) => `Leave can be at most ${n} days per request, within last/this/next year — file longer leave in parts`,
     },
     leaveQuota: {
       invalidDays: "Days must be a whole number of 0 or more",

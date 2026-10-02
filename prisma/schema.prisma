@@ -370,6 +370,9 @@ model Attendance {
   checkinSelfieId  String?
   checkoutSelfieId String?
   flagSharedDevice Boolean @default(false)
+  // Set when an Admin edits the day by hand: the absence jobs never
+  // overwrite an Admin's decision (e.g. an excused PENDING).
+  adminEdited      Boolean @default(false)
   // Checked out before the site's workEnd (shown to Admin; never blocks).
   earlyCheckout    Boolean @default(false)
   // Which site the stamp was made at (teachers may have several sites);

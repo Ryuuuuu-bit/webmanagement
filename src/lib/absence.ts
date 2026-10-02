@@ -38,7 +38,7 @@ export async function markAbsences(now = new Date()): Promise<number> {
     loadWorkCalendar(from, yesterday),
     prisma.user.findMany({
       where: { role: "MEMBER", isActive: true, lastLoginAt: { not: null }, campusLocationId: { not: null } },
-      select: { id: true, campusLocationId: true, createdAt: true },
+      select: { id: true, campusLocationId: true, createdAt: true, consentAt: true },
     }),
   ]);
   if (teachers.length === 0) return 0;
@@ -47,7 +47,7 @@ export async function markAbsences(now = new Date()): Promise<number> {
   const toDate = attendanceDateOf(yesterday);
 
   const [rows, leaves, schedules] = await Promise.all([
-    prisma.attendance.findMany({ where: { userId: { in: ids }, date: { gte: fromDate, lte: toDate } }, select: { userId: true, date: true, checkinAt: true, checkoutAt: true, status: true } }),
+    prisma.attendance.findMany({ where: { userId: { in: ids }, date: { gte: fromDate, lte: toDate } }, select: { userId: true, date: true, checkinAt: true, checkoutAt: true, status: true, adminEdited: true } }),
     prisma.leaveRequest.findMany({
       where: { requesterId: { in: ids }, status: "APPROVED", startDate: { lte: new Date(`${yesterday}T23:59:59Z`) }, endDate: { gte: new Date(`${from}T00:00:00Z`) } },
       select: { requesterId: true, startDate: true, endDate: true },
@@ -60,7 +60,11 @@ export async function markAbsences(now = new Date()): Promise<number> {
 
   let marked = 0;
   for (const t of teachers) {
-    const joined = bangkokDateKey(t.createdAt);
+    // Not before they started using the app: the account's creation, or —
+    // later — the first sign-in (the privacy notice is accepted then).
+    const created = bangkokDateKey(t.createdAt);
+    const firstUse = t.consentAt ? bangkokDateKey(t.consentAt) : created;
+    const joined = firstUse > created ? firstUse : created;
     const absentDays: string[] = [];
     for (const key of days) {
       if (key < joined) continue;
@@ -72,10 +76,10 @@ export async function markAbsences(now = new Date()): Promise<number> {
         if (!teaches) continue;
       }
       const row = rowByKey.get(`${t.id}:${key}`);
-      if (row && (row.checkinAt || row.checkoutAt || row.status !== "PENDING")) continue;
+      if (row && (row.checkinAt || row.checkoutAt || row.status !== "PENDING" || row.adminEdited)) continue;
       const date = attendanceDateOf(key);
       if (row) {
-        const res = await prisma.attendance.updateMany({ where: { userId: t.id, date, checkinAt: null, checkoutAt: null, status: "PENDING" }, data: { status: "ABSENT" } });
+        const res = await prisma.attendance.updateMany({ where: { userId: t.id, date, checkinAt: null, checkoutAt: null, status: "PENDING", adminEdited: false }, data: { status: "ABSENT" } });
         if (res.count === 0) continue;
       } else {
         try {

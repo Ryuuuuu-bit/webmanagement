@@ -6,6 +6,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import { keyToDate } from "@/lib/calendar";
+import { bangkokDateKey } from "@/lib/date";
 import { notifyUser } from "@/lib/notify";
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -40,6 +42,9 @@ export async function createSchedule(formData: FormData) {
   const note = ((formData.get("note") as string) || "").trim() || null;
 
   if (!TIME_RE.test(startTime) || !TIME_RE.test(endTime)) {
+    return { ok: false, message: dict.actions.schedule.invalidTime };
+  }
+  if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
     return { ok: false, message: dict.actions.schedule.invalidTime };
   }
   if (endTime <= startTime) {
@@ -147,7 +152,19 @@ export async function deleteSchedule(id: string): Promise<{ ok: boolean; message
     }
   }
 
+  // Substitute bookings for this class cascade away with it: tell the
+  // substitutes who were due to cover it from today on.
+  const upcoming = await prisma.substituteAssignment.findMany({
+    where: { scheduleId: id, date: { gte: keyToDate(bangkokDateKey()) } },
+    select: { date: true, substituteId: true, substitute: { select: { name: true } }, schedule: { select: { startTime: true, endTime: true, room: { select: { name: true } }, course: { select: { code: true, name: true } }, teacher: { select: { name: true } } } } },
+  });
   const removed = await prisma.schedule.delete({ where: { id }, include: { course: true, semester: true } });
+  for (const b of upcoming) {
+    await notifyUser(b.substituteId, "SUBSTITUTE_CANCELLED", {
+      date: b.date.toISOString().slice(0, 10), start: b.schedule.startTime, end: b.schedule.endTime, courseCode: b.schedule.course.code,
+      courseName: b.schedule.course.name, room: b.schedule.room.name, absentName: b.schedule.teacher.name, substituteName: b.substitute.name,
+    }, "/dashboard");
+  }
   if (isAdmin && removed.teacherId !== session.user.id) {
     await notifyUser(
       removed.teacherId,

@@ -6,7 +6,7 @@ import { readWorkbook } from "@/lib/readSheet";
 import type { ImportUserResult, ImportUserRow } from "@/actions/users";
 
 // Accepted header spellings (Thai or English, any case) → field.
-const HEADER_MAP: Record<string, keyof ImportUserRow> = {
+const HEADER_MAP: Record<string, Exclude<keyof ImportUserRow, "row">> = {
   name: "name", "ชื่อ": "name", "ชื่อ-นามสกุล": "name", fullname: "name",
   username: "username", "ชื่อผู้ใช้": "username", user: "username",
   email: "email", "อีเมล": "email",
@@ -47,8 +47,8 @@ export default function UserImport({ importUsers }: { importUsers: (rows: Import
       const wb = await readWorkbook(file);
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
-      const parsed: ImportUserRow[] = raw.map((r) => {
-        const out: ImportUserRow = { name: "", username: "", email: "" };
+      const parsed: ImportUserRow[] = raw.map((r, i) => {
+        const out: ImportUserRow = { name: "", username: "", email: "", row: i + 2 };
         for (const [k, v] of Object.entries(r)) {
           const field = HEADER_MAP[k.trim().toLowerCase()];
           if (field) out[field] = String(v ?? "").trim();

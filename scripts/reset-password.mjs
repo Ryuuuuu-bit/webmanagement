@@ -38,7 +38,10 @@ try {
               tokenVersion: { increment: 1 },
             },
           }),
-          prisma.loginLock.deleteMany({ where: { key: { startsWith: `e:${user.email.toLowerCase()}|` } } }),
+          // Lock keys are per account id (and the legacy email/username forms).
+          prisma.loginLock.deleteMany({
+            where: { OR: [{ key: { startsWith: `e:u:${user.id}|` } }, { key: { startsWith: `e:${user.email.toLowerCase()}|` } }, { key: { startsWith: `e:${username.toLowerCase()}|` } }] },
+          }),
           prisma.appSetting.update({ where: { id: "default" }, data: { maintenanceToken: token } }),
         ]);
         console.log(`[reset-password] temporary password set for ${username} (7 days, must change)`);

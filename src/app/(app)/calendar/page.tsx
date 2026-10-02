@@ -28,9 +28,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: { m
   // Which schools this viewer sees: Admin all (or the filtered one), a
   // teacher their primary + extra sites.
   let scopeSites: string[] | null = null;
+  let homeSite: string | null = null;
   if (!isAdmin) {
     const me = await prisma.user.findUnique({ where: { id: session.user.id }, select: { campusLocationId: true, extraSites: { select: { locationId: true } } } });
     scopeSites = [me?.campusLocationId, ...(me?.extraSites ?? []).map((x) => x.locationId)].filter((x): x is string => !!x);
+    homeSite = me?.campusLocationId ?? null;
   } else if (siteFilter) {
     scopeSites = [siteFilter];
   }
@@ -59,7 +61,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: { m
       detail: e.detail,
       start: pickedDateKey(e.startDate),
       end: pickedDateKey(e.endDate),
-      isHoliday: e.isHoliday,
+      // A teacher's days off follow their primary school (src/lib/workdays.ts):
+      // another school's holiday is shown as a normal event for them.
+      isHoliday: e.isHoliday && (isAdmin || ids.length === 0 || (!!homeSite && ids.includes(homeSite))),
       siteIds: ids,
       siteNames: ids.map((id) => siteName.get(id)!),
     };

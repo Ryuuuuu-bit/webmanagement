@@ -7,7 +7,7 @@
 //   unset                           do nothing
 //
 // Everything created here is recognisable and removed by the same script:
-//   - teachers  : MEMBER accounts with an @demo.local email (password below)
+//   - teachers  : MEMBER accounts with an @demo.local email (password: DEMO_PASSWORD or random, logged)
 //   - sites     : CampusLocation names starting with "[ตัวอย่าง]"
 //   - master    : Department / Room.building starting with "[ตัวอย่าง]",
 //                 Course.code starting with "DEMO-", Semester "[ตัวอย่าง] …"
@@ -25,7 +25,10 @@ import crypto from "node:crypto";
 const prisma = globalThis.__demoPrisma ?? new PrismaClient();
 const token = process.env.SEED_DEMO_DATA?.trim();
 
-const DEMO_PASSWORD = "Teach2569";
+// Never a password that is in the source: DEMO_PASSWORD from the
+// environment, otherwise a fresh random one per run (printed once in the
+// deploy log below).
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD?.trim() || `Demo-${crypto.randomBytes(5).toString("hex")}`;
 const DEMO_DOMAIN = "@demo.local";
 const P = "[ตัวอย่าง]";
 const DEMO_TAG = "(ข้อมูลตัวอย่าง)";

@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
-import { DATE_KEY_RE, eventSiteIds, keyToDate } from "./calendar";
+import { eventSiteIds, isDateKey, keyToDate } from "./calendar";
+import { getDictionary } from "./i18n/dictionaries";
 import { pickedDateKey } from "./date";
 import type { Dictionary } from "./i18n/dictionaries";
 
@@ -11,10 +12,20 @@ type Msgs = Dictionary["actions"]["schoolCalendar"];
  * Admin check and cache revalidation.
  */
 
-export type BulkEventRow = { row: number; title: string; start: string; end: string; holiday: boolean; schools: string; detail: string };
+/**
+ * One event to add. `siteIds` (when given) names the schools directly — the
+ * holiday picker and the "same for every row" choice use it; otherwise
+ * `schools` is matched by name ([] / blank / "all" = every school).
+ */
+export type BulkEventRow = { row: number; title: string; start: string; end: string; holiday: boolean; schools: string; detail: string; siteIds?: string[] };
 export type BulkEventResult = { row: number; title: string; ok: boolean; message: string };
 
-const ALL_WORDS = new Set(["", "all", "*", "ทุกโรงเรียน", "ทั้งหมด", "ทุกสาขา", "ทุก site", "ทุกที่"]);
+// Words meaning "every school" — incl. the label the Excel export writes in either language.
+const ALL_WORDS = new Set(
+  ["", "all", "*", "ทุกโรงเรียน", "ทั้งหมด", "ทุกสาขา", "ทุก site", "ทุกที่", getDictionary("th").schoolCalendar.allSchools, getDictionary("en").schoolCalendar.allSchools].map((w) =>
+    w.trim().toLowerCase()
+  )
+);
 
 /**
  * Creates many events at once — the Excel/CSV import (rows already mapped
@@ -31,7 +42,10 @@ export async function importEventRows(rows: BulkEventRow[], actorId: string, t: 
 
   const sites = await prisma.campusLocation.findMany({ select: { id: true, name: true } });
   const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
-  const siteByName = new Map(sites.map((s) => [norm(s.name), s.id]));
+  // name → id, or null when two schools share the name (then only ids can pick them).
+  const siteByName = new Map<string, string | null>();
+  for (const x of sites) siteByName.set(norm(x.name), siteByName.has(norm(x.name)) ? null : x.id);
+  const knownIds = new Set(sites.map((x) => x.id));
 
   const results: BulkEventResult[] = [];
   let created = 0;
@@ -45,7 +59,7 @@ export async function importEventRows(rows: BulkEventRow[], actorId: string, t: 
       results.push({ ...base, ok: false, message: t.fillRequired });
       continue;
     }
-    if (!DATE_KEY_RE.test(from) || !DATE_KEY_RE.test(to) || isNaN(Date.parse(from)) || isNaN(Date.parse(to))) {
+    if (!isDateKey(from) || !isDateKey(to)) {
       results.push({ ...base, ok: false, message: t.invalidDates });
       continue;
     }
@@ -53,13 +67,34 @@ export async function importEventRows(rows: BulkEventRow[], actorId: string, t: 
       results.push({ ...base, ok: false, message: t.endBeforeStart });
       continue;
     }
-    const names = String(r.schools ?? "").split(/[,;\n/|]+/).map((x) => x.trim()).filter((x) => !ALL_WORDS.has(norm(x)));
-    const unknown = names.filter((n) => !siteByName.has(norm(n)));
-    if (unknown.length) {
-      results.push({ ...base, ok: false, message: t.unknownSchools(unknown.join(", ")) });
+    if (Date.parse(to) - Date.parse(from) > 366 * 86_400_000) {
+      results.push({ ...base, ok: false, message: t.tooLong });
       continue;
     }
-    const siteIds = Array.from(new Set(names.map((n) => siteByName.get(norm(n))!))).sort();
+    let siteIds: string[];
+    if (Array.isArray(r.siteIds)) {
+      // Picked by id (holiday picker / "same for every row"): must all exist.
+      siteIds = Array.from(new Set(r.siteIds.map(String))).sort();
+      if (siteIds.some((id) => !knownIds.has(id))) {
+        results.push({ ...base, ok: false, message: t.unknownSchools(siteIds.filter((id) => !knownIds.has(id)).join(", ")) });
+        continue;
+      }
+    } else {
+      const raw = String(r.schools ?? "").trim();
+      // A whole cell equal to one school's name wins over splitting (names may contain "," or "/").
+      const names = siteByName.has(norm(raw)) ? [raw] : raw.split(/[,;\n/|]+/).map((x) => x.trim()).filter((x) => !ALL_WORDS.has(norm(x)));
+      const unknown = names.filter((n) => !siteByName.has(norm(n)));
+      if (unknown.length) {
+        results.push({ ...base, ok: false, message: t.unknownSchools(unknown.join(", ")) });
+        continue;
+      }
+      const ambiguous = names.filter((n) => siteByName.get(norm(n)) === null);
+      if (ambiguous.length) {
+        results.push({ ...base, ok: false, message: t.ambiguousSchools(ambiguous.join(", ")) });
+        continue;
+      }
+      siteIds = Array.from(new Set(names.map((n) => siteByName.get(norm(n))!))).sort();
+    }
     const detail = String(r.detail ?? "").trim().slice(0, 2000) || null;
 
     const same = await prisma.schoolEvent.findMany({
@@ -105,11 +140,15 @@ export async function copyEventsToNextYear(fromYear: number, siteId: string | nu
   let copied = 0;
   let skipped = 0;
   for (const e of events) {
-    const sites = eventSiteIds(e);
-    if (siteId && sites.length > 0 && !sites.includes(siteId)) continue;
+    const all = eventSiteIds(e);
+    if (siteId && all.length > 0 && !all.includes(siteId)) continue;
+    // Copying for one school copies that school's share only (its own events
+    // and school-wide ones stay as they are; a multi-school event becomes this school's).
+    const sites = siteId && all.length > 0 ? [siteId] : all;
     const startDate = shift(e.startDate);
-    const exists = await prisma.schoolEvent.findFirst({ where: { title: e.title, startDate }, select: { id: true } });
-    if (exists) {
+    const same = await prisma.schoolEvent.findMany({ where: { title: e.title, startDate }, select: { siteIds: true, campusLocationId: true } });
+    const key = [...sites].sort().join(",");
+    if (same.some((x) => eventSiteIds(x).sort().join(",") === key)) {
       skipped++;
       continue;
     }

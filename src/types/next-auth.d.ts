@@ -24,5 +24,7 @@ declare module "next-auth/jwt" {
     role: Role;
     tokenVersion: number;
     invalid?: boolean;
+    /** Signed in with a password (vs passkey / enrollment ticket). */
+    viaPassword?: boolean;
   }
 }

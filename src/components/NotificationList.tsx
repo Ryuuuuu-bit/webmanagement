@@ -33,6 +33,7 @@ const KIND_TONE: Record<string, string> = {
   SUBSTITUTE_ASSIGNED: "bg-info-soft text-info",
   SUBSTITUTE_COVERED: "bg-ok-soft text-ok",
   SUBSTITUTE_CANCELLED: "bg-line-soft text-subtle",
+  SUBSTITUTE_UNCOVERED: "bg-warn-soft text-warn",
 };
 
 function timeAgo(iso: string, t: { justNow: string; minutesAgo: (n: number) => string; hoursAgo: (n: number) => string; daysAgo: (n: number) => string }) {

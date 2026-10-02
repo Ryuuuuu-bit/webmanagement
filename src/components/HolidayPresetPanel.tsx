@@ -59,7 +59,7 @@ export default function HolidayPresetPanel({
     if (missingDate.length) return setResult({ ok: false, message: x.fillLunar(missingDate.map((i) => i.title).join(", ")), results: [] });
     if (!confirm(x.addConfirm(chosen.length))) return;
     const schools = siteIds.map((id) => sites.find((s) => s.id === id)?.name ?? "").filter(Boolean).join(", ");
-    const rows: BulkEventRow[] = chosen.map((i, n) => ({ row: n + 1, title: i.title, start: i.start, end: i.end || i.start, holiday: true, schools, detail: "" }));
+    const rows: BulkEventRow[] = chosen.map((i, n) => ({ row: n + 1, title: i.title, start: i.start, end: i.end || i.start, holiday: true, schools, detail: "", siteIds }));
     startTransition(async () => {
       const res = await importEvents(rows);
       setResult(res);

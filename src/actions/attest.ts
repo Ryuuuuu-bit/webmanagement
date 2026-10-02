@@ -4,12 +4,13 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { bangkokDateKey } from "@/lib/date";
 import { AttestType, RequestStatus } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { notifyAdmins, notifyUser } from "@/lib/notify";
 import { getCheckinPolicy, getWorkHoursForUser, lateCutoff } from "@/lib/settings";
-import { approvedHalfDayLeave } from "@/actions/attendance";
+import { approvedHalfDayLeave } from "@/lib/halfDayLeave";
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -28,7 +29,9 @@ export async function requestAttestation(formData: FormData): Promise<{ ok: bool
   const time2 = (formData.get("time2") as string) || "";
   const date = new Date(formData.get("date") as string);
   if (isNaN(date.getTime())) return { ok: false, message: dict.actions.attest.invalidDate };
-  if (date.getTime() > Date.now() + 24 * 60 * 60 * 1000) return { ok: false, message: dict.actions.attest.futureDate };
+  // Compare calendar days in Bangkok (the picked date is UTC midnight, i.e. 07:00 local —
+  // a plain "now + 24h" test let tomorrow through and blocked tomorrow's real check-in).
+  if (date.toISOString().slice(0, 10) > bangkokDateKey()) return { ok: false, message: dict.actions.attest.futureDate };
   if (!["FORGOT_CHECKIN", "FORGOT_CHECKOUT", "FORGOT_BOTH"].includes(type)) return { ok: false, message: dict.actions.attest.invalidDate };
 
   if (!TIME_RE.test(time)) {
@@ -46,18 +49,22 @@ export async function requestAttestation(formData: FormData): Promise<{ ok: bool
     }
   }
 
-  // A forgotten check-in on a day with a real check-out (the "checked out
-  // without checking in" flow): the claimed arrival must come before it.
-  if (type === "FORGOT_CHECKIN") {
+  // The claimed time must fit the other half already on record: a forgotten
+  // check-in before the recorded check-out, a forgotten check-out after the
+  // recorded check-in (real or attested).
+  if (type === "FORGOT_CHECKIN" || type === "FORGOT_CHECKOUT") {
     const day = new Date(date);
     day.setHours(0, 0, 0, 0);
     const att = await prisma.attendance.findUnique({
       where: { userId_date: { userId: session.user.id, date: day } },
-      select: { checkoutAt: true, attestedCheckout: true },
+      select: { checkinAt: true, checkoutAt: true },
     });
-    if (att?.checkoutAt && !att.attestedCheckout) {
-      const out = att.checkoutAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Bangkok" });
-      if (time >= out) return { ok: false, message: dict.actions.attest.checkinAfterRealCheckout(out) };
+    const hhmm = (d: Date) => d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Bangkok" });
+    if (type === "FORGOT_CHECKIN" && att?.checkoutAt && time >= hhmm(att.checkoutAt)) {
+      return { ok: false, message: dict.actions.attest.checkinAfterRealCheckout(hhmm(att.checkoutAt)) };
+    }
+    if (type === "FORGOT_CHECKOUT" && att?.checkinAt && time <= hhmm(att.checkinAt)) {
+      return { ok: false, message: dict.actions.attest.checkoutBeforeCheckin };
     }
   }
 
@@ -162,6 +169,17 @@ export async function decideAttestation(id: string, decision: "APPROVED" | "REJE
     if (touchesCheckout) {
       data.checkoutAt = atTime(req.type === "FORGOT_BOTH" ? req.requestedCheckoutTime! : req.requestedTime);
       data.attestedCheckout = true;
+      // Present after all on a day the scheduler marked ABSENT (no check-in):
+      // back to "awaiting check-in attestation", like a real check-out does.
+      if (!touchesCheckin && !existing?.checkinAt && existing?.status === "ABSENT") data.status = "PENDING";
+    }
+    // Re-check against the record as it is now (it may have changed since the request).
+    const inAt = (data.checkinAt as Date | undefined) ?? existing?.checkinAt ?? null;
+    const outAt = (data.checkoutAt as Date | undefined) ?? existing?.checkoutAt ?? null;
+    if (inAt && outAt && outAt <= inAt) {
+      await prisma.timeAttestation.update({ where: { id }, data: { status: "PENDING", approverId: null, decidedAt: null } });
+      revalidatePath("/attest");
+      throw new Error(dict.actions.attest.conflictAttendance);
     }
 
     await prisma.attendance.upsert({

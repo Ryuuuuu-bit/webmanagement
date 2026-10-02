@@ -29,7 +29,7 @@ function validateSemesterInput(
 ) {
   if (!name) return dict.actions.semesters.fillRequired;
   if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return dict.actions.semesters.invalidDates;
-  if (endDate <= startDate) return dict.actions.semesters.endBeforeStart;
+  if (endDate < startDate) return dict.actions.semesters.endBeforeStart;
   if (lessonPlanDueDate && isNaN(lessonPlanDueDate.getTime())) return dict.actions.semesters.invalidDates;
   if (lessonPlanDueDate && lessonPlanDueDate > endDate) return dict.actions.semesters.dueAfterEnd;
   return null;

@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "./LanguageProvider";
-import { parseDateCell } from "@/lib/parseDateCell";
+import { isDateKey, parseDateCell } from "@/lib/parseDateCell";
 import { readWorkbook } from "@/lib/readSheet";
 import type { ImportDocumentResult, ImportDocumentRow } from "@/actions/documents";
 
@@ -179,7 +179,7 @@ export default function DocumentImport({
                         <td className="px-2 py-1">{r.type}</td>
                         <td className="px-2 py-1 font-mono">{r.number}</td>
                         {[r.issueDate, r.expiryDate].map((d, i) => (
-                          <td key={i} className={`px-2 py-1 ${d && !/^\d{4}-\d{2}-\d{2}$/.test(d) ? "text-danger" : ""}`}>{d}</td>
+                          <td key={i} className={`px-2 py-1 ${d && !isDateKey(d) ? "text-danger" : ""}`}>{d}</td>
                         ))}
                         <td className="px-2 py-1">{r.note}</td>
                       </tr>

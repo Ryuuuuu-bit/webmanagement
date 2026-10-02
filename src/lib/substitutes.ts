@@ -57,6 +57,8 @@ export type Slot = {
   room: string;
   ownerId: string;
   ownerName: string;
+  /** School the class takes place at: the room's site, else the teacher's primary site. */
+  siteId: string | null;
   booking: Booking | null;
   candidates: Candidate[];
   excluded: Excluded[];
@@ -111,8 +113,9 @@ async function computePlan(dateKey: string, manualIds: string[] = []) {
     semestersOn(dateKey),
     loadWorkCalendar(dateKey, dateKey),
     getCheckinPolicy(),
+    // Only bookings whose class still runs that day (a semester edit can leave stale ones behind).
     prisma.substituteAssignment.findMany({
-      where: { date: day },
+      where: { date: day, schedule: { dayOfWeek: weekday, semester: { startDate: { lte: new Date(+day + 86_400_000) }, endDate: { gte: new Date(+day - 86_400_000) } } } },
       select: { id: true, scheduleId: true, absentTeacherId: true, substituteId: true, schedule: { select: { startTime: true, endTime: true, course: { select: { code: true } } } } },
     }),
   ]);
@@ -120,7 +123,7 @@ async function computePlan(dateKey: string, manualIds: string[] = []) {
     ? await prisma.schedule.findMany({
         where: { dayOfWeek: weekday, semesterId: { in: semesterIds } },
         orderBy: { startTime: "asc" },
-        select: { id: true, teacherId: true, startTime: true, endTime: true, room: { select: { name: true } }, course: { select: { code: true, name: true, gradeLevel: true } } },
+        select: { id: true, teacherId: true, startTime: true, endTime: true, room: { select: { name: true, campusLocationId: true } }, course: { select: { code: true, name: true, gradeLevel: true } } },
       })
     : [];
 
@@ -134,19 +137,30 @@ async function computePlan(dateKey: string, manualIds: string[] = []) {
   const byTeacher = new Map<string, typeof schedules>();
   for (const s of schedules) byTeacher.set(s.teacherId, [...(byTeacher.get(s.teacherId) ?? []), s]);
   const now = new Date();
-  const cutoffOf = (t: (typeof teachers)[number]) => lateCutoff(attendanceDate, workHoursForSite(t.campusLocation, policy), null, policy);
+  /** Late cut-off today; on a morning half-day leave the afternoon start + grace. */
+  const cutoffOf = (t: (typeof teachers)[number]) =>
+    lateCutoff(attendanceDate, workHoursForSite(t.campusLocation, policy), leaveBy.get(t.id)?.halfDay === "AM" ? "AM" : null, policy);
+  /**
+   * Off that day: a school-calendar holiday at their school, or a non-work
+   * weekday — unless they teach a class that day (weekend make-up classes).
+   */
+  const offFor = (t: (typeof teachers)[number]) =>
+    !!holidayFor(cal, dateKey, t.campusLocationId) || (!cal.weekdays.has(weekday) && !byTeacher.has(t.id));
+  /** Today, due at work, still no check-in after their cut-off. */
+  const noShow = (t: (typeof teachers)[number]) => isToday && !attBy.get(t.id)?.checkinAt && !offFor(t) && now > cutoffOf(t);
 
   const out = new Map<string, { reason: AbsenceReason; halfDay: string | null }>();
   for (const t of teachers) {
     const leave = leaveBy.get(t.id);
     const att = attBy.get(t.id);
     if (att?.checkinAt && !leave?.halfDay) continue; // here today
-    if (leave) out.set(t.id, { reason: leave.status === "APPROVED" ? "LEAVE" : "LEAVE_PENDING", halfDay: leave.halfDay });
-    else if (att?.status === "ABSENT") out.set(t.id, { reason: "ABSENT", halfDay: null });
+    if (leave) {
+      // A half-day leave whose other half was missed too (no check-in past the cut-off) = away all day.
+      const missedOtherHalf = !!leave.halfDay && noShow(t);
+      out.set(t.id, { reason: leave.status === "APPROVED" ? "LEAVE" : "LEAVE_PENDING", halfDay: missedOtherHalf ? null : leave.halfDay });
+    } else if (att?.status === "ABSENT") out.set(t.id, { reason: "ABSENT", halfDay: null });
     else if (att?.status === "LEAVE") out.set(t.id, { reason: "LEAVE", halfDay: null });
-    else if (isToday && !att?.checkinAt && isWorkday(cal, dateKey, t.campusLocationId) && byTeacher.has(t.id)) {
-      if (now > cutoffOf(t)) out.set(t.id, { reason: "NOT_CHECKED_IN", halfDay: null });
-    }
+    else if (noShow(t) && byTeacher.has(t.id)) out.set(t.id, { reason: "NOT_CHECKED_IN", halfDay: null });
   }
   for (const id of manualIds) if (!out.has(id) && teachers.some((t) => t.id === id)) out.set(id, { reason: "MANUAL", halfDay: null });
   for (const b of bookings) if (!out.has(b.absentTeacherId) && teachers.some((t) => t.id === b.absentTeacherId)) out.set(b.absentTeacherId, { reason: "BOOKED", halfDay: null });
@@ -160,34 +174,40 @@ async function computePlan(dateKey: string, manualIds: string[] = []) {
     return true;
   };
   /** Today: not checked in yet but not late yet (could still turn up). */
-  const waiting = (t: (typeof teachers)[number]) =>
-    isToday && !attBy.get(t.id)?.checkinAt && !out.has(t.id) && isWorkday(cal, dateKey, t.campusLocationId) && now <= cutoffOf(t);
+  const waiting = (t: (typeof teachers)[number]) => isToday && !attBy.get(t.id)?.checkinAt && !offFor(t) && now <= cutoffOf(t);
 
   const nameOf = new Map(teachers.map((t) => [t.id, t.name]));
   const sitesOf = (t: (typeof teachers)[number]) => new Set([t.campusLocationId, ...t.extraSites.map((x) => x.locationId)].filter(Boolean) as string[]);
   const bookingsBy = new Map<string, typeof bookings>();
   for (const b of bookings) bookingsBy.set(b.substituteId, [...(bookingsBy.get(b.substituteId) ?? []), b]);
 
+  const subUnavailable = (id: string, start: string, end: string) => {
+    const sub = teachers.find((x) => x.id === id);
+    return !sub || awayAt(id, start, end) || noShow(sub) || (byTeacher.get(id) ?? []).some((x) => overlaps(x.startTime, x.endTime, start, end));
+  };
+
   const absent: AbsentTeacher[] = [];
   for (const t of teachers) {
     const o = out.get(t.id);
     if (!o) continue;
-    const dayOff = !isWorkday(cal, dateKey, t.campusLocationId);
-    const mySites = sitesOf(t);
+    const dayOff = offFor(t);
     const slots: Slot[] = (dayOff ? [] : byTeacher.get(t.id) ?? [])
       // Half-day leave: only the classes in that half need cover; a booking keeps its class listed.
       .filter((s) => awayAt(t.id, s.startTime, s.endTime) || bookings.some((b) => b.scheduleId === s.id))
       .map((s) => {
         const level = s.course.gradeLevel;
         const b = bookings.find((x) => x.scheduleId === s.id);
+        const slotSite = s.room.campusLocationId ?? t.campusLocationId;
         const candidates: Candidate[] = [];
         const excluded: Excluded[] = [];
         for (const c of teachers) {
           if (c.id === t.id) continue;
-          if (mySites.size > 0 && !Array.from(sitesOf(c)).some((x) => mySites.has(x))) continue; // another school: not listed at all
+          if (slotSite && !sitesOf(c).has(slotSite)) continue; // doesn't work at the class's school: not listed at all
           const reject = (reason: ExcludeReason, detail: string | null = null) => excluded.push({ id: c.id, name: c.name, reason, detail });
           if (awayAt(c.id, s.startTime, s.endTime)) { reject("AWAY"); continue; }
-          if (!isWorkday(cal, dateKey, c.campusLocationId)) { reject("DAY_OFF"); continue; }
+          if (offFor(c)) { reject("DAY_OFF"); continue; }
+          // Today: hasn't turned up and is past their cut-off — not at school.
+          if (noShow(c)) { reject("AWAY", "NOT_CHECKED_IN"); continue; }
           const own = (byTeacher.get(c.id) ?? []).find((x) => overlaps(x.startTime, x.endTime, s.startTime, s.endTime));
           if (own) { reject("OWN_CLASS", own.course.code); continue; }
           const cover = (bookingsBy.get(c.id) ?? []).find((x) => x.scheduleId !== s.id && overlaps(x.schedule.startTime, x.schedule.endTime, s.startTime, s.endTime));
@@ -219,7 +239,16 @@ async function computePlan(dateKey: string, manualIds: string[] = []) {
           room: s.room.name,
           ownerId: t.id,
           ownerName: t.name,
-          booking: b ? { id: b.id, substituteId: b.substituteId, name: nameOf.get(b.substituteId) ?? "—", unavailable: awayAt(b.substituteId, s.startTime, s.endTime) || !nameOf.has(b.substituteId) } : null,
+          siteId: slotSite,
+          // The booked substitute can't do it any more: inactive, away / no-show, or now has a class of their own then.
+          booking: b
+            ? {
+                id: b.id,
+                substituteId: b.substituteId,
+                name: nameOf.get(b.substituteId) ?? "—",
+                unavailable: subUnavailable(b.substituteId, s.startTime, s.endTime),
+              }
+            : null,
           candidates,
           excluded,
         };
@@ -238,7 +267,7 @@ async function computePlan(dateKey: string, manualIds: string[] = []) {
       weekend: !cal.weekdays.has(weekday),
       noSemester: semesterIds.length === 0,
     },
-    raw: { teachers, out, awayAt, waiting, attBy, byTeacher, bookings, cal, cutoffOf, sitesOf, nameOf },
+    raw: { teachers, out, awayAt, waiting, attBy, byTeacher, bookings, cal, cutoffOf, sitesOf, nameOf, offFor },
   };
 }
 
@@ -272,12 +301,12 @@ export async function buildSubstituteBoard(dateKey: string, siteId: string | nul
   const { plan, raw } = await computePlan(dateKey, manualIds);
   const sites = await prisma.campusLocation.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
   const inSite = (t: (typeof raw.teachers)[number], id: string) => raw.sitesOf(t).has(id);
-  const openSlots = (id: string) =>
-    plan.absent.filter((a) => a.siteId === id).flatMap((a) => a.slots).filter((s) => !s.booking || s.booking.unavailable).length;
+  const allSlots = plan.absent.flatMap((a) => a.slots);
+  const openSlots = (id: string) => allSlots.filter((s) => s.siteId === id && (!s.booking || s.booking.unavailable)).length;
   const siteList = sites.map((s) => ({ id: s.id, name: s.name, open: openSlots(s.id), teachers: raw.teachers.filter((t) => inSite(t, s.id)).length }));
   const chosen = (siteId && sites.find((s) => s.id === siteId)?.id) || [...siteList].sort((a, b) => b.open - a.open)[0]?.id || null;
 
-  const slots = plan.absent.filter((a) => a.siteId === chosen).flatMap((a) => a.slots).sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
+  const slots = allSlots.filter((s) => s.siteId === chosen).sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
   const slotById = new Map(slots.map((s) => [s.scheduleId, s]));
   const members = chosen ? raw.teachers.filter((t) => inSite(t, chosen)) : [];
 
@@ -334,7 +363,7 @@ export async function buildSubstituteBoard(dateKey: string, siteId: string | nul
     slots,
     columns,
     rows,
-    out: plan.absent.filter((a) => a.siteId === chosen),
+    out: plan.absent.filter((a) => a.slots.some((s) => s.siteId === chosen) || (a.slots.length === 0 && a.siteId === chosen)),
     waiting: rows.filter((r) => r.presence.kind === "WAITING").map((r) => ({ id: r.id, name: r.name, until: (r.presence as { until: string }).until })),
     isToday: dateKey === bangkokDateKey(),
   };
@@ -348,9 +377,30 @@ export async function substituteWeek(dateKey: string, siteId: string | null) {
   return Promise.all(
     days.map(async (key) => {
       const { plan } = await computePlan(key);
-      const slots = plan.absent.filter((a) => !siteId || a.siteId === siteId).flatMap((a) => a.slots);
+      const slots = plan.absent.flatMap((a) => a.slots).filter((s) => !siteId || s.siteId === siteId);
       const done = slots.filter((s) => s.booking && !s.booking.unavailable).length;
       return { key, need: slots.length, done, holiday: plan.holiday };
     })
   );
+}
+
+/**
+ * Server-side check for a booking: may `substituteId` cover class
+ * `scheduleId` on `dateKey`? Uses exactly the planner's rules (computePlan),
+ * so the server never accepts someone the page wouldn't offer — nor refuses
+ * someone it did (half-day leave, school, grade band, day off, no-show,
+ * own class, other bookings).
+ */
+export async function substituteEligibility(dateKey: string, scheduleId: string, substituteId: string, ownerId: string) {
+  let { plan } = await computePlan(dateKey);
+  let slot = plan.absent.flatMap((a) => a.slots).find((s) => s.scheduleId === scheduleId);
+  // The teacher may have been added by hand on the page (not out by any rule).
+  if (!slot) {
+    plan = (await computePlan(dateKey, [ownerId])).plan;
+    slot = plan.absent.flatMap((a) => a.slots).find((s) => s.scheduleId === scheduleId);
+  }
+  if (!slot) return { ok: false as const, reason: "NO_SLOT" as const };
+  if (slot.candidates.some((c) => c.id === substituteId)) return { ok: true as const };
+  const ex = slot.excluded.find((e) => e.id === substituteId);
+  return { ok: false as const, reason: ex?.reason ?? ("NOT_LISTED" as const) };
 }

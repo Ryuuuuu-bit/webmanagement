@@ -65,7 +65,7 @@ export async function runDailyAttendance(now: Date, claim: Claim): Promise<{ abs
     if (teachers.length === 0) continue;
     const ids = teachers.map((t) => t.id);
     const [rows, leaves, teaching] = await Promise.all([
-      prisma.attendance.findMany({ where: { userId: { in: ids }, date: today }, select: { userId: true, status: true, checkinAt: true, checkoutAt: true } }),
+      prisma.attendance.findMany({ where: { userId: { in: ids }, date: today }, select: { userId: true, status: true, adminEdited: true, checkinAt: true, checkoutAt: true } }),
       prisma.leaveRequest.findMany({
         where: { requesterId: { in: ids }, status: { in: ["APPROVED", "PENDING"] }, startDate: { lte: day }, endDate: { gte: day } },
         select: { requesterId: true, status: true, halfDay: true },
@@ -92,10 +92,10 @@ export async function runDailyAttendance(now: Date, claim: Claim): Promise<{ abs
         const myCutoff = amLeave && policy.afternoonStart > hours.start ? new Date(+atTimeOfDay(today, policy.afternoonStart) + absentMin * 60_000) : cutoff;
         if (now < myCutoff) continue;
         const row = rowBy.get(t.id);
-        if (row && (row.checkinAt || row.checkoutAt || row.status !== "PENDING")) continue;
+        if (row && (row.checkinAt || row.checkoutAt || row.status !== "PENDING" || row.adminEdited)) continue;
         let marked = false;
         if (row) {
-          marked = (await prisma.attendance.updateMany({ where: { userId: t.id, date: today, checkinAt: null, checkoutAt: null, status: "PENDING" }, data: { status: "ABSENT" } })).count > 0;
+          marked = (await prisma.attendance.updateMany({ where: { userId: t.id, date: today, checkinAt: null, checkoutAt: null, status: "PENDING", adminEdited: false }, data: { status: "ABSENT" } })).count > 0;
         } else {
           try {
             await prisma.attendance.create({ data: { userId: t.id, date: today, status: "ABSENT" } });
@@ -105,7 +105,7 @@ export async function runDailyAttendance(now: Date, claim: Claim): Promise<{ abs
           }
         }
         if (marked) {
-          rowBy.set(t.id, { userId: t.id, status: "ABSENT", checkinAt: null, checkoutAt: null });
+          rowBy.set(t.id, { userId: t.id, status: "ABSENT", checkinAt: null, checkoutAt: null, adminEdited: false });
           out.absent++;
           if (await claim(`absent-today:${t.id}:${todayKey}`)) {
             const at = myCutoff.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Bangkok" });

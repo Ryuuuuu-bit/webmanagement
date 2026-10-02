@@ -48,6 +48,8 @@ export function thaiHolidayPresets(year: number): HolidayPreset[] {
   }
   for (const k of LUNAR) out.push({ key: k, start: "", end: "", lunar: true });
 
+  // Next year's New Year's Day is taken too (a 31 Dec substitute must not land on it).
+  taken.add(`${year + 1}-01-01`);
   // Suggested substitute days: one per holiday day that falls on a weekend,
   // on the next weekday after the holiday that isn't already a holiday.
   for (const h of out.filter((x) => !x.lunar && !x.optional)) {

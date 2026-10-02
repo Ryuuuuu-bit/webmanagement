@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
-import { DATE_KEY_RE, keyToDate } from "@/lib/calendar";
+import { isDateKey, keyToDate } from "@/lib/calendar";
 import { parseRemindDays } from "@/lib/documents";
 import { logAudit } from "@/lib/audit";
 
@@ -70,7 +70,7 @@ export async function deleteDocumentType(id: string): Promise<ActionResult> {
 
 function optDate(v: string): Date | null | "invalid" {
   if (!v) return null;
-  return DATE_KEY_RE.test(v) && !isNaN(keyToDate(v).getTime()) ? keyToDate(v) : "invalid";
+  return isDateKey(v) ? keyToDate(v) : "invalid";
 }
 
 /**

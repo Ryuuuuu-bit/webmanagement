@@ -53,7 +53,11 @@ export default async function DashboardPage() {
     const [attendance, todaySchedule, pendingLeave, pendingAttest, sites, credentials, policy] = await Promise.all([
       prisma.attendance.findUnique({ where: { userId_date: { userId: session.user.id, date } } }),
       prisma.schedule.findMany({
-        where: { teacherId: session.user.id, dayOfWeek: toWeekdayIndex(new Date()) },
+        where: {
+          teacherId: session.user.id,
+          dayOfWeek: toWeekdayIndex(new Date()),
+          semester: { startDate: { lte: keyToDate(todayKey) }, endDate: { gte: keyToDate(todayKey) } },
+        },
         include: { course: true, room: true },
         orderBy: { startTime: "asc" },
       }),

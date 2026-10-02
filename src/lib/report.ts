@@ -112,14 +112,23 @@ export async function buildMonthlyReport(opts: { month: string; siteId?: string 
     const rowByKey = new Map(mine.map((r) => [bangkokDateKey(r.date), r]));
     const leaveOn = (k: string) => myLeaves.find((l) => pickedDateKey(l.startDate) <= k && k <= pickedDateKey(l.endDate));
 
-    // Leave days inside the month.
+    // Leave per day inside the month: a full day counts 1, a half day 0.5,
+    // and overlapping approved requests never add up to more than 1 a day.
+    // Statutory calendar-day types (maternity, military) count every day;
+    // the others only work days.
+    const leaveByDay = new Map<string, number>();
     const leaveByType: Record<string, number> = {};
     let leaveDays = 0;
-    for (const l of myLeaves) {
+    for (const l of [...myLeaves].sort((a, b) => +a.startDate - +b.startDate)) {
+      const from = pickedDateKey(l.startDate) > fromKey ? pickedDateKey(l.startDate) : fromKey;
+      const to = pickedDateKey(l.endDate) < toKey ? pickedDateKey(l.endDate) : toKey;
       let n = 0;
-      if (l.halfDay) n = pickedDateKey(l.startDate) >= fromKey && pickedDateKey(l.startDate) <= toKey ? 0.5 : 0;
-      else for (const k of eachDayKey(pickedDateKey(l.startDate) > fromKey ? pickedDateKey(l.startDate) : fromKey, pickedDateKey(l.endDate) < toKey ? pickedDateKey(l.endDate) : toKey)) {
-        if (CALENDAR_DAY_LEAVE_TYPES.has(l.type) || isWorkday(cal, k, t.campusLocationId)) n++;
+      for (const k of from <= to ? eachDayKey(from, to) : []) {
+        if (!CALENDAR_DAY_LEAVE_TYPES.has(l.type) && !isWorkday(cal, k, t.campusLocationId)) continue;
+        const add = Math.min(l.halfDay ? 0.5 : 1, 1 - (leaveByDay.get(k) ?? 0));
+        if (add <= 0) continue;
+        leaveByDay.set(k, (leaveByDay.get(k) ?? 0) + add);
+        n += add;
       }
       leaveByType[l.type] = (leaveByType[l.type] ?? 0) + n;
       leaveDays += n;
@@ -164,8 +173,20 @@ export async function buildMonthlyReport(opts: { month: string; siteId?: string 
     }
 
     const workdays = monthDays.filter((k) => k <= countedUntil && isWd(k)).length;
-    const noRecord = monthDays.filter((k) => k <= pastUntil && isWd(k) && !rowByKey.has(k) && !leaveOn(k)).length;
-    const expected = workdays - leaveDays;
+    // Only a FULL day of leave explains a missing record (a half-day leave still expects the other half).
+    const noRecord = monthDays.filter((k) => k <= pastUntil && isWd(k) && !rowByKey.has(k) && (leaveByDay.get(k) ?? 0) < 1).length;
+    // Rate = days present / work days expected so far. Leave is deducted
+    // only for counted work days (≤ today, after joining) on which the
+    // teacher wasn't present anyway — future leave and leave days they
+    // still came in don't distort it.
+    const isPresent = (k: string) => {
+      const r = rowByKey.get(k);
+      return !!(r && (r.checkinAt || r.checkoutAt));
+    };
+    const leaveDeduct = monthDays
+      .filter((k) => k <= countedUntil && isWd(k) && !isPresent(k))
+      .reduce((n, k) => n + (leaveByDay.get(k) ?? 0), 0);
+    const expected = workdays - leaveDeduct;
     summary.push({
       userId: t.id,
       name: t.name,

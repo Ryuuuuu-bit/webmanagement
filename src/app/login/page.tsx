@@ -12,8 +12,16 @@ import { hasPasskeyHint, rememberPasskeyHint } from "@/lib/passkeyHint";
 
 /** Only ever send people to a same-site path after login — never an absolute URL from the query string. */
 function safeCallback(raw: string | null, fallback: string) {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return fallback;
-  return raw;
+  // "/\evil.example" is normalised by browsers to "//evil.example" — reject
+  // backslashes outright, then make sure it resolves to this origin.
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) return fallback;
+  if (typeof window === "undefined") return raw; // server render — only used after sign-in, in the browser
+  try {
+    const url = new URL(raw, window.location.origin);
+    return url.origin === window.location.origin ? url.pathname + url.search + url.hash : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function LoginForm() {

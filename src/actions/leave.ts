@@ -78,7 +78,7 @@ export async function decideLeave(id: string, decision: "APPROVED" | "REJECTED")
   if (updated && decision === "APPROVED" && !updated.halfDay) {
     // Mark each approved day as LEAVE on the attendance sheet (unless the
     // person actually checked in that day). Half-day leave keeps the real
-    // check-in/out record. Capped at 120 days per request.
+    // check-in/out record. (Requests are at most LEAVE_MAX_DAYS long.)
     const start = new Date(updated.startDate);
     start.setHours(0, 0, 0, 0);
     const end = new Date(updated.endDate);
@@ -89,11 +89,13 @@ export async function decideLeave(id: string, decision: "APPROVED" | "REJECTED")
       loadWorkCalendar(pickedDateKey(updated.startDate), pickedDateKey(updated.endDate)),
       prisma.user.findUnique({ where: { id: updated.requesterId }, select: { campusLocationId: true } }),
     ]);
-    for (let d = new Date(start), n = 0; d <= end && n < 120; d.setDate(d.getDate() + 1), n++) {
+    for (let d = new Date(start), n = 0; d <= end && n < 400; d.setDate(d.getDate() + 1), n++) {
       const day = new Date(d);
       if (!isWorkday(cal, bangkokDateKey(day), requester?.campusLocationId)) continue;
-      const existing = await prisma.attendance.findUnique({ where: { userId_date: { userId: updated.requesterId, date: day } }, select: { checkinAt: true } });
-      if (existing?.checkinAt) continue;
+      // They were there that day (a check-in, or a check-out awaiting a
+      // check-in attestation): keep the real record.
+      const existing = await prisma.attendance.findUnique({ where: { userId_date: { userId: updated.requesterId, date: day } }, select: { checkinAt: true, checkoutAt: true } });
+      if (existing?.checkinAt || existing?.checkoutAt) continue;
       await prisma.attendance.upsert({
         where: { userId_date: { userId: updated.requesterId, date: day } },
         create: { userId: updated.requesterId, date: day, status: "LEAVE" },

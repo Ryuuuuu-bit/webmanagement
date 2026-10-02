@@ -1,6 +1,6 @@
 import { LeaveType, RequestStatus } from "@prisma/client";
 import { prisma } from "./prisma";
-import { pickedDateKey } from "./date";
+import { bangkokDateKey, pickedDateKey } from "./date";
 import { countWorkdays, loadWorkCalendar, type WorkCalendar } from "./workdays";
 
 // Every leave category the app tracks, in the order they should be shown —
@@ -120,7 +120,7 @@ export async function getLeaveUsedDays(requesterId: string, type: LeaveType, yea
 export type LeaveQuotaStatus = { type: LeaveType; quota: number; used: number; remaining: number | null };
 
 /** Per-type quota/used/remaining for one teacher's current calendar year — quota=0 (unlimited) reports remaining=null rather than a meaningless number. */
-export async function getLeaveQuotaStatusForUser(userId: string, year = new Date().getUTCFullYear()): Promise<LeaveQuotaStatus[]> {
+export async function getLeaveQuotaStatusForUser(userId: string, year = Number(bangkokDateKey().slice(0, 4))): Promise<LeaveQuotaStatus[]> {
   const quotaMap = await getLeaveQuotaMap();
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year, 11, 31, 23, 59, 59));

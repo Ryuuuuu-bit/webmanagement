@@ -52,16 +52,27 @@ function lockKeys(email: string, ip: string) {
   return { pair: `e:${email}|${ip}`, ip: `ip:${ip}` };
 }
 
-/** Minutes remaining on a lock, or 0 if not locked. */
+/** Minutes remaining on a lock, or 0 if not locked (the account+IP pair or the whole IP). */
 export async function getLockRemainingMinutes(email: string, ip: string): Promise<number> {
+  const s = await getLockState(email, ip);
+  return Math.max(s.pair, s.ip);
+}
+
+/**
+ * Remaining lock minutes per kind. Sign-in uses them differently: the
+ * account+IP lock always blocks, the per-IP lock only blocks a WRONG
+ * password — on shared school Wi-Fi (one NAT address) one person's 30 bad
+ * guesses must not lock every teacher who knows their own password.
+ */
+export async function getLockState(email: string, ip: string): Promise<{ pair: number; ip: number }> {
   const keys = lockKeys(email, ip);
   const rows = await prisma.loginLock.findMany({ where: { key: { in: [keys.pair, keys.ip] } } });
   const now = Date.now();
-  let until = 0;
-  for (const r of rows) {
-    if (r.lockedUntil && r.lockedUntil.getTime() > now) until = Math.max(until, r.lockedUntil.getTime());
-  }
-  return until ? Math.max(1, Math.ceil((until - now) / 60000)) : 0;
+  const left = (key: string) => {
+    const r = rows.find((x) => x.key === key);
+    return r?.lockedUntil && r.lockedUntil.getTime() > now ? Math.max(1, Math.ceil((r.lockedUntil.getTime() - now) / 60000)) : 0;
+  };
+  return { pair: left(keys.pair), ip: left(keys.ip) };
 }
 
 async function bump(key: string, max: number) {

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { approvedHalfDayLeave, hasApprovedPmHalfDayLeave } from "@/lib/halfDayLeave";
 import { getAssignedSites, matchSite } from "@/lib/geo";
 import { todayAtMidnight } from "@/lib/date";
 import { verifyAssertion } from "@/lib/webauthn";
@@ -132,34 +133,6 @@ async function detectSharedDevice(userId: string, date: Date, deviceId: string |
     "/checkin"
   );
   return true;
-}
-
-/**
- * True when this teacher has an APPROVED half-day PM leave for `date` — that
- * leave keeps the real check-in/out record (see decideLeave in
- * src/actions/leave.ts), so checking out before the site's workEnd on that
- * day is expected, not an "early checkout" worth flagging to Admin.
- * LeaveRequest.startDate is stored as a raw UTC-midnight parse of the
- * "YYYY-MM-DD" form input, not Bangkok-local midnight like Attendance.date —
- * normalizing with the same `setHours(0,0,0,0)` decideLeave uses before
- * writing LEAVE rows keeps the comparison correct either way.
- */
-export async function hasApprovedPmHalfDayLeave(userId: string, date: Date): Promise<boolean> {
-  return (await approvedHalfDayLeave(userId, date)) === "PM";
-}
-
-/** "AM" / "PM" when this person has an approved half-day leave on `date` (Bangkok midnight), else null. */
-export async function approvedHalfDayLeave(userId: string, date: Date): Promise<"AM" | "PM" | null> {
-  const leaves = await prisma.leaveRequest.findMany({
-    where: { requesterId: userId, status: "APPROVED", halfDay: { in: ["AM", "PM"] }, startDate: { gte: new Date(+date - 2 * 86_400_000), lte: new Date(+date + 2 * 86_400_000) } },
-    select: { startDate: true, halfDay: true },
-  });
-  const hit = leaves.find((r) => {
-    const d = new Date(r.startDate);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime() === date.getTime();
-  });
-  return hit ? (hit.halfDay as "AM" | "PM") : null;
 }
 
 function isUniqueConstraintError(err: unknown): boolean {
@@ -310,6 +283,25 @@ export async function checkOut(lat: number, lng: number, verification: IdentityV
   // Atomic: only the first of two concurrent taps wins. Same claim → create
   // → retry shape as checkIn, since with a missed check-in there may be no
   // row for today yet.
+  // A shift that ran past midnight: tapped before today's start time with
+  // nothing recorded today yet → close yesterday's open day, instead of
+  // opening today as "forgot to check in" (which would then block today's
+  // real check-in).
+  if (!existing && now < atTimeOfDay(date, hours.start)) {
+    const yesterday = new Date(date);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const { status: _s, ...rest } = outData as typeof outData & { status?: string };
+    const closed = await prisma.attendance.updateMany({
+      where: { userId, date: yesterday, checkinAt: { not: null }, checkoutAt: null },
+      data: { ...rest, earlyCheckout: false },
+    });
+    if (closed.count > 0) {
+      revalidatePath("/checkin");
+      revalidatePath("/dashboard");
+      return { ok: true, message: dict.actions.checkin.outSuccess };
+    }
+  }
+
   let claimed = (await prisma.attendance.updateMany({ where: { userId, date, checkoutAt: null }, data: outData })).count > 0;
   if (!claimed && !existing) {
     try {

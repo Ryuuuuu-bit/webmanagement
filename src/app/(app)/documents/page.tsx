@@ -102,7 +102,9 @@ export default async function DocumentsPage() {
   }
 
   const [teachers, sites] = await Promise.all([
-    prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    // Active people, plus anyone who already owns a document (a suspended
+    // teacher's record must keep its owner when edited).
+    prisma.user.findMany({ where: { OR: [{ isActive: true }, { id: { in: Array.from(new Set(docs.map((d) => d.userId))) } }] }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.campusLocation.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 

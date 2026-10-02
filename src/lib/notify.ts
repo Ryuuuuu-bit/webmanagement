@@ -59,7 +59,8 @@ export type NotificationKind =
   | "ATTENDANCE_SUMMARY"
   | "SUBSTITUTE_ASSIGNED"
   | "SUBSTITUTE_CANCELLED"
-  | "SUBSTITUTE_COVERED";
+  | "SUBSTITUTE_COVERED"
+  | "SUBSTITUTE_UNCOVERED";
 
 export type NotificationParams = Record<string, string | number | boolean | null>;
 

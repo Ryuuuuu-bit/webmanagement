@@ -67,31 +67,28 @@ export async function runScheduledJobs(now = new Date()): Promise<TickResult> {
     // School-calendar holidays (whole system or the teacher's own school): no check-in nudge.
     const holidays = await holidaysOn(todayKey);
     const ids = teachers.map((t) => t.id);
-    const [rows, halfDays] = await Promise.all([
+    // Leave covering today, approved OR pending — same rule as the same-day
+    // absence job (a teacher who filed leave this morning isn't nagged).
+    const pickedToday = new Date(`${todayKey}T00:00:00.000Z`);
+    const [rows, leavesToday, extraSites] = await Promise.all([
       prisma.attendance.findMany({ where: { userId: { in: ids }, date: today } }),
       prisma.leaveRequest.findMany({
-        where: { requesterId: { in: ids }, status: "APPROVED", halfDay: { not: null }, startDate: { gte: new Date(+today - 2 * 86_400_000), lte: new Date(+today + 2 * 86_400_000) } },
-        select: { requesterId: true, halfDay: true, startDate: true },
+        where: { requesterId: { in: ids }, status: { in: ["APPROVED", "PENDING"] }, startDate: { lte: pickedToday }, endDate: { gte: pickedToday } },
+        select: { requesterId: true, halfDay: true },
       }),
+      prisma.campusLocation.findMany({ select: { id: true, workStart: true, workEnd: true, lateGraceMinutes: true } }),
     ]);
     const byUser = new Map(rows.map((r) => [r.userId, r]));
-    // Same normalisation decideLeave uses before writing LEAVE rows.
-    const amLeave = new Set(
-      halfDays
-        .filter((l) => {
-          const d = new Date(l.startDate);
-          d.setHours(0, 0, 0, 0);
-          return l.halfDay === "AM" && d.getTime() === today.getTime();
-        })
-        .map((l) => l.requesterId)
-    );
+    const fullLeave = new Set(leavesToday.filter((l) => !l.halfDay).map((l) => l.requesterId));
+    const amLeave = new Set(leavesToday.filter((l) => l.halfDay === "AM").map((l) => l.requesterId));
+    const siteById = new Map(extraSites.map((s) => [s.id, s]));
 
     for (const t of teachers) {
       const hours = workHoursForSite(t.campusLocation, policy);
       const row = byUser.get(t.id);
       const end = atTimeOfDay(today, hours.end);
 
-      if (settings.remindCheckin && isWorkday && !isHolidayFor(holidays, t.campusLocationId) && !row?.checkinAt && !row?.checkoutAt && row?.status !== "LEAVE") {
+      if (settings.remindCheckin && isWorkday && !isHolidayFor(holidays, t.campusLocationId) && !row?.checkinAt && !row?.checkoutAt && row?.status !== "LEAVE" && !fullLeave.has(t.id)) {
         // Morning half-day leave: they're due at the afternoon start instead.
         const startTime = amLeave.has(t.id) && policy.afternoonStart > hours.start ? policy.afternoonStart : hours.start;
         const remindAt = new Date(+atTimeOfDay(today, startTime) + (hours.graceMinutes + settings.remindCheckinAfterMin) * 60_000);
@@ -102,9 +99,11 @@ export async function runScheduledJobs(now = new Date()): Promise<TickResult> {
       }
 
       if (settings.remindCheckout && row?.checkinAt && !row.checkoutAt) {
-        const remindAt = new Date(+end + settings.remindCheckoutAfterMin * 60_000);
+        // The site they checked in at decides when the day ends (extra sites can differ).
+        const inHours = row.checkinSiteId && siteById.has(row.checkinSiteId) ? workHoursForSite(siteById.get(row.checkinSiteId)!, policy) : hours;
+        const remindAt = new Date(+atTimeOfDay(today, inHours.end) + settings.remindCheckoutAfterMin * 60_000);
         if (now >= remindAt && now.getHours() < 23 && (await claim(`out:${t.id}:${todayKey}`))) {
-          await notifyUser(t.id, "CHECKOUT_REMINDER", { end: hours.end }, "/checkin");
+          await notifyUser(t.id, "CHECKOUT_REMINDER", { end: inHours.end }, "/checkin");
           out.checkoutReminders++;
         }
       }

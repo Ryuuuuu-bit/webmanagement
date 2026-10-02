@@ -13,6 +13,7 @@ export function keyToDate(key: string) {
 }
 
 export const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+export { isDateKey } from "./parseDateCell";
 
 /** The schools an event applies to ([] = every school), merging the legacy single-school column. */
 export function eventSiteIds(e: { siteIds: string[]; campusLocationId: string | null }): string[] {

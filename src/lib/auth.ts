@@ -6,7 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { describeDevice } from "@/lib/device";
 import {
   getClientIp,
-  getLockRemainingMinutes,
+  getLockState,
   recordLoginFailure,
   recordLoginSuccess,
   redeemLoginTicket,
@@ -65,18 +65,23 @@ export const authOptions: AuthOptions = {
         // beyond the coarser per-IP cap in that case anyway.
         const lockId = user ? `u:${user.id}` : identifier;
 
-        const lockedMinutes = await getLockRemainingMinutes(lockId, ip);
-        if (lockedMinutes > 0) {
+        const lock = await getLockState(lockId, ip);
+        if (lock.pair > 0) {
           await logAudit({ action: "LOGIN_LOCKED", ip, device, detail: identifier });
-          throw new Error(`${AUTH_ERRORS.tooManyAttempts}:${lockedMinutes}`);
+          throw new Error(`${AUTH_ERRORS.tooManyAttempts}:${lock.pair}`);
         }
 
+        const valid = !!user && (await bcrypt.compare(credentials.password, user.passwordHash));
+        // The per-IP lock stops guessing, not people who know their password.
+        if (!valid && lock.ip > 0) {
+          await logAudit({ action: "LOGIN_LOCKED", ip, device, detail: identifier });
+          throw new Error(`${AUTH_ERRORS.tooManyAttempts}:${lock.ip}`);
+        }
         if (!user) {
           await recordLoginFailure(lockId, ip);
           await logAudit({ action: "LOGIN_FAILED", ip, device, detail: `${identifier} (no such account)` });
           return null;
         }
-        const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) {
           await recordLoginFailure(lockId, ip);
           await logAudit({ action: "LOGIN_FAILED", targetUserId: user.id, ip, device, detail: identifier });
@@ -143,12 +148,15 @@ export const authOptions: AuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         // Fresh sign-in: stamp the token with the tokenVersion in effect right now.
         token.id = (user as any).id;
         token.role = (user as any).role;
         token.tokenVersion = (user as any).tokenVersion;
+        // Signed in with the (temporary) password, as opposed to a passkey /
+        // enrollment ticket — only those sessions die with the temp password.
+        token.viaPassword = account?.provider === "credentials";
         token.invalid = false;
       } else if (token.id) {
         // Every other request: if the account's tokenVersion has moved on
@@ -163,7 +171,10 @@ export const authOptions: AuthOptions = {
           where: { id: token.id as string },
           select: { tokenVersion: true, isActive: true, passwordSetAt: true, tempPasswordExpiresAt: true },
         });
-        const tempExpired = !!fresh && !fresh.passwordSetAt && !!fresh.tempPasswordExpiresAt && fresh.tempPasswordExpiresAt < new Date();
+        // Passkey / QR-enrolled sessions never relied on the temp password, so its
+        // expiry must not lock them out (tokens from before this flag: treated as password).
+        const tempExpired =
+          token.viaPassword !== false && !!fresh && !fresh.passwordSetAt && !!fresh.tempPasswordExpiresAt && fresh.tempPasswordExpiresAt < new Date();
         token.invalid = !fresh || !fresh.isActive || fresh.tokenVersion !== token.tokenVersion || tempExpired;
       }
       return token;

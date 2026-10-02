@@ -5,7 +5,7 @@ import SubstitutePlanner from "@/components/SubstitutePlanner";
 import TeacherGradeMatrix from "@/components/TeacherGradeMatrix";
 import { updateUserGradeLevels, assignSubstitute, cancelSubstitute } from "@/actions/substitutes";
 import { buildSubstituteBoard, substituteWeek } from "@/lib/substitutes";
-import { DATE_KEY_RE } from "@/lib/calendar";
+import { isDateKey } from "@/lib/calendar";
 import { bangkokDateKey, formatDate } from "@/lib/date";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
@@ -22,7 +22,7 @@ export default async function SubstitutesPage({ searchParams }: { searchParams: 
   const dict = getDictionary(locale);
   const t = dict.substitutes;
 
-  const date = DATE_KEY_RE.test(searchParams.date ?? "") ? searchParams.date! : bangkokDateKey();
+  const date = isDateKey(searchParams.date ?? "") ? searchParams.date! : bangkokDateKey();
   const added = (searchParams.add ?? "").split(",").filter(Boolean).slice(0, 20);
   const board = await buildSubstituteBoard(date, searchParams.site || null, added);
   // Day labels are formatted here (server) so the client renders the same text it hydrates.

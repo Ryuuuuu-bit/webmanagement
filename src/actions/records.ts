@@ -9,7 +9,7 @@ import { getClientIp } from "@/lib/security";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { atTimeOfDay, getWorkHoursForUser } from "@/lib/settings";
-import { hasApprovedPmHalfDayLeave } from "@/actions/attendance";
+import { hasApprovedPmHalfDayLeave } from "@/lib/halfDayLeave";
 
 /**
  * Admin deletes a member's transaction history (client request: "admin
@@ -55,6 +55,28 @@ async function deleteAttendanceRows(where: { id?: string; userId?: string }) {
   return rows;
 }
 
+/**
+ * An approved full-day leave wrote LEAVE rows on the attendance sheet
+ * (decideLeave). Deleting the request removes those placeholder rows too
+ * (only untouched ones: no check-in/out, not edited by an Admin), so no day
+ * stays "on leave" without a request behind it.
+ */
+async function clearLeaveRows(leaves: { requesterId: string; status: string; halfDay: string | null; startDate: Date; endDate: Date }[]) {
+  for (const l of leaves) {
+    if (l.status !== "APPROVED" || l.halfDay) continue;
+    await prisma.attendance.deleteMany({
+      where: {
+        userId: l.requesterId,
+        status: "LEAVE",
+        checkinAt: null,
+        checkoutAt: null,
+        adminEdited: false,
+        date: { gte: new Date(`${l.startDate.toISOString().slice(0, 10)}T00:00:00+07:00`), lte: new Date(`${l.endDate.toISOString().slice(0, 10)}T00:00:00+07:00`) },
+      },
+    });
+  }
+}
+
 /** Delete one record of the given kind. Returns the owner's id so the page can refresh. */
 export async function deleteRecord(kind: RecordKind, id: string): Promise<{ ok: boolean; message: string }> {
   const session = await requireAdmin();
@@ -72,6 +94,7 @@ export async function deleteRecord(kind: RecordKind, id: string): Promise<{ ok: 
     const row = await prisma.leaveRequest.findUnique({ where: { id } });
     if (!row) return { ok: false, message: dict.history.notFound };
     await prisma.leaveRequest.delete({ where: { id } });
+    await clearLeaveRows([row]);
     userId = row.requesterId;
     detail = `leave ${row.type} ${row.startDate.toISOString().slice(0, 10)}–${row.endDate.toISOString().slice(0, 10)} (${row.status})`;
   } else if (kind === "attest") {
@@ -103,7 +126,9 @@ export async function clearRecords(kind: RecordKind, userId: string): Promise<{ 
   if (kind === "attendance") {
     count = (await deleteAttendanceRows({ userId })).length;
   } else if (kind === "leave") {
+    const leaves = await prisma.leaveRequest.findMany({ where: { requesterId: userId }, select: { requesterId: true, status: true, halfDay: true, startDate: true, endDate: true } });
     count = (await prisma.leaveRequest.deleteMany({ where: { requesterId: userId } })).count;
+    await clearLeaveRows(leaves);
   } else if (kind === "attest") {
     count = (await prisma.timeAttestation.deleteMany({ where: { requesterId: userId } })).count;
   } else {
@@ -191,6 +216,7 @@ export async function updateAttendance(
       earlyCheckout,
       attestedCheckin: row.attestedCheckin || inChanged,
       attestedCheckout: row.attestedCheckout || outChanged,
+      adminEdited: true,
     },
   });
   await logAudit({

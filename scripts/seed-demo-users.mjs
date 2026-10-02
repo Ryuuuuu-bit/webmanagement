@@ -10,11 +10,12 @@
 // teachers are using the app.
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 
 const prisma = new PrismaClient();
 const token = process.env.SEED_DEMO_USERS?.trim();
 
-const DEMO_PASSWORD = "Teach2569";
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD?.trim() || `Demo-${crypto.randomBytes(5).toString("hex")}`; // never a password from the source
 const DEMO_EMAIL_DOMAIN = "@demo.local";
 const DEMO_USERS = [
   { name: "อ.สมชาย ใจดี", username: "somchai", email: "somchai@demo.local" },
@@ -75,7 +76,7 @@ try {
         console.log(`[seed-demo] created ${u.username} <${u.email}>`);
       }
       await prisma.appSetting.update({ where: { id: "default" }, data: { seedToken: token } });
-      console.log("[seed-demo] done");
+      console.log(`[seed-demo] done — temporary password for the demo accounts: ${DEMO_PASSWORD}`);
     }
   }
 } catch (err) {

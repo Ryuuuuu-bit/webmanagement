@@ -23,6 +23,14 @@ function tempPasswordExpiry() {
   return new Date(Date.now() + TEMP_PASSWORD_TTL_MS);
 }
 
+/**
+ * A usable address — and never the @demo.local domain: the demo-data
+ * scripts delete every account there, so a real one must not use it.
+ */
+function isValidEmail(email: string) {
+  return /^\S+@\S+\.\S+$/.test(email) && !email.toLowerCase().endsWith("@demo.local");
+}
+
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
   if (!session?.user || session.user.role !== "ADMIN") throw new Error("Unauthorized");
@@ -63,7 +71,7 @@ export async function createUser(
   if (!USERNAME_RE.test(username)) {
     return { ok: false, message: dict.actions.users.invalidUsername };
   }
-  if (!/^\S+@\S+\.\S+$/.test(email)) {
+  if (!isValidEmail(email)) {
     return { ok: false, message: dict.actions.users.invalidEmail };
   }
   if (role !== "ADMIN" && role !== "MEMBER") {
@@ -129,6 +137,9 @@ export async function resetUserPassword(
     // naturally expires.
     data: { passwordHash, mustChangePassword: true, tempPasswordExpiresAt: tempPasswordExpiry(), passwordSetAt: null, tokenVersion: { increment: 1 } },
   });
+  // A reset often follows a lost / stolen phone: stop pushes to every device
+  // this account had (they re-subscribe after signing in again).
+  await prisma.pushSubscription.deleteMany({ where: { userId } });
   await logAudit({ action: "PASSWORD_RESET_BY_ADMIN", actorId: session.user.id, targetUserId: userId, ip: getClientIp() });
   await notifyUser(userId, "PASSWORD_TEMP", { expiresAt: tempPasswordExpiry().toISOString() }, "/change-password");
 
@@ -165,6 +176,8 @@ export async function updateUserRole(
     if (otherAdmins === 0) return { ok: false, message: dict.actions.users.lastAdmin };
   }
   await prisma.user.update({ where: { id: userId }, data: { role, tokenVersion: { increment: 1 } } });
+  // Sessions are void now — so are the devices' push subscriptions (re-subscribed after the next sign-in).
+  await prisma.pushSubscription.deleteMany({ where: { userId } });
   if (role === "MEMBER") {
     // Admin-only alerts (other teachers' requests) must not stay in a demoted account's inbox.
     await prisma.notification.deleteMany({
@@ -435,7 +448,7 @@ export async function updateUserProfile(
 
   if (!name || !email || !username) return { ok: false, message: dict.actions.users.fillRequired };
   if (!USERNAME_RE.test(username)) return { ok: false, message: dict.actions.users.invalidUsername };
-  if (!/^\S+@\S+\.\S+$/.test(email)) return { ok: false, message: dict.actions.users.invalidEmail };
+  if (!isValidEmail(email)) return { ok: false, message: dict.actions.users.invalidEmail };
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { ok: false, message: dict.actions.users.notFound };
@@ -470,7 +483,7 @@ export async function updateUserProfile(
   return { ok: true, message: dict.actions.users.profileSaved(name) };
 }
 
-export type ImportUserRow = { name: string; username: string; email: string; department?: string; site?: string; role?: string };
+export type ImportUserRow = { name: string; username: string; email: string; department?: string; site?: string; role?: string; /** Original spreadsheet row (blank rows are dropped before sending). */ row?: number };
 export type ImportUserResult = { row: number; name: string; username: string; ok: boolean; message: string; tempPassword?: string };
 
 /**
@@ -502,7 +515,7 @@ export async function importUsers(rows: ImportUserRow[]): Promise<{ ok: boolean;
     const email = (r.email || "").toString().trim().toLowerCase();
     const roleRaw = (r.role || "MEMBER").toString().trim().toUpperCase();
     const role: Role = roleRaw === "ADMIN" ? "ADMIN" : "MEMBER";
-    const base = { row: i + 2, name, username };
+    const base = { row: Number(r.row) > 0 ? Number(r.row) : i + 2, name, username };
 
     if (!name || !username || !email) {
       results.push({ ...base, ok: false, message: dict.actions.users.fillRequired });
@@ -512,7 +525,7 @@ export async function importUsers(rows: ImportUserRow[]): Promise<{ ok: boolean;
       results.push({ ...base, ok: false, message: dict.actions.users.invalidUsername });
       continue;
     }
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
+    if (!isValidEmail(email)) {
       results.push({ ...base, ok: false, message: dict.actions.users.invalidEmail });
       continue;
     }

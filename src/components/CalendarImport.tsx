@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useLanguage } from "./LanguageProvider";
-import { parseDateCell } from "@/lib/parseDateCell";
+import { isDateKey, parseDateCell } from "@/lib/parseDateCell";
 import { readWorkbook } from "@/lib/readSheet";
 import type { BulkEventResult, BulkEventRow } from "@/actions/calendar";
 
@@ -89,6 +89,8 @@ export default function CalendarImport({
           end: endRaw || start,
           holiday: map.holiday ? YES.has(h) : allHoliday,
           schools: map.schools ? String(cell(r, "schools") ?? "").trim() : siteName,
+          // No schools column: the school picked below, by id.
+          ...(map.schools ? {} : { siteIds: allSchool ? [allSchool] : [] }),
           detail: String(cell(r, "detail") ?? "").trim(),
         };
       })
@@ -111,7 +113,7 @@ export default function CalendarImport({
   }
 
   const preview = sheet ? mapped() : [];
-  const bad = (d: string) => !!d && !/^\d{4}-\d{2}-\d{2}$/.test(d);
+  const bad = (d: string) => !!d && !isDateKey(d);
 
   function onImport() {
     if (!map.title || !map.start) return setParseError(x.needTitleStart);
