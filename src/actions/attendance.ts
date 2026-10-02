@@ -283,11 +283,11 @@ export async function checkOut(lat: number, lng: number, verification: IdentityV
   // Atomic: only the first of two concurrent taps wins. Same claim → create
   // → retry shape as checkIn, since with a missed check-in there may be no
   // row for today yet.
-  // A shift that ran past midnight: tapped before today's start time with
-  // nothing recorded today yet → close yesterday's open day, instead of
+  // A shift that ran past midnight: tapped before 04:00 (and before today's
+  // start) with nothing recorded today yet → close yesterday's open day, instead of
   // opening today as "forgot to check in" (which would then block today's
   // real check-in).
-  if (!existing && now < atTimeOfDay(date, hours.start)) {
+  if (!existing && now < atTimeOfDay(date, "04:00") && now < atTimeOfDay(date, hours.start)) {
     const yesterday = new Date(date);
     yesterday.setDate(yesterday.getDate() - 1);
     const { status: _s, ...rest } = outData as typeof outData & { status?: string };

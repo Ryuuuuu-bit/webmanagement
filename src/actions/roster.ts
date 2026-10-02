@@ -117,8 +117,17 @@ export async function importRoster(
   for (const kind of ["passport", "workPermit", "license"] as RosterDocKind[]) {
     const name = s(options?.typeNames?.[kind], 100);
     if (!name) continue;
-    const found = types.find((x) => norm(x.name) === norm(name));
-    typeIds[kind] = found ? found.id : (await prisma.documentType.create({ data: { name, remindDays: DEFAULT_REMIND[kind], sortOrder: ++maxOrder } })).id;
+    // Two groups into one type would overwrite each other's document (one per teacher + type).
+    if (Object.entries(typeIds).some(([k, id]) => k !== kind && types.find((x) => x.id === id && norm(x.name) === norm(name)))) {
+      return { ok: false, message: t.sameType(name), results: [] };
+    }
+    let found = types.find((x) => norm(x.name) === norm(name));
+    if (!found) {
+      const made = await prisma.documentType.create({ data: { name, remindDays: DEFAULT_REMIND[kind], sortOrder: ++maxOrder }, select: { id: true, name: true, sortOrder: true } });
+      types.push(made as (typeof types)[number]);
+      found = types[types.length - 1];
+    }
+    typeIds[kind] = found.id;
   }
 
   const optDate = (v: string): Date | null | "invalid" => (!v ? null : isDateKey(v) ? keyToDate(v) : "invalid");
@@ -136,12 +145,20 @@ export async function importRoster(
       continue;
     }
 
+    const rowUser: { username: string | null; tempPassword?: string } = { username: null };
     try {
       // 1. find or create the account
       const wantUsername = normalizeUsername(s(r.username, 64));
-      let userId: string | null | undefined =
-        (email && byEmail.get(email)) || (wantUsername && byUsername.get(wantUsername)) || undefined;
-      if (userId === undefined && name) userId = byName.get(norm(name));
+      // The email decides when the sheet has one: a known email is that
+      // account; an unknown one is a NEW teacher — never merged into someone
+      // who happens to share the name or username. Username / name are only
+      // used for rows without an email.
+      let userId: string | null | undefined;
+      if (email) userId = byEmail.get(email);
+      else {
+        userId = (wantUsername && byUsername.get(wantUsername)) || undefined;
+        if (userId === undefined && name) userId = byName.get(norm(name));
+      }
       if (userId === null) {
         results.push({ ...base, account: "failed", message: t.ambiguous });
         continue;
@@ -173,6 +190,8 @@ export async function importRoster(
           select: { id: true, name: true, username: true, email: true, gradeLevels: true },
         });
         remember(user);
+        rowUser.username = user.username;
+        rowUser.tempPassword = tempPassword;
         userId = user.id;
         account = "created";
         created++;
@@ -241,7 +260,8 @@ export async function importRoster(
       });
     } catch (err) {
       console.error(`importRoster: row ${base.row} (${email}) failed:`, err);
-      results.push({ ...base, account: "failed", message: t.rowFailed });
+      // The account may already exist by now — still hand over its one-time password.
+      results.push({ ...base, username: rowUser.username, tempPassword: rowUser.tempPassword, account: "failed", message: t.rowFailed });
     }
   }
 

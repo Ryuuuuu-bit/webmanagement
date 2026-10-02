@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isDateKey } from "@/lib/calendar";
 import type { Prisma } from "@prisma/client";
 import { Role } from "@prisma/client";
 import { getLocale } from "@/lib/i18n/locale";
@@ -499,7 +500,7 @@ export async function updateUserProfile(
     const d = input.details;
     const txt = (v: unknown, max: number) => String(v ?? "").trim().replace(/\s+/g, " ").slice(0, max) || null;
     const start = String(d.startDate ?? "").trim();
-    if (start && !/^\d{4}-\d{2}-\d{2}$/.test(start)) return { ok: false, message: dict.actions.documents.invalidDate };
+    if (start && !isDateKey(start)) return { ok: false, message: dict.actions.documents.invalidDate };
     const next = {
       thaiName: txt(d.thaiName, 120), nickname: txt(d.nickname, 60), nationality: txt(d.nationality, 60), phone: txt(d.phone, 40),
       subjects: txt(d.subjects, 200), project: txt(d.project, 60), startDate: start ? new Date(`${start}T00:00:00.000Z`) : null,

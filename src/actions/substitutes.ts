@@ -59,11 +59,22 @@ export async function assignSubstitute(dateKey: string, scheduleId: string, subs
   // Postgres advisory lock): two Admins clicking at the same instant can't
   // both pass the check and put one teacher into two overlapping classes.
   // The check runs after the lock is held, so it sees the other booking.
+  // The full planner check is heavy (many queries) — it runs before the
+  // transaction so the locked section holds a single connection and stays
+  // short; inside the lock only the part another Admin could change in the
+  // meantime is re-checked: the substitute's other bookings that day.
+  const verdict = await substituteEligibility(dateKey, scheduleId, sub.id, schedule.teacherId);
   const outcome = await prisma.$transaction(
     async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`substitute:${dateKey}`}))`;
-      const verdict = await substituteEligibility(dateKey, scheduleId, sub.id, schedule.teacherId);
       if (!verdict.ok) return { kind: "rejected" as const, reason: verdict.reason };
+      const others = await tx.substituteAssignment.findMany({
+        where: { substituteId: sub.id, date: day, NOT: { scheduleId } },
+        select: { schedule: { select: { startTime: true, endTime: true } } },
+      });
+      if (others.some((o) => o.schedule.startTime < schedule.endTime && schedule.startTime < o.schedule.endTime)) {
+        return { kind: "rejected" as const, reason: "COVERING" as const };
+      }
       const previous = await tx.substituteAssignment.findUnique({ where: { date_scheduleId: { date: day, scheduleId } }, select: { substituteId: true } });
       if (previous?.substituteId === sub.id) return { kind: "same" as const };
       await tx.substituteAssignment.upsert({
@@ -73,7 +84,7 @@ export async function assignSubstitute(dateKey: string, scheduleId: string, subs
       });
       return { kind: "booked" as const, previous };
     },
-    { timeout: 30_000, maxWait: 30_000 }
+    { timeout: 10_000, maxWait: 15_000 }
   );
   if (outcome.kind === "rejected") {
     const reason = outcome.reason;

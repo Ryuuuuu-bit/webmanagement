@@ -13,6 +13,7 @@ import {
   MAP_ZOOM_FOCUSED,
   MAP_HEIGHT_CLASS,
   GEOFENCE_CIRCLE_STYLE,
+  zoomTitles,
 } from "@/lib/mapConstants";
 
 type Loc = { id: string; name: string; latitude: number; longitude: number; radiusMeters: number };
@@ -41,10 +42,11 @@ export default function LocationsMap({
   // Create the map once.
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-    const map = L.map(containerRef.current, { scrollWheelZoom: false }).setView(
+    const map = L.map(containerRef.current, { scrollWheelZoom: false, zoomControl: false }).setView(
       MAP_CENTER_THAILAND,
       MAP_ZOOM_THAILAND_WIDE
     );
+    L.control.zoom(zoomTitles()).addTo(map);
     L.tileLayer(OSM_TILE_URL, { attribution: OSM_ATTRIBUTION, maxZoom: OSM_MAX_ZOOM }).addTo(map);
     mapRef.current = map;
 

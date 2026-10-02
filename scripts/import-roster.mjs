@@ -23,7 +23,13 @@ const prisma = globalThis.__demoPrisma ?? new PrismaClient();
 const raw = process.env.ROSTER_IMPORT?.trim();
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const REMIND = { passport: "180,90", workPermit: "90,60", license: "90,60" };
-const day = (k) => (/^\d{4}-\d{2}-\d{2}$/.test(k ?? "") ? new Date(`${k}T00:00:00.000Z`) : null);
+// "YYYY-MM-DD" real calendar day (1950–2200) → UTC-midnight Date; anything else → null.
+const day = (k) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(k ?? "")) return null;
+  const y = +k.slice(0, 4);
+  const d = new Date(`${k}T00:00:00.000Z`);
+  return y >= 1950 && y <= 2200 && !isNaN(d) && d.toISOString().slice(0, 10) === k ? d : null;
+};
 const norm = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 
 try {
@@ -47,6 +53,11 @@ try {
       for (const r of data.rows ?? []) {
         try {
           const email = norm(r.email);
+          // Same rules as the in-app import: a real, non-demo email; a sign-in-able
+          // username; a bcrypt hash (never a plain password).
+          if (!/^\S+@\S+\.\S+$/.test(email) || email.endsWith("@demo.local")) throw new Error(`invalid email "${r.email ?? ""}"`);
+          if (r.passwordHash && !/^\$2[aby]\$\d\d\$.{53}$/.test(r.passwordHash)) throw new Error("passwordHash is not a bcrypt hash");
+          r.username = String(r.username ?? "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "") || email.split("@")[0].replace(/[^a-z0-9._-]/g, "");
           let user = await prisma.user.findUnique({ where: { email }, select: { id: true, gradeLevels: true } });
           if (!user) {
             let username = r.username;

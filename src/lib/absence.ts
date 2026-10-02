@@ -38,7 +38,7 @@ export async function markAbsences(now = new Date()): Promise<number> {
     loadWorkCalendar(from, yesterday),
     prisma.user.findMany({
       where: { role: "MEMBER", isActive: true, lastLoginAt: { not: null }, campusLocationId: { not: null } },
-      select: { id: true, campusLocationId: true, createdAt: true, consentAt: true },
+      select: { id: true, campusLocationId: true, createdAt: true, consentAt: true, firstLoginAt: true },
     }),
   ]);
   if (teachers.length === 0) return 0;
@@ -63,7 +63,9 @@ export async function markAbsences(now = new Date()): Promise<number> {
     // Not before they started using the app: the account's creation, or —
     // later — the first sign-in (the privacy notice is accepted then).
     const created = bangkokDateKey(t.createdAt);
-    const firstUse = t.consentAt ? bangkokDateKey(t.consentAt) : created;
+    // firstLoginAt never moves; consentAt (re-set on every privacy-notice version) is only a fallback for older accounts.
+    const firstSeen = t.firstLoginAt ?? t.consentAt;
+    const firstUse = firstSeen ? bangkokDateKey(firstSeen) : created;
     const joined = firstUse > created ? firstUse : created;
     const absentDays: string[] = [];
     for (const key of days) {

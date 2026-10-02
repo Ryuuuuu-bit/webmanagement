@@ -126,7 +126,9 @@ export default function RosterImport({
     const byEmail = new Set(existing.map((u) => u.email.toLowerCase()));
     const byUser = new Set(existing.map((u) => (u.username ?? "").toLowerCase()).filter(Boolean));
     const byName = new Set(existing.map((u) => normHeader(u.name)));
-    return (r: RosterRow) => byEmail.has(r.email.toLowerCase()) || (!!r.username && byUser.has(r.username.toLowerCase())) || byName.has(normHeader(r.name));
+    // Same rule as the server: a row with an email matches by email only.
+    return (r: RosterRow) =>
+      r.email ? byEmail.has(r.email.toLowerCase()) : (!!r.username && byUser.has(r.username.toLowerCase())) || byName.has(normHeader(r.name));
   }, [existing]);
 
   const preview: RosterRow[] = useMemo(() => {
@@ -147,12 +149,14 @@ export default function RosterImport({
           const issue = parseDateCell(issueRaw);
           const issueOk = !!issue && isDateKey(issue);
           const issueText = String(issueRaw ?? "").trim();
+          // Something shaped like a date is a date — a bad one is reported, not filed as an office.
+          const looksLikeDate = typeof issueRaw === "number" || /\d{1,4}\s*[\/.\-]\s*\d{1,2}\s*[\/.\-]\s*\d{2,4}/.test(issueText);
           return {
             kind,
             number: text(cells, k.no),
-            issueDate: issueOk ? issue : "",
+            issueDate: issueOk ? issue : looksLikeDate ? issueText : "",
             expiryDate: date(cells, k.exp),
-            note: !issueOk && issueText ? t.issuedAt(issueText) : "",
+            note: !issueOk && !looksLikeDate && issueText ? t.issuedAt(issueText) : "",
           };
         });
         return {
@@ -396,7 +400,7 @@ export default function RosterImport({
                     <tr className="text-left uppercase text-faint">
                       <th className="px-2 py-1.5">#</th>
                       <th className="px-2 py-1.5">{t.colTeacher}</th>
-                      <th className="px-2 py-1.5">Username</th>
+                      <th className="px-2 py-1.5">{dict.users.colUsername}</th>
                       <th className="px-2 py-1.5">{t.colTempPassword}</th>
                       <th className="px-2 py-1.5">{t.colAccount}</th>
                       <th className="px-2 py-1.5">{t.colDocs}</th>

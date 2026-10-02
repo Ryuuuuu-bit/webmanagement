@@ -46,3 +46,9 @@ export const MARKER_ICON_OPTIONS = {
 // The green geofence circle drawn around every check-in location, on both
 // the pin-picker (showing the boundary being set) and the overview map.
 export const GEOFENCE_CIRCLE_STYLE = { color: "#2f6f5e", weight: 1, fillOpacity: 0.08 };
+
+/** Leaflet's zoom button tooltips in the page's language (<html lang> follows the in-app switch). */
+export function zoomTitles() {
+  const th = typeof document !== "undefined" && document.documentElement.lang === "th";
+  return th ? { zoomInTitle: "ซูมเข้า", zoomOutTitle: "ซูมออก" } : { zoomInTitle: "Zoom in", zoomOutTitle: "Zoom out" };
+}

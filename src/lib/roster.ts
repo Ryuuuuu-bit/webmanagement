@@ -45,6 +45,14 @@ export function parseGradeLevels(text: string): GradeLevel[] {
     const lv = st ? LEVEL_OF(st, +m[2]) : null;
     if (lv) out.add(lv);
   }
+  // "Grade 1-6" / "grade 7–12": every grade in the range.
+  for (const m of Array.from(rest.matchAll(/grade\s*(\d{1,2})\s*[-–—~]\s*(\d{1,2})/g))) {
+    for (let n = Math.min(+m[1], +m[2]); n <= Math.max(+m[1], +m[2]) && n <= 12; n++) {
+      const lv = n <= 6 ? LEVEL_OF("P", n) : LEVEL_OF("M", n - 6);
+      if (lv) out.add(lv);
+    }
+    rest = rest.replace(m[0], " ");
+  }
   for (const m of Array.from(rest.matchAll(/grade\s*(\d{1,2})/g))) {
     const n = +m[1];
     const lv = n <= 6 ? LEVEL_OF("P", n) : LEVEL_OF("M", n - 6);

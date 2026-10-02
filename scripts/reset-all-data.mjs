@@ -42,7 +42,6 @@ try {
         await run("lessonPlans", () => tx.lessonPlan.deleteMany({}));
         await run("attestations", () => tx.timeAttestation.deleteMany({}));
         await run("leaveRequests", () => tx.leaveRequest.deleteMany({}));
-        await run("leaveQuotas", () => tx.leaveQuota.deleteMany({}));
         await run("attendance", () => tx.attendance.deleteMany({}));
         await run("schedules", () => tx.schedule.deleteMany({}));
         await run("userSites", () => tx.userSite.deleteMany({}));
@@ -52,7 +51,10 @@ try {
         await run("resetTokens", () => tx.passwordResetToken.deleteMany({}));
         await run("loginLocks", () => tx.loginLock.deleteMany({}));
         await run("challenges", () => tx.webauthnChallenge.deleteMany({}));
-        await run("auditLog", () => tx.auditLog.deleteMany({}));
+        // Keep the "already ran" markers of the boot scripts (demo data, roster
+        // import, this reset): wiping them made those scripts run again in the
+        // same boot and refill the freshly cleared system.
+        await run("auditLog", () => tx.auditLog.deleteMany({ where: { action: { notIn: ["DEMO_DATA", "ROSTER_IMPORT", "RESET_ALL_DATA"] } } }));
         await run("passkeys", () => tx.webauthnCredential.deleteMany({ where: notAdmin }));
         await run("pushDevices", () => tx.pushSubscription.deleteMany({ where: notAdmin }));
         // people (Admins stay, detached from the schools/departments about to go)

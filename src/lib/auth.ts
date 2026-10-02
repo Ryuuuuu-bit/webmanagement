@@ -30,7 +30,10 @@ export const AUTH_ERRORS = {
 type SessionUser = { id: string; name: string; email: string; role: "ADMIN" | "MEMBER"; tokenVersion: number };
 
 async function markLoggedIn(userId: string) {
-  await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
+  const now = new Date();
+  await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: now } });
+  // First sign-in ever: stamped once (the absence job counts from here).
+  await prisma.user.updateMany({ where: { id: userId, firstLoginAt: null }, data: { firstLoginAt: now } });
 }
 
 export const authOptions: AuthOptions = {
@@ -74,6 +77,8 @@ export const authOptions: AuthOptions = {
         const valid = !!user && (await bcrypt.compare(credentials.password, user.passwordHash));
         // The per-IP lock stops guessing, not people who know their password.
         if (!valid && lock.ip > 0) {
+          // Still counted: otherwise guessing from a locked IP would be free.
+          await recordLoginFailure(lockId, ip);
           await logAudit({ action: "LOGIN_LOCKED", ip, device, detail: identifier });
           throw new Error(`${AUTH_ERRORS.tooManyAttempts}:${lock.ip}`);
         }

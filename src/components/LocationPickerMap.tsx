@@ -13,6 +13,7 @@ import {
   MAP_ZOOM_FOCUSED,
   MAP_HEIGHT_CLASS,
   GEOFENCE_CIRCLE_STYLE,
+  zoomTitles,
 } from "@/lib/mapConstants";
 
 // Same icon (and same tile/circle styling, via mapConstants) as the
@@ -77,10 +78,11 @@ export default function LocationPickerMap({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const hasInitial = latitude != null && longitude != null;
-    const map = L.map(containerRef.current, { scrollWheelZoom: false }).setView(
+    const map = L.map(containerRef.current, { scrollWheelZoom: false, zoomControl: false }).setView(
       hasInitial ? [latitude!, longitude!] : MAP_CENTER_THAILAND,
       hasInitial ? MAP_ZOOM_FOCUSED : MAP_ZOOM_THAILAND_WIDE
     );
+    L.control.zoom(zoomTitles()).addTo(map);
     L.tileLayer(OSM_TILE_URL, { attribution: OSM_ATTRIBUTION, maxZoom: OSM_MAX_ZOOM }).addTo(map);
 
     map.on("click", (e: L.LeafletMouseEvent) => {

@@ -94,7 +94,7 @@ async function computePlan(dateKey: string, manualIds: string[] = []) {
   const weekday = weekdayOfKey(dateKey);
   const isToday = dateKey === bangkokDateKey();
 
-  const [teachers, leaves, attendance, semesterIds, cal, policy, bookings] = await Promise.all([
+  const [teachers, leaves, attendance, semesterIds, cal, policy, bookingRows] = await Promise.all([
     prisma.user.findMany({
       where: { role: "MEMBER", isActive: true },
       orderBy: { name: "asc" },
@@ -116,9 +116,11 @@ async function computePlan(dateKey: string, manualIds: string[] = []) {
     // Only bookings whose class still runs that day (a semester edit can leave stale ones behind).
     prisma.substituteAssignment.findMany({
       where: { date: day, schedule: { dayOfWeek: weekday, semester: { startDate: { lte: new Date(+day + 86_400_000) }, endDate: { gte: new Date(+day - 86_400_000) } } } },
-      select: { id: true, scheduleId: true, absentTeacherId: true, substituteId: true, schedule: { select: { startTime: true, endTime: true, course: { select: { code: true } } } } },
+      select: { id: true, scheduleId: true, absentTeacherId: true, substituteId: true, schedule: { select: { semesterId: true, startTime: true, endTime: true, course: { select: { code: true } } } } },
     }),
   ]);
+  // The query's ±1 day window is coarse — keep only bookings whose semester really covers the day.
+  const bookings = bookingRows.filter((b) => semesterIds.includes(b.schedule.semesterId));
   const schedules = semesterIds.length
     ? await prisma.schedule.findMany({
         where: { dayOfWeek: weekday, semesterId: { in: semesterIds } },

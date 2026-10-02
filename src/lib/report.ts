@@ -174,7 +174,11 @@ export async function buildMonthlyReport(opts: { month: string; siteId?: string 
 
     const workdays = monthDays.filter((k) => k <= countedUntil && isWd(k)).length;
     // Only a FULL day of leave explains a missing record (a half-day leave still expects the other half).
-    const noRecord = monthDays.filter((k) => k <= pastUntil && isWd(k) && !rowByKey.has(k) && (leaveByDay.get(k) ?? 0) < 1).length;
+    const blank = (k: string) => {
+      const r = rowByKey.get(k);
+      return !r || (!r.checkinAt && !r.checkoutAt && r.status === "PENDING");
+    };
+    const noRecord = monthDays.filter((k) => k <= pastUntil && isWd(k) && blank(k) && (leaveByDay.get(k) ?? 0) < 1).length;
     // Rate = days present / work days expected so far. Leave is deducted
     // only for counted work days (≤ today, after joining) on which the
     // teacher wasn't present anyway — future leave and leave days they

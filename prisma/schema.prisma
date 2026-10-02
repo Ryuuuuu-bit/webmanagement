@@ -132,6 +132,8 @@ model User {
   // independent of the school they're stationed at.
   project               String?
   lastLoginAt           DateTime?
+  // First sign-in ever — set once, never moved (automatic absence starts here).
+  firstLoginAt          DateTime?
   // PDPA: when (and which version of) the privacy notice this person
   // accepted. The app collects selfies and GPS positions, so the notice is
   // shown once after login and again whenever PDPA_VERSION changes

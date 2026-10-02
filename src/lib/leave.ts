@@ -91,7 +91,8 @@ export async function createLeaveRequest(
         status: { in: ["PENDING", "APPROVED"] },
         startDate: { lte: endDate },
         endDate: { gte: startDate },
-        ...(halfDay ? { NOT: { halfDay: halfDay === "AM" ? "PM" : "AM" } } : {}),
+        // (NOT(halfDay = 'PM') would also drop full-day rows: halfDay IS NULL.)
+        ...(halfDay ? { OR: [{ halfDay: null }, { halfDay }] } : {}),
       },
       select: { id: true },
     }),

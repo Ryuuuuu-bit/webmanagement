@@ -83,6 +83,18 @@ async function deleteAttendanceRows(where: { id?: string; userId?: string }) {
 async function clearLeaveRows(leaves: { requesterId: string; status: string; halfDay: string | null; startDate: Date; endDate: Date }[]) {
   for (const l of leaves) {
     if (l.status !== "APPROVED" || l.halfDay) continue;
+    // Days another approved full-day request (still there) also covers keep their row.
+    const others = await prisma.leaveRequest.findMany({
+      where: { requesterId: l.requesterId, status: "APPROVED", halfDay: null, startDate: { lte: l.endDate }, endDate: { gte: l.startDate } },
+      select: { startDate: true, endDate: true },
+    });
+    const keep = others.flatMap((o) => {
+      const out: Date[] = [];
+      for (let t = Math.max(+o.startDate, +l.startDate); t <= Math.min(+o.endDate, +l.endDate); t += 86_400_000) {
+        out.push(new Date(`${new Date(t).toISOString().slice(0, 10)}T00:00:00+07:00`));
+      }
+      return out;
+    });
     await prisma.attendance.deleteMany({
       where: {
         userId: l.requesterId,
@@ -90,6 +102,7 @@ async function clearLeaveRows(leaves: { requesterId: string; status: string; hal
         checkinAt: null,
         checkoutAt: null,
         adminEdited: false,
+        ...(keep.length ? { NOT: { date: { in: keep } } } : {}),
         date: { gte: new Date(`${l.startDate.toISOString().slice(0, 10)}T00:00:00+07:00`), lte: new Date(`${l.endDate.toISOString().slice(0, 10)}T00:00:00+07:00`) },
       },
     });

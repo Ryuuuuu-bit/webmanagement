@@ -13,6 +13,7 @@ import {
   MAP_CENTER_THAILAND,
   MAP_ZOOM_THAILAND_WIDE,
   MAP_ZOOM_FOCUSED,
+  zoomTitles,
 } from "@/lib/mapConstants";
 
 export type WorkspaceLoc = { id: string; name: string; latitude: number; longitude: number; radiusMeters: number; unused: boolean };
@@ -100,7 +101,7 @@ export default function LocationsWorkspaceMap({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, { zoomControl: false }).setView(MAP_CENTER_THAILAND, MAP_ZOOM_THAILAND_WIDE);
-    L.control.zoom({ position: "bottomleft" }).addTo(map);
+    L.control.zoom({ position: "bottomleft", ...zoomTitles() }).addTo(map);
     streetRef.current = L.tileLayer(OSM_TILE_URL, { attribution: OSM_ATTRIBUTION, maxZoom: OSM_MAX_ZOOM }).addTo(map);
     satRef.current = L.tileLayer(SATELLITE_TILE_URL, { attribution: SATELLITE_ATTRIBUTION, maxZoom: SATELLITE_MAX_ZOOM });
     sitesRef.current = L.layerGroup().addTo(map);
